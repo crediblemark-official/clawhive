@@ -314,6 +314,11 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
 
     if show_sidebar {
         // --- KOLOM KANAN (SIDEBAR) ---
+        // Bersihkan area sidebar dan isi dengan background hitam pekat solid
+        frame.render_widget(ratatui::widgets::Clear, main_chunks[1]);
+        let bg_block = Block::default().style(Style::default().bg(Color::Black));
+        frame.render_widget(bg_block, main_chunks[1]);
+
         // Sidebar block dengan background hitam pekat solid untuk membedakannya dari chat area
         let sidebar_block = Block::default()
             .borders(Borders::LEFT)
