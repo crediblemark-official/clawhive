@@ -1,7 +1,7 @@
 pub mod filesystem;
-pub mod shell;
 pub mod http;
+pub mod shell;
 
 pub use filesystem::*;
-pub use shell::*;
 pub use http::*;
+pub use shell::*;

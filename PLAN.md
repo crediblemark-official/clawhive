@@ -2878,3 +2878,80 @@ Saat agent berakhir, runtime menghilang. Jejak pekerjaan tetap hidup melalui:
 
 Dengan rancangan ini, ClawHive menjadi sistem operasi untuk tenaga kerja digital yang dapat membentuk, mempertahankan, mengubah, dan membubarkan organisasinya sendiri tanpa kehilangan kendali manusia.
 
+---
+
+# Appendix A: Architecture Decisions (2026-06-27)
+
+## A.1 Storage Engine: sled
+
+Memutuskan menggunakan sled sebagai database embedded utama.
+
+Alasan:
+1. Zero-schema — drop-in replacement untuk HashMap, tanpa migration
+2. Serialisasi via bincode — serde binary, minimal overhead
+3. Single file persistent — tidak perlu server terpisah
+4. Performa tinggi — concurrent B-tree, lock-free
+5. Paling hemat token dibanding SQLite/PostgreSQL
+
+Implementasi:
+- `clawhive-store` crate: Store trait + SledStore + InMemoryStore (testing)
+- Setiap service yang butuh persistence menerima `Arc<dyn Store>`
+- InMemoryStore untuk fallback/testing tanpa sled dependency
+
+## A.2 Instruction Format: ICVS (InstructCanvas)
+
+Memutuskan menggunakan ICVS sebagai satu-satunya format authoring instructions.
+
+Alasan:
+- DAG-based → presisi, bisa conditional, severity, blocklist/allowlist
+- Modular via `[include:]`
+- Cycle detection built-in
+- Export ke berbagai format (claude, openai, json)
+- LSP support
+
+Coverage:
+- Prompt agent templates
+- Policy rules (compiled ke PolicyRule domain struct)
+- Agent instructions (DAG resolusi per task/role)
+
+Tidak menggunakan Markdown untuk instructions. ICVS menggantikan Markdown sepenuhnya di ranah instruction authoring.
+
+Implementasi:
+- `clawhive-icvs` crate: adapter yang wrap icvs crate
+- ICVS source → compile → domain types (PolicyRule, AgentPrompt, etc.)
+- Tidak ada hardcoded prompt strings
+
+## A.3 Context Encoding: TOON
+
+Memutuskan menggunakan TOON sebagai format encoding context untuk LLM.
+
+Alasan:
+- Format terstruktur yang dioptimalkan untuk LLM consumption
+- Menggantikan JSON injection yang verbose
+- Pipeline: context selection → classification → redaction → priority → token budget → TOON/JSON
+
+Coverage:
+- Task context
+- Memory digest
+- Agent roster & lineage
+- Policy summary
+- Evidence summary
+- Cost summary
+
+Implementasi:
+- `clawhive-toon` crate: encoder dari domain struct ke TOON format
+- Fallback ke JSON jika model gagal parse
+- Bagian dari context pipeline di `clawhive-context`
+
+## A.4 Prompt System
+
+Memutuskan TIDAK menggunakan file Markdown untuk prompt.
+
+ICVS menangani semua instruction authoring — baik prompt template maupun policy rules dalam satu format terstruktur.
+
+Prompt template adalah ICVS node dengan `type = prompt`, yang bisa:
+- Conditional (if = $ROLE == "specialist" then ...)
+- Severity (must/should/may untuk enforcement level)
+- DAG dependency antar prompt nodes
+- Include modular prompt library
+

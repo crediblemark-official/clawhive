@@ -6,7 +6,7 @@ use crate::agent::AgentId;
 use crate::evidence::EvidenceId;
 use crate::mission::MissionId;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LineageId(pub Uuid);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

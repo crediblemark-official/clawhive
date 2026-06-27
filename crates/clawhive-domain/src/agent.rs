@@ -4,7 +4,9 @@ use uuid::Uuid;
 
 use crate::budget::Budget;
 use crate::identity::IdentityId;
-use crate::lifecycle::{AgentState, Checkpoint, LifecycleMode, PersistentPattern, RuntimeLease, Schedule, Subscription};
+use crate::lifecycle::{
+    AgentState, Checkpoint, LifecycleMode, PersistentPattern, RuntimeLease, Schedule, Subscription,
+};
 use crate::lineage::LineageId;
 use crate::mission::MissionId;
 use crate::organization::{OrganizationId, Permission};

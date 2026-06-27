@@ -22,6 +22,7 @@ pub struct ModelRegistry {
 }
 
 impl ModelRegistry {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             providers: HashMap::new(),
@@ -38,20 +39,24 @@ impl ModelRegistry {
         self.providers.insert(provider.name().to_string(), provider);
     }
 
-    pub fn get_provider(&self, name: &str) -> Result<&Box<dyn ModelProvider>, ModelError> {
+    pub fn get_provider(&self, name: &str) -> Result<&dyn ModelProvider, ModelError> {
         self.providers
             .get(name)
+            .map(Box::as_ref)
             .ok_or_else(|| ModelError::ProviderNotFound(name.to_string()))
     }
 
+    #[must_use]
     pub fn get_profile(&self, model_id: &str) -> Option<&ModelProfile> {
         self.profiles.iter().find(|p| p.id == model_id)
     }
 
+    #[must_use]
     pub fn list_profiles(&self) -> &[ModelProfile] {
         &self.profiles
     }
 
+    #[must_use]
     pub fn find_profiles_by_suitability(&self, task: &str) -> Vec<&ModelProfile> {
         self.profiles
             .iter()

@@ -10,6 +10,7 @@ pub struct ToolOutput {
 }
 
 impl ToolOutput {
+    #[must_use]
     pub fn ok(data: serde_json::Value) -> Self {
         Self {
             success: true,
@@ -20,6 +21,7 @@ impl ToolOutput {
         }
     }
 
+    #[must_use]
     pub fn ok_with_cost(data: serde_json::Value, cost_usd: f64) -> Self {
         Self {
             success: true,

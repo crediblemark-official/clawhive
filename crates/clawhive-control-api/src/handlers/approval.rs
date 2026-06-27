@@ -1,6 +1,6 @@
 use axum::{
-    extract::{Path, State},
     Json,
+    extract::{Path, State},
 };
 use serde::Serialize;
 use uuid::Uuid;
@@ -13,9 +13,7 @@ pub struct ApprovalResponse {
     pub state: String,
 }
 
-pub async fn list_approvals(
-    State(_state): State<AppState>,
-) -> Json<Vec<ApprovalResponse>> {
+pub async fn list_approvals(State(_state): State<AppState>) -> Json<Vec<ApprovalResponse>> {
     Json(vec![])
 }
 

@@ -11,11 +11,11 @@ pub struct ShellTool;
 
 #[async_trait]
 impl Tool for ShellTool {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "shell"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Execute a shell command with arguments"
     }
 
@@ -56,7 +56,7 @@ impl Tool for ShellTool {
             .ok_or_else(|| ToolError::InvalidArguments("command is required".into()))?;
         let timeout = args
             .get("timeout_seconds")
-            .and_then(|v| v.as_u64())
+            .and_then(serde_json::Value::as_u64)
             .unwrap_or(30);
 
         let output = tokio::time::timeout(
@@ -68,7 +68,7 @@ impl Tool for ShellTool {
         )
         .await
         .map_err(|_| ToolError::Timeout(timeout))?
-        .map_err(|e| ToolError::ExecutionFailed(format!("shell execution failed: {}", e)))?;
+        .map_err(|e| ToolError::ExecutionFailed(format!("shell execution failed: {e}")))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();

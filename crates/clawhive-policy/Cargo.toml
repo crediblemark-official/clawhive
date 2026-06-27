@@ -5,3 +5,8 @@ edition = "2024"
 
 [dependencies]
 clawhive-domain = { path = "../clawhive-domain" }
+chrono = { workspace = true }
+uuid = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }

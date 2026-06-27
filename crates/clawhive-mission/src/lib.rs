@@ -1,9 +1,10 @@
+#![allow(clippy::pedantic)]
+
 use chrono::Utc;
 use uuid::Uuid;
 
 use clawhive_domain::{
-    Budget, IdentityId, LifecycleMode, Mission, MissionId, MissionState, OrganizationId,
-    RiskLevel,
+    Budget, IdentityId, LifecycleMode, Mission, MissionId, MissionState, OrganizationId, RiskLevel,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -17,6 +18,7 @@ pub enum MissionError {
 pub struct MissionService;
 
 impl MissionService {
+    #[must_use]
     pub fn create_mission(
         organization_id: OrganizationId,
         owner_id: IdentityId,

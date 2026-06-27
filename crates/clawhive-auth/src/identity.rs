@@ -10,6 +10,7 @@ use crate::error::AuthError;
 pub struct IdentityService;
 
 impl IdentityService {
+    #[must_use]
     pub fn create_agent_identity(
         organization_id: &OrganizationId,
         agent_id: &AgentId,

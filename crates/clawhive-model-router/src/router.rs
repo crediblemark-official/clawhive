@@ -7,10 +7,12 @@ pub struct ModelRouter {
 }
 
 impl ModelRouter {
+    #[must_use]
     pub fn new(registry: ModelRegistry) -> Self {
         Self { registry }
     }
 
+    #[must_use]
     pub fn registry(&self) -> &ModelRegistry {
         &self.registry
     }
@@ -60,6 +62,7 @@ impl ModelRouter {
         }
     }
 
+    #[must_use]
     pub fn find_optimal_profile(
         &self,
         task_type: &str,

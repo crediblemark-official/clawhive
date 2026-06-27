@@ -1,9 +1,9 @@
+#![allow(clippy::pedantic)]
+
 use chrono::Utc;
 use uuid::Uuid;
 
-use clawhive_domain::{
-    Department, DepartmentId, Organization, OrganizationId, TenantId,
-};
+use clawhive_domain::{Department, DepartmentId, Organization, OrganizationId, TenantId};
 
 #[derive(Debug, thiserror::Error)]
 pub enum OrgError {
@@ -16,6 +16,7 @@ pub enum OrgError {
 pub struct OrganizationService;
 
 impl OrganizationService {
+    #[must_use]
     pub fn create_organization(
         tenant_id: TenantId,
         name: String,

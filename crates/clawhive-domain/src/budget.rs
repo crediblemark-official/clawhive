@@ -10,17 +10,20 @@ pub struct Budget {
 }
 
 impl Budget {
+    #[must_use]
     pub fn remaining(&self) -> f64 {
         self.allocated_usd - self.spent_usd
     }
 
+    #[must_use]
     pub fn is_exhausted(&self) -> bool {
         self.spent_usd >= self.hard_limit_usd.unwrap_or(self.allocated_usd)
     }
 
+    #[must_use]
     pub fn is_soft_limit_reached(&self) -> bool {
         self.soft_limit_usd
-            .map_or(false, |limit| self.spent_usd >= limit)
+            .is_some_and(|limit| self.spent_usd >= limit)
     }
 }
 

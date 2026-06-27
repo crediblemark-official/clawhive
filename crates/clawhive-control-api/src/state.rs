@@ -1,22 +1,63 @@
 use std::sync::Arc;
 
+use clawhive_auth::credential::CredentialService;
 use clawhive_auth::identity::IdentityService;
 use clawhive_auth::rbac::RbacService;
-use clawhive_auth::credential::CredentialService;
+use clawhive_domain::SwarmLimitsConfig;
+use clawhive_gateway::GatewayService;
+use clawhive_memory::MemoryService;
+use clawhive_scheduler::ScheduleService;
+use clawhive_spawn::broker::SpawnBroker;
+use clawhive_store::{InMemoryStore as KvInMemory, Store};
+use clawhive_telemetry::TelemetryService;
+use clawhive_worker::WorkerService;
+
+pub use crate::store::*;
 
 #[derive(Clone)]
 pub struct AppState {
     pub identity_service: Arc<IdentityService>,
     pub rbac_service: Arc<std::sync::Mutex<RbacService>>,
     pub credential_service: Arc<CredentialService>,
+    pub scheduler_service: Arc<ScheduleService>,
+    pub worker_service: Arc<WorkerService>,
+    pub memory_service: Arc<MemoryService>,
+    pub gateway_service: Arc<GatewayService>,
+    pub spawn_broker: Arc<SpawnBroker>,
+    pub telemetry: TelemetryService,
+    pub kv_store: Arc<dyn Store>,
 }
 
 impl AppState {
+    /// Create AppState with an in-memory KV store.
+    #[must_use]
     pub fn new() -> Self {
+        Self::new_with_store(Arc::new(KvInMemory::new()))
+    }
+
+    /// Create AppState with a shared KV store (for prod use with sled).
+    #[must_use]
+    pub fn new_with_store(kv_store: Arc<dyn Store>) -> Self {
+        let limits = SwarmLimitsConfig {
+            max_spawn_depth: 5,
+            max_children_per_agent: 10,
+            max_agents_per_mission: 100,
+            max_concurrent_agents: 50,
+            max_persistent_children_per_agent: 5,
+            max_turns_per_ephemeral_agent: 100,
+            max_idle_seconds_ephemeral: 600,
+        };
         Self {
             identity_service: Arc::new(IdentityService),
             rbac_service: Arc::new(std::sync::Mutex::new(RbacService::new())),
             credential_service: Arc::new(CredentialService),
+            scheduler_service: Arc::new(ScheduleService::new(Arc::clone(&kv_store))),
+            worker_service: Arc::new(WorkerService::new(Arc::clone(&kv_store))),
+            memory_service: Arc::new(MemoryService::new(Arc::clone(&kv_store))),
+            gateway_service: Arc::new(GatewayService::new(Arc::clone(&kv_store))),
+            spawn_broker: Arc::new(SpawnBroker::new(limits)),
+            telemetry: TelemetryService::default(),
+            kv_store,
         }
     }
 }

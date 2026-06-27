@@ -1,6 +1,6 @@
 use axum::{
-    extract::{Path, State},
     Json,
+    extract::{Path, State},
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -19,9 +19,7 @@ pub struct CreateMissionRequest {
     pub organization_id: String,
 }
 
-pub async fn list_missions(
-    State(_state): State<AppState>,
-) -> Json<Vec<MissionResponse>> {
+pub async fn list_missions(State(_state): State<AppState>) -> Json<Vec<MissionResponse>> {
     Json(vec![])
 }
 

@@ -11,11 +11,11 @@ pub struct HttpTool;
 
 #[async_trait]
 impl Tool for HttpTool {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "http"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Make an HTTP request to a URL"
     }
 
@@ -73,13 +73,13 @@ impl Tool for HttpTool {
             .to_uppercase();
         let timeout = args
             .get("timeout_seconds")
-            .and_then(|v| v.as_u64())
+            .and_then(serde_json::Value::as_u64)
             .unwrap_or(30);
 
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(timeout))
             .build()
-            .map_err(|e| ToolError::ExecutionFailed(format!("http client error: {}", e)))?;
+            .map_err(|e| ToolError::ExecutionFailed(format!("http client error: {e}")))?;
 
         let req = match method.as_str() {
             "GET" => client.get(url),
@@ -96,13 +96,17 @@ impl Tool for HttpTool {
                 let body = args.get("body").and_then(|v| v.as_str()).unwrap_or("");
                 client.patch(url).body(body.to_string())
             }
-            _ => return Err(ToolError::InvalidArguments(format!("unsupported method: {}", method))),
+            _ => {
+                return Err(ToolError::InvalidArguments(format!(
+                    "unsupported method: {method}"
+                )));
+            }
         };
 
         let response = req
             .send()
             .await
-            .map_err(|e| ToolError::ExecutionFailed(format!("http request failed: {}", e)))?;
+            .map_err(|e| ToolError::ExecutionFailed(format!("http request failed: {e}")))?;
 
         let status = response.status().as_u16();
         let headers = response.headers().clone();
@@ -113,12 +117,7 @@ impl Tool for HttpTool {
 
         let response_headers: serde_json::Map<String, serde_json::Value> = headers
             .iter()
-            .map(|(k, v)| {
-                (
-                    k.to_string(),
-                    json!(v.to_str().unwrap_or("<invalid>")),
-                )
-            })
+            .map(|(k, v)| (k.to_string(), json!(v.to_str().unwrap_or("<invalid>"))))
             .collect();
 
         Ok(ToolOutput::ok(json!({

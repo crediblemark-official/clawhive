@@ -1,12 +1,13 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use strum::{Display, EnumString};
 use uuid::Uuid;
 
 use crate::agent::AgentId;
 use crate::evidence::EvidenceId;
 use crate::task::TaskId;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MemoryId(pub Uuid);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25,7 +26,7 @@ pub struct Memory {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Display, EnumString, Serialize, Deserialize)]
 pub enum MemoryType {
     Working,
     Episodic,
@@ -44,7 +45,7 @@ pub struct MemorySource {
     pub evidence_id: Option<EvidenceId>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Display, EnumString, Serialize, Deserialize)]
 pub enum MemoryStatus {
     Candidate,
     Scanning,

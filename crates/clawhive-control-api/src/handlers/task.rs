@@ -1,6 +1,6 @@
 use axum::{
-    extract::{Path, State},
     Json,
+    extract::{Path, State},
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -19,16 +19,11 @@ pub struct CreateTaskRequest {
     pub mission_id: String,
 }
 
-pub async fn list_tasks(
-    State(_state): State<AppState>,
-) -> Json<Vec<TaskResponse>> {
+pub async fn list_tasks(State(_state): State<AppState>) -> Json<Vec<TaskResponse>> {
     Json(vec![])
 }
 
-pub async fn get_task(
-    State(_state): State<AppState>,
-    Path(_id): Path<Uuid>,
-) -> Json<TaskResponse> {
+pub async fn get_task(State(_state): State<AppState>, Path(_id): Path<Uuid>) -> Json<TaskResponse> {
     Json(TaskResponse {
         id: String::new(),
         objective: String::new(),

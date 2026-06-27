@@ -1,0 +1,22 @@
+[package]
+name = "clawhive-tests"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+clawhive-domain = { path = "../crates/clawhive-domain" }
+clawhive-auth = { path = "../crates/clawhive-auth" }
+clawhive-lineage = { path = "../crates/clawhive-lineage" }
+clawhive-spawn = { path = "../crates/clawhive-spawn" }
+clawhive-lifecycle = { path = "../crates/clawhive-lifecycle" }
+clawhive-scheduler = { path = "../crates/clawhive-scheduler" }
+clawhive-worker = { path = "../crates/clawhive-worker" }
+clawhive-policy = { path = "../crates/clawhive-policy" }
+clawhive-memory = { path = "../crates/clawhive-memory" }
+clawhive-gateway = { path = "../crates/clawhive-gateway" }
+clawhive-store = { path = "../crates/clawhive-store" }
+chrono = { workspace = true }
+uuid = { workspace = true }
+tokio = { workspace = true }
+serde_json = { workspace = true }

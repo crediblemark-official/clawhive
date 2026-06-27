@@ -5,7 +5,7 @@ use uuid::Uuid;
 use crate::agent::AgentId;
 use crate::task::TaskId;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EvidenceId(pub Uuid);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

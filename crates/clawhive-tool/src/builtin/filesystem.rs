@@ -11,11 +11,11 @@ pub struct ReadFileTool;
 
 #[async_trait]
 impl Tool for ReadFileTool {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "read_file"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Read the contents of a file at the given path"
     }
 
@@ -52,7 +52,7 @@ impl Tool for ReadFileTool {
 
         let content = tokio::fs::read_to_string(path)
             .await
-            .map_err(|e| ToolError::ExecutionFailed(format!("cannot read file '{}': {}", path, e)))?;
+            .map_err(|e| ToolError::ExecutionFailed(format!("cannot read file '{path}': {e}")))?;
 
         Ok(ToolOutput::ok(json!({
             "path": path,
@@ -66,11 +66,11 @@ pub struct WriteFileTool;
 
 #[async_trait]
 impl Tool for WriteFileTool {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "write_file"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Write content to a file at the given path"
     }
 
@@ -116,13 +116,16 @@ impl Tool for WriteFileTool {
             .get("content")
             .and_then(|v| v.as_str())
             .ok_or_else(|| ToolError::InvalidArguments("content is required".into()))?;
-        let append = args.get("append").and_then(|v| v.as_bool()).unwrap_or(false);
+        let append = args
+            .get("append")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false);
 
         let parent = std::path::Path::new(path).parent();
         if let Some(dir) = parent {
             tokio::fs::create_dir_all(dir)
                 .await
-                .map_err(|e| ToolError::ExecutionFailed(format!("cannot create directory: {}", e)))?;
+                .map_err(|e| ToolError::ExecutionFailed(format!("cannot create directory: {e}")))?;
         }
 
         if append {
@@ -131,14 +134,14 @@ impl Tool for WriteFileTool {
                 .create(true)
                 .open(path)
                 .await
-                .map_err(|e| ToolError::ExecutionFailed(format!("cannot open file: {}", e)))?;
+                .map_err(|e| ToolError::ExecutionFailed(format!("cannot open file: {e}")))?;
             tokio::io::AsyncWriteExt::write_all(&mut file, content.as_bytes())
                 .await
-                .map_err(|e| ToolError::ExecutionFailed(format!("cannot write file: {}", e)))?;
+                .map_err(|e| ToolError::ExecutionFailed(format!("cannot write file: {e}")))?;
         } else {
             tokio::fs::write(path, content)
                 .await
-                .map_err(|e| ToolError::ExecutionFailed(format!("cannot write file: {}", e)))?;
+                .map_err(|e| ToolError::ExecutionFailed(format!("cannot write file: {e}")))?;
         }
 
         Ok(ToolOutput::ok(json!({

@@ -33,6 +33,7 @@ pub enum SessionState {
 }
 
 impl AgentSession {
+    #[must_use]
     pub fn new(agent_id: AgentId) -> Self {
         let now = Utc::now();
         Self {
@@ -61,6 +62,7 @@ impl AgentSession {
         self.updated_at = Utc::now();
     }
 
+    #[must_use]
     pub fn system_prompt(&self) -> Option<&str> {
         self.messages
             .iter()
@@ -68,6 +70,7 @@ impl AgentSession {
             .map(|m| m.content.as_str())
     }
 
+    #[must_use]
     pub fn context_length(&self) -> usize {
         self.messages.iter().map(|m| m.content.len()).sum()
     }

@@ -1,9 +1,11 @@
 use axum::{
+    Json,
     http::StatusCode,
     response::{IntoResponse, Response},
-    Json,
 };
 use serde_json::json;
+
+use clawhive_store::StoreError;
 
 #[derive(Debug)]
 pub enum ApiError {
@@ -12,6 +14,7 @@ pub enum ApiError {
     Unauthorized(String),
     PolicyDenied(String),
     Conflict(String),
+    SpawnFailed(String),
     Internal(String),
 }
 
@@ -23,6 +26,10 @@ impl IntoResponse for ApiError {
             ApiError::Unauthorized(msg) => (StatusCode::FORBIDDEN, msg),
             ApiError::PolicyDenied(msg) => (StatusCode::FORBIDDEN, msg),
             ApiError::Conflict(msg) => (StatusCode::CONFLICT, msg),
+            ApiError::SpawnFailed(msg) => {
+                tracing::error!("Spawn failed: {}", msg);
+                (StatusCode::INTERNAL_SERVER_ERROR, msg)
+            }
             ApiError::Internal(msg) => {
                 tracing::error!("Internal error: {}", msg);
                 (StatusCode::INTERNAL_SERVER_ERROR, "internal error".into())
@@ -43,6 +50,16 @@ impl From<clawhive_domain::DomainError> for ApiError {
             clawhive_domain::DomainError::Conflict(m) => ApiError::Conflict(m),
             clawhive_domain::DomainError::Unauthorized(m) => ApiError::Unauthorized(m),
             _ => ApiError::Internal(e.to_string()),
+        }
+    }
+}
+
+impl From<StoreError> for ApiError {
+    fn from(e: StoreError) -> Self {
+        match e {
+            StoreError::NotFound(m) => ApiError::NotFound(m),
+            StoreError::Database(m) => ApiError::Internal(m),
+            StoreError::Serialization(m) => ApiError::Internal(m),
         }
     }
 }

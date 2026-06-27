@@ -1,9 +1,9 @@
+#![allow(clippy::pedantic)]
+
 use chrono::Utc;
 use uuid::Uuid;
 
-use clawhive_domain::{
-    AgentId, Lineage, LineageEntry, LineageId, MissionId,
-};
+use clawhive_domain::{AgentId, Lineage, LineageEntry, LineageId, MissionId};
 
 #[derive(Debug, thiserror::Error)]
 pub enum LineageError {
@@ -14,6 +14,7 @@ pub enum LineageError {
 pub struct LineageService;
 
 impl LineageService {
+    #[must_use]
     pub fn create_lineage(mission_id: MissionId, root_agent_id: AgentId) -> Lineage {
         let now = Utc::now();
         Lineage {

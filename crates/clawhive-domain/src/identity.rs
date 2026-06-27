@@ -25,7 +25,7 @@ pub struct Identity {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IdentityId(pub Uuid);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

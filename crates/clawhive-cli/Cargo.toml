@@ -13,6 +13,8 @@ clawhive-task = { path = "../clawhive-task" }
 clawhive-lineage = { path = "../clawhive-lineage" }
 clawhive-spawn = { path = "../clawhive-spawn" }
 clawhive-budget = { path = "../clawhive-budget" }
+clawhive-store = { path = "../clawhive-store" }
+clawhive-tui = { path = "../clawhive-tui" }
 axum = { workspace = true }
 clap = { workspace = true }
 tokio = { workspace = true }

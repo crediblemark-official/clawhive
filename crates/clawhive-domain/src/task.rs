@@ -8,7 +8,7 @@ use crate::evidence::Evidence;
 use crate::mission::MissionId;
 use crate::model::RiskLevel;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TaskId(pub Uuid);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

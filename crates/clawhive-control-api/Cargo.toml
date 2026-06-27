@@ -12,6 +12,14 @@ clawhive-task = { path = "../clawhive-task" }
 clawhive-lineage = { path = "../clawhive-lineage" }
 clawhive-spawn = { path = "../clawhive-spawn" }
 clawhive-budget = { path = "../clawhive-budget" }
+clawhive-lifecycle = { path = "../clawhive-lifecycle" }
+clawhive-scheduler = { path = "../clawhive-scheduler" }
+clawhive-worker = { path = "../clawhive-worker" }
+clawhive-policy = { path = "../clawhive-policy" }
+clawhive-memory = { path = "../clawhive-memory" }
+clawhive-gateway = { path = "../clawhive-gateway" }
+clawhive-store = { path = "../clawhive-store" }
+clawhive-telemetry = { path = "../clawhive-telemetry" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }

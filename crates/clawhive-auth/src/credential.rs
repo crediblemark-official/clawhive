@@ -1,15 +1,14 @@
 use chrono::Utc;
 use uuid::Uuid;
 
-use clawhive_domain::{
-    Credential, CredentialId, CredentialKind, IdentityId,
-};
+use clawhive_domain::{Credential, CredentialId, CredentialKind, IdentityId};
 
 use crate::error::AuthError;
 
 pub struct CredentialService;
 
 impl CredentialService {
+    #[must_use]
     pub fn issue_credential(
         identity_id: IdentityId,
         kind: CredentialKind,

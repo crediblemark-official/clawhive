@@ -54,7 +54,7 @@ pub struct Checkpoint {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CheckpointId(pub Uuid);
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CheckpointReason {
     StateTransition,
     ToolSideEffect,
@@ -77,7 +77,7 @@ pub struct Schedule {
     pub action: ScheduleAction,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ScheduleAction {
     Wake,
     Review,

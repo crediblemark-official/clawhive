@@ -1,9 +1,9 @@
+#![allow(clippy::pedantic)]
+
 use chrono::Utc;
 use uuid::Uuid;
 
-use clawhive_domain::{
-    AgentId, Budget, MissionId, RiskLevel, Task, TaskId, TaskState,
-};
+use clawhive_domain::{AgentId, Budget, MissionId, RiskLevel, Task, TaskId, TaskState};
 
 #[derive(Debug, thiserror::Error)]
 pub enum TaskError {
@@ -16,6 +16,7 @@ pub enum TaskError {
 pub struct TaskService;
 
 impl TaskService {
+    #[must_use]
     pub fn create_task(
         mission_id: MissionId,
         owner_id: AgentId,
@@ -52,10 +53,7 @@ impl TaskService {
         }
     }
 
-    pub fn transition(
-        task: &mut Task,
-        to: TaskState,
-    ) -> Result<(), TaskError> {
+    pub fn transition(task: &mut Task, to: TaskState) -> Result<(), TaskError> {
         let from = task.state.clone();
         if !is_valid_transition(&from, &to) {
             return Err(TaskError::InvalidTransition { from, to });
@@ -67,29 +65,22 @@ impl TaskService {
 }
 
 fn is_valid_transition(from: &TaskState, to: &TaskState) -> bool {
-    use TaskState::*;
+    use TaskState::{
+        Accepted, AwaitingApproval, Claimed, Closed, Created, Denied, Escalated, EvidenceSubmitted,
+        Failed, PolicyCheck, Ready, Retrying, RevisionRequired, Running, Verifying, Waiting,
+    };
     matches!(
         (from, to),
-        (Created, Ready)
+        (Created | RevisionRequired, Ready)
             | (Ready, Claimed)
             | (Claimed, PolicyCheck)
-            | (PolicyCheck, Denied)
-            | (PolicyCheck, AwaitingApproval)
-            | (PolicyCheck, Running)
-            | (AwaitingApproval, Running)
-            | (AwaitingApproval, Denied)
-            | (Running, Waiting)
-            | (Waiting, Running)
-            | (Running, EvidenceSubmitted)
+            | (PolicyCheck | AwaitingApproval, Denied)
+            | (PolicyCheck, AwaitingApproval | Running)
+            | (AwaitingApproval | Waiting | Retrying, Running)
+            | (Running, Waiting | EvidenceSubmitted | Failed)
             | (EvidenceSubmitted, Verifying)
-            | (Verifying, RevisionRequired)
-            | (RevisionRequired, Ready)
-            | (Verifying, Accepted)
-            | (Accepted, Closed)
-            | (Running, Failed)
-            | (Failed, Retrying)
-            | (Retrying, Running)
-            | (Failed, Escalated)
-            | (Escalated, Closed)
+            | (Verifying, RevisionRequired | Accepted)
+            | (Accepted | Escalated, Closed)
+            | (Failed, Retrying | Escalated)
     )
 }

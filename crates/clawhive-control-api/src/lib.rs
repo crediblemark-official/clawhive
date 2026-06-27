@@ -1,8 +1,11 @@
-pub mod router;
-pub mod handlers;
-pub mod error;
-pub mod state;
+#![allow(clippy::pedantic)]
 
-pub use router::*;
+pub mod error;
+pub mod handlers;
+pub mod router;
+pub mod state;
+pub mod store;
+
 pub use error::*;
+pub use router::*;
 pub use state::*;

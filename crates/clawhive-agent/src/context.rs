@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
 use clawhive_domain::Agent;
-use clawhive_model_router::types::{ModelMessage, MessageRole, ToolDefinition};
+use clawhive_model_router::types::{MessageRole, ModelMessage, ToolDefinition};
 use clawhive_tool::registry::ToolRegistry;
 
 pub struct ContextBuilder;
 
 impl ContextBuilder {
+    #[must_use]
     pub fn build_system_prompt(
         agent: &Agent,
         objective: &str,
@@ -14,13 +15,16 @@ impl ContextBuilder {
     ) -> String {
         let mut prompt = String::new();
 
-        prompt.push_str(&format!("You are {}, a {} agent.\n\n", agent.name, agent.role));
+        prompt.push_str(&format!(
+            "You are {}, a {} agent.\n\n",
+            agent.name, agent.role
+        ));
 
         if let Some(mission_stmt) = additional_context.get("mission_statement") {
-            prompt.push_str(&format!("## Mission\n{}\n\n", mission_stmt));
+            prompt.push_str(&format!("## Mission\n{mission_stmt}\n\n"));
         }
 
-        prompt.push_str(&format!("## Objective\n{}\n\n", objective));
+        prompt.push_str(&format!("## Objective\n{objective}\n\n"));
 
         prompt.push_str(&format!(
             "## Constraints\n\
@@ -39,7 +43,7 @@ impl ContextBuilder {
             for perm in &agent.delegable_permissions {
                 prompt.push_str(&format!("- {}\n", perm.0));
             }
-            prompt.push_str("\n");
+            prompt.push('\n');
         }
 
         prompt.push_str(
@@ -54,6 +58,7 @@ impl ContextBuilder {
         prompt
     }
 
+    #[must_use]
     pub fn build_initial_messages(
         agent: &Agent,
         objective: &str,
@@ -68,6 +73,7 @@ impl ContextBuilder {
         }]
     }
 
+    #[must_use]
     pub fn tool_definitions(tool_registry: &ToolRegistry) -> Vec<ToolDefinition> {
         tool_registry
             .list()

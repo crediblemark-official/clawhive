@@ -3,12 +3,10 @@ use std::sync::Arc;
 
 use tokio::sync::mpsc;
 
-use clawhive_domain::Agent;
 use clawhive_budget::BudgetService;
+use clawhive_domain::Agent;
 use clawhive_model_router::router::ModelRouter;
-use clawhive_model_router::types::{
-    ChatRequest, FinishReason, MessageRole, ModelMessage,
-};
+use clawhive_model_router::types::{ChatRequest, FinishReason, MessageRole, ModelMessage};
 use clawhive_tool::context::ToolContext;
 use clawhive_tool::registry::ToolRegistry;
 use clawhive_tool::result::ToolOutput;
@@ -27,6 +25,7 @@ pub struct AgentExecutor {
 }
 
 impl AgentExecutor {
+    #[must_use]
     pub fn new(
         model_router: Arc<ModelRouter>,
         tool_registry: Arc<ToolRegistry>,
@@ -151,7 +150,9 @@ impl AgentExecutor {
                                     Err(e) => ToolOutput::fail(e.to_string()),
                                 }
                             }
-                            Err(e) => ToolOutput::fail(format!("tool '{}' not found: {}", tool_name, e)),
+                            Err(e) => {
+                                ToolOutput::fail(format!("tool '{tool_name}' not found: {e}"))
+                            }
                         };
 
                         session.add_message(ModelMessage {

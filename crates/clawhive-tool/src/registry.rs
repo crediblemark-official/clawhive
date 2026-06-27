@@ -30,6 +30,7 @@ pub struct ToolRegistry {
 }
 
 impl ToolRegistry {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             tools: HashMap::new(),
@@ -41,34 +42,40 @@ impl ToolRegistry {
         self.tools.insert(tool.name().to_string(), tool);
     }
 
-    pub fn get(&self, name: &str) -> Result<&Box<dyn Tool>, ToolError> {
+    pub fn get(&self, name: &str) -> Result<&dyn Tool, ToolError> {
         self.tools
             .get(name)
+            .map(Box::as_ref)
             .ok_or_else(|| ToolError::ToolNotFound(name.to_string()))
     }
 
+    #[must_use]
     pub fn list(&self) -> Vec<&dyn Tool> {
-        self.tools.values().map(|t| t.as_ref()).collect()
+        self.tools
+            .values()
+            .map(std::convert::AsRef::as_ref)
+            .collect()
     }
 
+    #[must_use]
     pub fn list_names(&self) -> Vec<&str> {
-        self.tools.keys().map(|s| s.as_str()).collect()
+        self.tools.keys().map(std::string::String::as_str).collect()
     }
 
+    #[must_use]
     pub fn has_tool(&self, name: &str) -> bool {
         self.tools.contains_key(name)
     }
 
+    #[must_use]
     pub fn tools_for_categories(&self, categories: &[&str]) -> Vec<&dyn Tool> {
         self.tools
             .values()
             .filter(|t| {
                 let tool_cats = t.categories();
-                categories
-                    .iter()
-                    .any(|c| tool_cats.iter().any(|tc| *tc == *c))
+                categories.iter().any(|c| tool_cats.contains(c))
             })
-            .map(|t| t.as_ref())
+            .map(std::convert::AsRef::as_ref)
             .collect()
     }
 }

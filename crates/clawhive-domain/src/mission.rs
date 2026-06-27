@@ -5,10 +5,10 @@ use uuid::Uuid;
 use crate::budget::Budget;
 use crate::identity::IdentityId;
 use crate::lifecycle::LifecycleMode;
-use crate::organization::OrganizationId;
 use crate::model::RiskLevel;
+use crate::organization::OrganizationId;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MissionId(pub Uuid);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
