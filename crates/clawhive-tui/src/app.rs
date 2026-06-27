@@ -346,14 +346,19 @@ Commands:
     }
 
     pub async fn run(&mut self) -> Result<(), crate::TuiError> {
-        use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
+        use crossterm::ExecutableCommand;
+        use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
         use ratatui::backend::CrosstermBackend;
         use ratatui::Terminal;
         use std::io::stdout;
 
         enable_raw_mode().map_err(|e| crate::TuiError::TermInit(e.to_string()))?;
-        let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))
+        let mut stdout = stdout();
+        stdout.execute(EnterAlternateScreen).map_err(|e| crate::TuiError::TermInit(e.to_string()))?;
+
+        let mut terminal = Terminal::new(CrosstermBackend::new(stdout))
             .map_err(|e| crate::TuiError::TermInit(e.to_string()))?;
+        terminal.clear().map_err(|e| crate::TuiError::TermInit(e.to_string()))?;
 
         let (tx, mut rx) = tokio::sync::mpsc::channel::<Event>(256);
 
@@ -396,6 +401,7 @@ Commands:
         }
 
         disable_raw_mode().map_err(|e| crate::TuiError::Runtime(e.to_string()))?;
+        let _ = std::io::stdout().execute(LeaveAlternateScreen);
         Ok(())
     }
 
