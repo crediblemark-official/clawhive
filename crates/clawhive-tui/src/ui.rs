@@ -153,7 +153,7 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
 fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
     let main_chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(73), Constraint::Percentage(27)])
+        .constraints([Constraint::Percentage(75), Constraint::Percentage(25)])
         .split(area);
 
     // --- KOLOM KIRI (CHAT & INPUT AREA) ---
@@ -170,49 +170,72 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
     // 1. Chat History
     let mut list_items = Vec::new();
     for (sender, model, msg) in &app.chat_history {
-        let border_color = if sender == "User" {
-            Color::Cyan
-        } else if sender == "System" && msg.contains("Error") {
-            Color::Red
-        } else {
-            Color::Magenta
-        };
-
         let mut lines = Vec::new();
-        // Baris header
-        let header_span = if sender == "User" {
-            vec![
-                Span::styled("┃ ", Style::default().fg(border_color).add_modifier(Modifier::BOLD)),
-                Span::styled("You", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-            ]
-        } else {
-            vec![
-                Span::styled("┃ ", Style::default().fg(border_color).add_modifier(Modifier::BOLD)),
-                Span::styled(model, Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)),
-            ]
-        };
-        lines.push(Line::from(header_span));
-
-        // Spacing kosong
-        lines.push(Line::from(vec![
-            Span::styled("┃", Style::default().fg(border_color).add_modifier(Modifier::BOLD)),
-        ]));
-
-        // Pesan per baris
-        for part in msg.lines() {
+        
+        if sender == "User" {
+            // User: background abu-abu gelap (#161616) dengan border kiri Cyan
+            let border_color = Color::Cyan;
             lines.push(Line::from(vec![
-                Span::styled("┃ ", Style::default().fg(border_color).add_modifier(Modifier::BOLD)),
-                Span::styled(part, Style::default().fg(Color::White)),
+                Span::styled("┃", Style::default().fg(border_color).add_modifier(Modifier::BOLD)),
+                Span::raw(" "),
             ]));
+            for part in msg.lines() {
+                lines.push(Line::from(vec![
+                    Span::styled("┃", Style::default().fg(border_color).add_modifier(Modifier::BOLD)),
+                    Span::raw(format!("  {}", part)),
+                ]));
+            }
+            lines.push(Line::from(vec![
+                Span::styled("┃", Style::default().fg(border_color).add_modifier(Modifier::BOLD)),
+                Span::raw(" "),
+            ]));
+            // Baris kosong pemisah di luar box abu-abu
+            lines.push(Line::from(""));
+
+            let text_content = ratatui::text::Text::from(lines);
+            let list_item = ListItem::new(text_content)
+                .style(Style::default().bg(Color::Rgb(20, 20, 20))); // background box abu-abu gelap
+            list_items.push(list_item);
+        } else if sender == "System" {
+            // System/Error: background abu-abu gelap dengan border kiri Red
+            let border_color = Color::Red;
+            lines.push(Line::from(vec![
+                Span::styled("┃", Style::default().fg(border_color).add_modifier(Modifier::BOLD)),
+                Span::raw(" "),
+            ]));
+            for part in msg.lines() {
+                lines.push(Line::from(vec![
+                    Span::styled("┃", Style::default().fg(border_color).add_modifier(Modifier::BOLD)),
+                    Span::raw(format!("  {}", part)),
+                ]));
+            }
+            lines.push(Line::from(vec![
+                Span::styled("┃", Style::default().fg(border_color).add_modifier(Modifier::BOLD)),
+                Span::raw(" "),
+            ]));
+            lines.push(Line::from(""));
+
+            let text_content = ratatui::text::Text::from(lines);
+            let list_item = ListItem::new(text_content)
+                .style(Style::default().bg(Color::Rgb(20, 20, 20)));
+            list_items.push(list_item);
+        } else {
+            // Agent/Assistant: Teks polos (background hitam default), diawali label header kecil
+            // Ikon kotak biru solid: ■
+            lines.push(Line::from(vec![
+                Span::styled("■ ", Style::default().fg(Color::Cyan)),
+                Span::styled(model, Style::default().fg(Color::DarkGray)),
+            ]));
+            lines.push(Line::from(""));
+            for part in msg.lines() {
+                lines.push(Line::from(Span::styled(part, Style::default().fg(Color::White))));
+            }
+            lines.push(Line::from(""));
+
+            let text_content = ratatui::text::Text::from(lines);
+            let list_item = ListItem::new(text_content); // Polos
+            list_items.push(list_item);
         }
-
-        // Space kosong di bawah gelembung chat
-        lines.push(Line::from(vec![
-            Span::raw(""),
-        ]));
-
-        let text_content = ratatui::text::Text::from(lines);
-        list_items.push(ListItem::new(text_content));
     }
 
     let chat_list = List::new(list_items)
@@ -387,11 +410,30 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
     // Sidebar Footer
     let current_dir = std::env::current_dir()
         .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_else(|_| "~/PROJECT/clawhive".to_string());
-    let repo_info = format!("{}:master", current_dir);
+        .unwrap_or_else(|_| "/home/rasyiqi/PROJECT/clawhive".to_string());
+    
+    // Pecah path agar kata "clawhive" dicetak putih tebal
+    let (base_path, folder_name) = if current_dir.ends_with("/clawhive") {
+        (current_dir[..current_dir.len() - 8].to_string(), "clawhive".to_string())
+    } else {
+        (current_dir.to_string(), "".to_string())
+    };
+
+    let repo_line = if folder_name.is_empty() {
+        Line::from(vec![
+            Span::styled(base_path, Style::default().fg(Color::DarkGray)),
+            Span::styled(":master", Style::default().fg(Color::White)),
+        ])
+    } else {
+        Line::from(vec![
+            Span::styled(base_path, Style::default().fg(Color::DarkGray)),
+            Span::styled(folder_name, Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+            Span::styled(":master", Style::default().fg(Color::DarkGray)),
+        ])
+    };
 
     let footer_text = Paragraph::new(vec![
-        Line::from(Span::styled(repo_info, Style::default().fg(Color::DarkGray))),
+        repo_line,
         Line::from(vec![
             Span::styled("● ", Style::default().fg(Color::Green)),
             Span::styled("ClawHive ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
