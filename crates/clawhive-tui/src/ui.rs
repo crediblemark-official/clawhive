@@ -158,10 +158,12 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
 
     // 3. Sub-input info (Shortcuts saja di bawah kanan di luar box)
     let shortcuts_spans = vec![
-        Span::styled("tab", Style::default().fg(Color::White)),
-        Span::styled(" agents  ", Style::default().fg(Color::DarkGray)),
+        Span::styled("/", Style::default().fg(Color::White)),
+        Span::styled(" commands  ", Style::default().fg(Color::DarkGray)),
+        Span::styled(":", Style::default().fg(Color::White)),
+        Span::styled(" terminal  ", Style::default().fg(Color::DarkGray)),
         Span::styled("ctrl+p", Style::default().fg(Color::White)),
-        Span::styled(" commands", Style::default().fg(Color::DarkGray)),
+        Span::styled(" palette", Style::default().fg(Color::DarkGray)),
     ];
     let shortcuts =
         Paragraph::new(Line::from(shortcuts_spans)).alignment(ratatui::layout::Alignment::Right);
