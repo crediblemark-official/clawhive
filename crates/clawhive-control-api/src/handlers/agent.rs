@@ -8,10 +8,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use clawhive_agent::{
-    AgentRuntime, AgentStore,
-    error::AgentError,
-};
+use clawhive_agent::{AgentRuntime, AgentStore, error::AgentError};
 use clawhive_domain::{Agent, AgentState, WorkerId};
 use clawhive_lifecycle::LifecycleService;
 use clawhive_store::StoreExt;
@@ -192,7 +189,12 @@ pub async fn execute_agent(
 
     let agent_id = clawhive_domain::AgentId(id);
     let (session, events) = runtime
-        .execute_agent(&agent_id, body.objective, body.context.unwrap_or_default(), None)
+        .execute_agent(
+            &agent_id,
+            body.objective,
+            body.context.unwrap_or_default(),
+            None,
+        )
         .await
         .map_err(|e| match &e {
             AgentError::AgentNotFound(_) => ApiError::NotFound(format!("agent {id}")),
