@@ -13,8 +13,8 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Percentage(5), // Spacer atas dikurangi agar logo tinggi muat
-            Constraint::Length(22),     // Logo setinggi 22 baris (15 ikon + 1 spacer + 6 teks)
+            Constraint::Percentage(10), // Spacer atas sedikit dinaikkan agar seimbang di tengah
+            Constraint::Length(16),     // Logo setinggi 16 baris (9 ikon + 1 spacer + 6 teks)
             Constraint::Length(2),      // Spacer logo-input
             Constraint::Length(4),      // Input Box (height 4 untuk text + model info di dalam)
             Constraint::Length(1),      // Sub-input info
@@ -25,51 +25,26 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
         ])
         .split(area);
 
-    // 1. Logo ASCII Baru dengan Warna Emas (Rgb(212, 175, 55)) & Putih
+    // 1. Logo ASCII Baru dengan Warna Emas (Rgb(212, 175, 55)) & Gradient Teks Emas Kuning
     let gold = Color::Rgb(212, 175, 55);
-    let white = Color::White;
 
     let logo_lines = vec![
-        Line::from(Span::styled(r"           ___________    ____", Style::default().fg(gold))),
-        Line::from(Span::styled(r"    ______/   \__//   \__/____\", Style::default().fg(gold))),
-        Line::from(Span::styled(r"  _/   \_/  :           //____\\", Style::default().fg(gold))),
-        Line::from(Span::styled(r" /|      :  :  ..      /        \", Style::default().fg(gold))),
-        Line::from(Span::styled(r"| |     ::     ::      \        /", Style::default().fg(gold))),
-        Line::from(Span::styled(r"| |     :|     ||     \ \______/", Style::default().fg(gold))),
-        Line::from(Span::styled(r"| |     ||     ||      |\  /  |", Style::default().fg(gold))),
-        Line::from(Span::styled(r" \|     ||     ||      |   / | \", Style::default().fg(gold))),
-        Line::from(Span::styled(r"  |     ||     ||      |  / /_\ \", Style::default().fg(gold))),
-        Line::from(Span::styled(r"  | ___ || ___ ||      | /  /    \", Style::default().fg(gold))),
-        Line::from(Span::styled(r"   \_-_/  \_-_/ | ____ |/__/      \", Style::default().fg(gold))),
-        Line::from(Span::styled(r"                _\_--_/    \      /", Style::default().fg(gold))),
-        Line::from(Span::styled(r"               /____             /", Style::default().fg(gold))),
-        Line::from(Span::styled(r"              /     \           /", Style::default().fg(gold))),
-        Line::from(Span::styled(r"              \______\_________/", Style::default().fg(gold))),
+        Line::from(Span::styled(r"         ________   ____", Style::default().fg(gold))),
+        Line::from(Span::styled(r"     ___/   \_/   \_/____\", Style::default().fg(gold))),
+        Line::from(Span::styled(r"   _/   \_  :       /____\", Style::default().fg(gold))),
+        Line::from(Span::styled(r"  /|     :  :  .   /      \", Style::default().fg(gold))),
+        Line::from(Span::styled(r" | |    :|  ||    \ \____/", Style::default().fg(gold))),
+        Line::from(Span::styled(r" | |    ||  ||     |\ / |", Style::default().fg(gold))),
+        Line::from(Span::styled(r"  \|    ||  ||     | /_/_", Style::default().fg(gold))),
+        Line::from(Span::styled(r"   | __ || __ | __ |/__/ \", Style::default().fg(gold))),
+        Line::from(Span::styled(r"    \_-_/  \_-_/ \_-/  \_/", Style::default().fg(gold))),
         Line::from(""),
-        Line::from(vec![
-            Span::styled("██████╗██╗      █████╗ ██╗    ██╗", Style::default().fg(white)),
-            Span::styled("██╗  ██╗██╗██╗   ██╗███████╗", Style::default().fg(gold)),
-        ]),
-        Line::from(vec![
-            Span::styled("██╔════╝██║     ██╔══██╗██║    ██║", Style::default().fg(white)),
-            Span::styled("██║  ██║██║██║   ██║██╔════╝", Style::default().fg(gold)),
-        ]),
-        Line::from(vec![
-            Span::styled("██║     ██║     ███████║██║ █╗ ██║", Style::default().fg(white)),
-            Span::styled("███████║██║██║   ██║█████╗", Style::default().fg(gold)),
-        ]),
-        Line::from(vec![
-            Span::styled("██║     ██║     ██╔══██║██║███╗██║", Style::default().fg(white)),
-            Span::styled("██╔══██║██║╚██╗ ██╔╝██╔══╝", Style::default().fg(gold)),
-        ]),
-        Line::from(vec![
-            Span::styled("╚██████╗███████╗██║  ██║╚███╔███╔╝", Style::default().fg(white)),
-            Span::styled("██║  ██║██║ ╚████╔╝ ███████╗", Style::default().fg(gold)),
-        ]),
-        Line::from(vec![
-            Span::styled(" ╚═════╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝ ", Style::default().fg(white)),
-            Span::styled("╚═╝  ╚═╝╚═╝  ╚═══╝  ╚══════╝", Style::default().fg(gold)),
-        ]),
+        Line::from(Span::styled(" ██████╗██╗      █████╗ ██╗    ██╗██╗  ██╗██╗██╗   ██╗███████╗", Style::default().fg(Color::Rgb(255, 225, 120)))),
+        Line::from(Span::styled(" ██╔════╝██║     ██╔══██╗██║    ██║██║  ██║██║██║   ██║██╔════╝", Style::default().fg(Color::Rgb(245, 205, 90)))),
+        Line::from(Span::styled(" ██║     ██║     ███████║██║ █╗ ██║███████║██║██║   ██║█████╗", Style::default().fg(Color::Rgb(230, 190, 65)))),
+        Line::from(Span::styled(" ██║     ██║     ██╔══██║██║███╗██║██╔══██║██║╚██╗ ██╔╝██╔══╝", Style::default().fg(Color::Rgb(220, 180, 55)))),
+        Line::from(Span::styled(" ╚██████╗███████╗██║  ██║╚███╔███╔╝██║  ██║██║ ╚████╔╝ ███████╗", Style::default().fg(Color::Rgb(205, 165, 40)))),
+        Line::from(Span::styled("  ╚═════╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═══╝  ╚══════╝", Style::default().fg(Color::Rgb(184, 134, 11)))),
     ];
     
     let logo = Paragraph::new(logo_lines)
