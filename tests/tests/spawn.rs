@@ -367,3 +367,138 @@ async fn test_descendant_teardown() {
         .count();
     assert_eq!(terminated_count, 2);
 }
+
+#[tokio::test]
+async fn test_spawn_validation_fails_when_swarm_size_exceeded() {
+    let mission = make_test_mission();
+    let mut root = make_root_agent(&mission);
+    let broker = make_broker();
+
+    // Buat dummy agents sebanyak batas limit (100)
+    let mut all_agents = Vec::new();
+    for _ in 0..100 {
+        all_agents.push(root.clone());
+    }
+
+    let request = SpawnBroker::create_request(
+        mission.id.clone(),
+        root.id.clone(),
+        "test limit".into(),
+        vec![make_child_spec("scout", 50.0)],
+    );
+
+    let result = broker
+        .process_spawn_request(&mut root, &mission, &request, &all_agents, 0)
+        .await;
+
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(
+        matches!(err, clawhive_spawn::SpawnError::SwarmSizeExceeded),
+        "Harus gagal karena ukuran swarm melebihi batas limit"
+    );
+}
+
+#[tokio::test]
+async fn test_spawn_validation_fails_when_duplicate_objective() {
+    let mission = make_test_mission();
+    let mut root = make_root_agent(&mission);
+    let broker = make_broker();
+    let root_clone = root.clone();
+
+    // Skenario 1: Duplikasi role dengan yang sudah ada (root)
+    let request_dup_role = SpawnBroker::create_request(
+        mission.id.clone(),
+        root.id.clone(),
+        "test dup role".into(),
+        vec![make_child_spec("root", 50.0)],
+    );
+
+    let result_dup_role = broker
+        .process_spawn_request(&mut root, &mission, &request_dup_role, &[root_clone.clone()], 0)
+        .await;
+
+    assert!(result_dup_role.is_err());
+    assert!(
+        matches!(result_dup_role.unwrap_err(), clawhive_spawn::SpawnError::DuplicateObjective(_)),
+        "Harus gagal karena role bertabrakan"
+    );
+
+    // Skenario 2: Objective child adalah substring dari nama agen yang sudah ada ("root")
+    let mut spec_dup_obj = make_child_spec("scout", 50.0);
+    spec_dup_obj.objective = "root".into(); // "root-agent" contains "root"
+    let request_dup_obj = SpawnBroker::create_request(
+        mission.id.clone(),
+        root.id.clone(),
+        "test dup obj".into(),
+        vec![spec_dup_obj],
+    );
+
+    let result_dup_obj = broker
+        .process_spawn_request(&mut root, &mission, &request_dup_obj, &[root_clone], 0)
+        .await;
+
+    assert!(result_dup_obj.is_err());
+    assert!(
+        matches!(result_dup_obj.unwrap_err(), clawhive_spawn::SpawnError::DuplicateObjective(_)),
+        "Harus gagal karena objective terkandung dalam nama agen yang sudah ada"
+    );
+}
+
+#[tokio::test]
+async fn test_spawn_validation_fails_when_permission_not_delegable() {
+    let mission = make_test_mission();
+    let mut root = make_root_agent(&mission);
+    let broker = make_broker();
+    let root_clone = root.clone();
+
+    // Buat child spec yang meminta custom permission yang tidak dimiliki parent (misal "admin")
+    let mut spec = make_child_spec("scout", 50.0);
+    spec.custom_permissions = Some(vec![Permission("admin".into())]);
+
+    let request = SpawnBroker::create_request(
+        mission.id.clone(),
+        root.id.clone(),
+        "test permission".into(),
+        vec![spec],
+    );
+
+    let result = broker
+        .process_spawn_request(&mut root, &mission, &request, &[root_clone], 0)
+        .await;
+
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(
+        matches!(err, clawhive_spawn::SpawnError::PermissionNotDelegable(_)),
+        "Harus gagal karena permission tidak didelegasikan oleh parent"
+    );
+}
+
+#[tokio::test]
+async fn test_spawn_validation_fails_when_mission_not_active() {
+    let mut mission = make_test_mission();
+    mission.state = MissionState::Completed; // Ubah menjadi tidak Active
+    let mut root = make_root_agent(&mission);
+    let broker = make_broker();
+    let root_clone = root.clone();
+
+    let request = SpawnBroker::create_request(
+        mission.id.clone(),
+        root.id.clone(),
+        "test inactive mission".into(),
+        vec![make_child_spec("scout", 50.0)],
+    );
+
+    let result = broker
+        .process_spawn_request(&mut root, &mission, &request, &[root_clone], 0)
+        .await;
+
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(
+        matches!(err, clawhive_spawn::SpawnError::Validation(_)),
+        "Harus gagal karena mission tidak aktif"
+    );
+}
+

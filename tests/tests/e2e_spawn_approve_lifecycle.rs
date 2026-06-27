@@ -673,3 +673,273 @@ async fn test_e2e_spawn_with_lineage() {
     assert_eq!(stored_lineage.entries[1].state, "active");
     assert_eq!(stored_lineage.root_agent_id, root.id);
 }
+
+#[tokio::test]
+async fn test_e2e_spawn_validation_swarm_size_exceeded() {
+    let state = AppState::new();
+    let store = state.kv_store.clone();
+
+    let mission = make_mission();
+    let mission_key = format!("{MISSION_PREFIX}{}", mission.id.0);
+    store.set(&mission_key, &mission).await.unwrap();
+
+    let root = make_root_agent(&mission);
+    let root_key = format!("{AGENT_PREFIX}{}", root.id.0);
+    store.set(&root_key, &root).await.unwrap();
+
+    // Tambahkan 100 agent di DB fiktif untuk mensimulasikan batas limit
+    for i in 0..100 {
+        let mut dummy = root.clone();
+        dummy.id = AgentId(uuid::Uuid::now_v7());
+        dummy.name = format!("dummy-{}", i);
+        let dummy_key = format!("{AGENT_PREFIX}{}", dummy.id.0);
+        store.set(&dummy_key, &dummy).await.unwrap();
+    }
+
+    let child_specs = vec![ChildSpec {
+        role: "scout".into(),
+        objective: "testing limits".into(),
+        budget_usd: 10.0,
+        model_profile: "gpt-4".into(),
+        max_turns: 10,
+        custom_permissions: None,
+    }];
+
+    let spawn_request = SpawnBroker::create_request(
+        mission.id.clone(),
+        root.id.clone(),
+        "test limit".into(),
+        child_specs,
+    );
+
+    let spawn_key = format!("{SPAWNREQ_PREFIX}{}", spawn_request.id.0);
+    store.set(&spawn_key, &spawn_request).await.unwrap();
+
+    let all_agents: Vec<Agent> = store
+        .scan_prefix::<Agent>(AGENT_PREFIX)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|(_, a)| a)
+        .collect();
+
+    let request: clawhive_domain::SpawnRequest =
+        store.get(&spawn_key).await.unwrap().unwrap();
+    let mission_stored: Mission = store.get(&mission_key).await.unwrap().unwrap();
+    let mut parent: Agent = store.get(&root_key).await.unwrap().unwrap();
+    let current_depth = calculate_depth(&request.requested_by, &all_agents);
+
+    let result = state
+        .spawn_broker
+        .process_spawn_request(
+            &mut parent,
+            &mission_stored,
+            &request,
+            &all_agents,
+            current_depth,
+        )
+        .await;
+
+    assert!(result.is_err());
+    assert!(
+        matches!(result.unwrap_err(), clawhive_spawn::SpawnError::SwarmSizeExceeded),
+        "Harus gagal karena ukuran swarm melebihi batas limit"
+    );
+}
+
+#[tokio::test]
+async fn test_e2e_spawn_validation_duplicate_objective() {
+    let state = AppState::new();
+    let store = state.kv_store.clone();
+
+    let mission = make_mission();
+    let mission_key = format!("{MISSION_PREFIX}{}", mission.id.0);
+    store.set(&mission_key, &mission).await.unwrap();
+
+    let root = make_root_agent(&mission);
+    let root_key = format!("{AGENT_PREFIX}{}", root.id.0);
+    store.set(&root_key, &root).await.unwrap();
+
+    // Skenario 1: Duplikasi role dengan root
+    let child_specs = vec![ChildSpec {
+        role: "root".into(), // Duplikat role parent
+        objective: "unique objective".into(),
+        budget_usd: 10.0,
+        model_profile: "gpt-4".into(),
+        max_turns: 10,
+        custom_permissions: None,
+    }];
+
+    let spawn_request = SpawnBroker::create_request(
+        mission.id.clone(),
+        root.id.clone(),
+        "test dup".into(),
+        child_specs,
+    );
+
+    let spawn_key = format!("{SPAWNREQ_PREFIX}{}", spawn_request.id.0);
+    store.set(&spawn_key, &spawn_request).await.unwrap();
+
+    let all_agents: Vec<Agent> = store
+        .scan_prefix::<Agent>(AGENT_PREFIX)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|(_, a)| a)
+        .collect();
+
+    let request: clawhive_domain::SpawnRequest =
+        store.get(&spawn_key).await.unwrap().unwrap();
+    let mission_stored: Mission = store.get(&mission_key).await.unwrap().unwrap();
+    let mut parent: Agent = store.get(&root_key).await.unwrap().unwrap();
+    let current_depth = calculate_depth(&request.requested_by, &all_agents);
+
+    let result = state
+        .spawn_broker
+        .process_spawn_request(
+            &mut parent,
+            &mission_stored,
+            &request,
+            &all_agents,
+            current_depth,
+        )
+        .await;
+
+    assert!(result.is_err());
+    assert!(
+        matches!(result.unwrap_err(), clawhive_spawn::SpawnError::DuplicateObjective(_)),
+        "Harus gagal karena role bertabrakan"
+    );
+}
+
+#[tokio::test]
+async fn test_e2e_spawn_validation_permission_not_delegable() {
+    let state = AppState::new();
+    let store = state.kv_store.clone();
+
+    let mission = make_mission();
+    let mission_key = format!("{MISSION_PREFIX}{}", mission.id.0);
+    store.set(&mission_key, &mission).await.unwrap();
+
+    let root = make_root_agent(&mission);
+    let root_key = format!("{AGENT_PREFIX}{}", root.id.0);
+    store.set(&root_key, &root).await.unwrap();
+
+    // Meminta permission "admin" yang tidak didelegasikan oleh parent
+    let child_specs = vec![ChildSpec {
+        role: "scout".into(),
+        objective: "test objective".into(),
+        budget_usd: 10.0,
+        model_profile: "gpt-4".into(),
+        max_turns: 10,
+        custom_permissions: Some(vec![clawhive_domain::Permission("admin".into())]),
+    }];
+
+    let spawn_request = SpawnBroker::create_request(
+        mission.id.clone(),
+        root.id.clone(),
+        "test invalid perms".into(),
+        child_specs,
+    );
+
+    let spawn_key = format!("{SPAWNREQ_PREFIX}{}", spawn_request.id.0);
+    store.set(&spawn_key, &spawn_request).await.unwrap();
+
+    let all_agents: Vec<Agent> = store
+        .scan_prefix::<Agent>(AGENT_PREFIX)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|(_, a)| a)
+        .collect();
+
+    let request: clawhive_domain::SpawnRequest =
+        store.get(&spawn_key).await.unwrap().unwrap();
+    let mission_stored: Mission = store.get(&mission_key).await.unwrap().unwrap();
+    let mut parent: Agent = store.get(&root_key).await.unwrap().unwrap();
+    let current_depth = calculate_depth(&request.requested_by, &all_agents);
+
+    let result = state
+        .spawn_broker
+        .process_spawn_request(
+            &mut parent,
+            &mission_stored,
+            &request,
+            &all_agents,
+            current_depth,
+        )
+        .await;
+
+    assert!(result.is_err());
+    assert!(
+        matches!(result.unwrap_err(), clawhive_spawn::SpawnError::PermissionNotDelegable(_)),
+        "Harus gagal karena permission tidak didelegasikan oleh parent"
+    );
+}
+
+#[tokio::test]
+async fn test_e2e_spawn_validation_mission_not_active() {
+    let state = AppState::new();
+    let store = state.kv_store.clone();
+
+    // Buat mission dengan state Completed (tidak Active)
+    let mut mission = make_mission();
+    mission.state = MissionState::Completed;
+    let mission_key = format!("{MISSION_PREFIX}{}", mission.id.0);
+    store.set(&mission_key, &mission).await.unwrap();
+
+    let root = make_root_agent(&mission);
+    let root_key = format!("{AGENT_PREFIX}{}", root.id.0);
+    store.set(&root_key, &root).await.unwrap();
+
+    let child_specs = vec![ChildSpec {
+        role: "scout".into(),
+        objective: "test objective".into(),
+        budget_usd: 10.0,
+        model_profile: "gpt-4".into(),
+        max_turns: 10,
+        custom_permissions: None,
+    }];
+
+    let spawn_request = SpawnBroker::create_request(
+        mission.id.clone(),
+        root.id.clone(),
+        "test inactive mission".into(),
+        child_specs,
+    );
+
+    let spawn_key = format!("{SPAWNREQ_PREFIX}{}", spawn_request.id.0);
+    store.set(&spawn_key, &spawn_request).await.unwrap();
+
+    let all_agents: Vec<Agent> = store
+        .scan_prefix::<Agent>(AGENT_PREFIX)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|(_, a)| a)
+        .collect();
+
+    let request: clawhive_domain::SpawnRequest =
+        store.get(&spawn_key).await.unwrap().unwrap();
+    let mission_stored: Mission = store.get(&mission_key).await.unwrap().unwrap();
+    let mut parent: Agent = store.get(&root_key).await.unwrap().unwrap();
+    let current_depth = calculate_depth(&request.requested_by, &all_agents);
+
+    let result = state
+        .spawn_broker
+        .process_spawn_request(
+            &mut parent,
+            &mission_stored,
+            &request,
+            &all_agents,
+            current_depth,
+        )
+        .await;
+
+    assert!(result.is_err());
+    assert!(
+        matches!(result.unwrap_err(), clawhive_spawn::SpawnError::Validation(_)),
+        "Harus gagal karena mission tidak aktif"
+    );
+}
+
