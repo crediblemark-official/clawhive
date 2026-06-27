@@ -29,6 +29,20 @@ pub enum InputMode {
     Command,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CommandMode {
+    None,
+    SlashAutocomplete {
+        selected_index: usize,
+        filtered_commands: Vec<(String, String)>,
+    },
+    CommandPalette {
+        search_query: String,
+        selected_index: usize,
+        filtered_items: Vec<(String, String, String, String)>, // (category, name, shortcut, action)
+    },
+}
+
 pub struct TuiApp {
     pub state: AppState,
     pub agents: Vec<Agent>,
@@ -42,6 +56,7 @@ pub struct TuiApp {
     pub input_buffer: String,
     pub active_screen: Screen,
     pub chat_history: Vec<(String, String, String)>, // (sender, role/model, message)
+    pub command_mode: CommandMode,
 }
 
 impl TuiApp {
@@ -60,6 +75,7 @@ impl TuiApp {
             input_buffer: String::new(),
             active_screen: Screen::Home,
             chat_history: Vec::new(),
+            command_mode: CommandMode::None,
         }
     }
 
@@ -408,66 +424,237 @@ Commands:
     async fn handle_event(&mut self, event: Event) {
         if let Event::Key(key) = event {
             if key.kind == KeyEventKind::Press {
-                // Handle Ctrl+C to quit
+                // 1. Handle Ctrl+C to quit
                 if key.code == KeyCode::Char('c') && key.modifiers.contains(event::KeyModifiers::CONTROL) {
                     self.should_quit = true;
                     return;
                 }
-                
-                match key.code {
-                    KeyCode::Enter => {
-                        let content = std::mem::take(&mut self.input_buffer);
-                        let trimmed = content.trim();
-                        if !trimmed.is_empty() {
-                            if trimmed.starts_with(':') {
-                                self.execute_command(&trimmed[1..]).await;
-                            } else {
-                                // Add prompt to chat history
-                                self.chat_history.push(("User".to_string(), "".to_string(), trimmed.to_string()));
-                                self.active_screen = Screen::Chat;
-                                
-                                // Simulasikan respon dari agent
-                                let response = format!("Memproses instruksi: \"{}\". Memulai analisis codebase dan menyiapkan agent workspace...", trimmed);
-                                self.chat_history.push(("Agent".to_string(), "Build · Kimi K2.7 Code".to_string(), response));
+
+                // 2. Handle Ctrl+P to trigger Command Palette
+                if key.code == KeyCode::Char('p') && key.modifiers.contains(event::KeyModifiers::CONTROL) {
+                    self.command_mode = CommandMode::CommandPalette {
+                        search_query: String::new(),
+                        selected_index: 0,
+                        filtered_items: get_palette_items(),
+                    };
+                    return;
+                }
+
+                // 3. Handle key based on current CommandMode
+                match &mut self.command_mode {
+                    CommandMode::SlashAutocomplete { selected_index, filtered_commands } => {
+                        match key.code {
+                            KeyCode::Esc => {
+                                self.command_mode = CommandMode::None;
                             }
+                            KeyCode::Up => {
+                                if *selected_index > 0 {
+                                    *selected_index -= 1;
+                                }
+                            }
+                            KeyCode::Down => {
+                                if *selected_index < filtered_commands.len().saturating_sub(1) {
+                                    *selected_index += 1;
+                                }
+                            }
+                            KeyCode::Enter | KeyCode::Tab => {
+                                if !filtered_commands.is_empty() {
+                                    let chosen = filtered_commands[*selected_index].0.clone();
+                                    self.input_buffer = chosen;
+                                }
+                                self.command_mode = CommandMode::None;
+                            }
+                            KeyCode::Backspace => {
+                                self.input_buffer.pop();
+                                self.update_autocomplete();
+                            }
+                            KeyCode::Char(c) => {
+                                self.input_buffer.push(c);
+                                self.update_autocomplete();
+                            }
+                            _ => {}
                         }
                     }
-                    KeyCode::Esc => {
-                        if self.active_screen == Screen::Chat {
-                            self.active_screen = Screen::Home;
-                        } else {
-                            self.should_quit = true;
+                    CommandMode::CommandPalette { search_query, selected_index, filtered_items } => {
+                        match key.code {
+                            KeyCode::Esc => {
+                                self.command_mode = CommandMode::None;
+                            }
+                            KeyCode::Up => {
+                                if *selected_index > 0 {
+                                    *selected_index -= 1;
+                                }
+                            }
+                            KeyCode::Down => {
+                                if *selected_index < filtered_items.len().saturating_sub(1) {
+                                    *selected_index += 1;
+                                }
+                            }
+                            KeyCode::Enter => {
+                                if !filtered_items.is_empty() {
+                                    let action = filtered_items[*selected_index].3.clone();
+                                    self.execute_palette_action(&action).await;
+                                }
+                                self.command_mode = CommandMode::None;
+                            }
+                            KeyCode::Backspace => {
+                                search_query.pop();
+                                self.update_palette_filter();
+                            }
+                            KeyCode::Char(c) => {
+                                search_query.push(c);
+                                self.update_palette_filter();
+                            }
+                            _ => {}
                         }
                     }
-                    KeyCode::Backspace => {
-                        self.input_buffer.pop();
-                    }
-                    KeyCode::Char(c) => {
-                        self.input_buffer.push(c);
-                    }
-                    KeyCode::Tab => {
-                        self.selected_tab = match self.selected_tab {
-                            Tab::Session => Tab::Agents,
-                            Tab::Agents => Tab::Workers,
-                            Tab::Workers => Tab::SpawnRequests,
-                            Tab::SpawnRequests => Tab::Session,
-                        };
-                        self.selected_index = 0;
-                    }
-                    KeyCode::Up => {
-                        if self.selected_index > 0 {
-                            self.selected_index -= 1;
+                    CommandMode::None => {
+                        // Standard Input / Navigation handling
+                        match key.code {
+                            KeyCode::Enter => {
+                                let content = std::mem::take(&mut self.input_buffer);
+                                let trimmed = content.trim();
+                                if !trimmed.is_empty() {
+                                    if trimmed.starts_with(':') {
+                                        self.execute_command(&trimmed[1..]).await;
+                                    } else {
+                                        self.chat_history.push(("User".to_string(), "".to_string(), trimmed.to_string()));
+                                        self.active_screen = Screen::Chat;
+                                        
+                                        let response = format!("Memproses instruksi: \"{}\". Memulai analisis codebase dan menyiapkan agent workspace...", trimmed);
+                                        self.chat_history.push(("Agent".to_string(), "Build · Kimi K2.7 Code".to_string(), response));
+                                    }
+                                }
+                            }
+                            KeyCode::Esc => {
+                                if self.active_screen == Screen::Chat {
+                                    self.active_screen = Screen::Home;
+                                } else {
+                                    self.should_quit = true;
+                                }
+                            }
+                            KeyCode::Backspace => {
+                                self.input_buffer.pop();
+                            }
+                            KeyCode::Char('/') if self.input_buffer.is_empty() => {
+                                self.input_buffer.push('/');
+                                self.command_mode = CommandMode::SlashAutocomplete {
+                                    selected_index: 0,
+                                    filtered_commands: get_slash_commands(),
+                                };
+                            }
+                            KeyCode::Char(c) => {
+                                self.input_buffer.push(c);
+                            }
+                            KeyCode::Tab => {
+                                self.selected_tab = match self.selected_tab {
+                                    Tab::Session => Tab::Agents,
+                                    Tab::Agents => Tab::Workers,
+                                    Tab::Workers => Tab::SpawnRequests,
+                                    Tab::SpawnRequests => Tab::Session,
+                                };
+                                self.selected_index = 0;
+                            }
+                            KeyCode::Up => {
+                                if self.selected_index > 0 {
+                                    self.selected_index -= 1;
+                                }
+                            }
+                            KeyCode::Down => {
+                                let max = self.current_list_len().saturating_sub(1);
+                                if self.selected_index < max {
+                                    self.selected_index += 1;
+                                }
+                            }
+                            _ => {}
                         }
                     }
-                    KeyCode::Down => {
-                        let max = self.current_list_len().saturating_sub(1);
-                        if self.selected_index < max {
-                            self.selected_index += 1;
-                        }
-                    }
-                    _ => {}
                 }
             }
         }
     }
+
+    fn update_autocomplete(&mut self) {
+        if !self.input_buffer.starts_with('/') {
+            self.command_mode = CommandMode::None;
+            return;
+        }
+        let query = &self.input_buffer;
+        let filtered: Vec<(String, String)> = get_slash_commands()
+            .into_iter()
+            .filter(|(cmd, _)| cmd.to_lowercase().starts_with(&query.to_lowercase()))
+            .collect();
+            
+        self.command_mode = CommandMode::SlashAutocomplete {
+            selected_index: 0,
+            filtered_commands: filtered,
+        };
+    }
+
+    fn update_palette_filter(&mut self) {
+        if let CommandMode::CommandPalette { search_query, selected_index, filtered_items } = &mut self.command_mode {
+            let query = search_query.to_lowercase();
+            let filtered: Vec<(String, String, String, String)> = get_palette_items()
+                .into_iter()
+                .filter(|(_, name, _, _)| name.to_lowercase().contains(&query))
+                .collect();
+            *selected_index = 0;
+            *filtered_items = filtered;
+        }
+    }
+
+    async fn execute_palette_action(&mut self, action: &str) {
+        match action {
+            "/session_new" => {
+                self.chat_history.clear();
+                self.active_screen = Screen::Home;
+            }
+            "/session_switch" => {
+                self.chat_history.clear();
+                self.chat_history.push(("System".into(), "".into(), "Sesi baru berhasil dimuat.".into()));
+                self.active_screen = Screen::Chat;
+            }
+            "/model_switch" => {
+                self.chat_history.push(("System".into(), "".into(), "Model berhasil diubah ke: Build · Kimi K2.7 Code".into()));
+                self.active_screen = Screen::Chat;
+            }
+            "/session_share" => {
+                self.chat_history.push(("System".into(), "".into(), "Tautan sesi berhasil disalin ke clipboard!".into()));
+                self.active_screen = Screen::Chat;
+            }
+            "/session_rename" => {
+                self.chat_history.push(("System".into(), "".into(), "Sesi berhasil diganti namanya.".into()));
+                self.active_screen = Screen::Chat;
+            }
+            _ => {}
+        }
+    }
+}
+
+fn get_slash_commands() -> Vec<(String, String)> {
+    vec![
+        ("/agents".into(), "Switch agent".into()),
+        ("/compact".into(), "Compact session".into()),
+        ("/connect".into(), "Connect provider".into()),
+        ("/copy".into(), "Copy session transcript".into()),
+        ("/diff".into(), "Open diff viewer".into()),
+        ("/editor".into(), "Open editor".into()),
+        ("/exit".into(), "Exit the app".into()),
+        ("/export".into(), "Export session transcript".into()),
+        ("/fork".into(), "Fork session".into()),
+        ("/help".into(), "Help".into()),
+    ]
+}
+
+fn get_palette_items() -> Vec<(String, String, String, String)> {
+    vec![
+        ("Suggested".into(), "Switch session".into(), "ctrl+x l".into(), "/session_switch".into()),
+        ("Suggested".into(), "New session".into(), "ctrl+x n".into(), "/session_new".into()),
+        ("Suggested".into(), "Switch model".into(), "ctrl+x m".into(), "/model_switch".into()),
+        ("Suggested".into(), "Share session".into(), "".into(), "/session_share".into()),
+        ("Session".into(), "Switch session".into(), "ctrl+x l".into(), "/session_switch".into()),
+        ("Session".into(), "New session".into(), "ctrl+x n".into(), "/session_new".into()),
+        ("Session".into(), "Share session".into(), "".into(), "/session_share".into()),
+        ("Session".into(), "Rename session".into(), "ctrl+r".into(), "/session_rename".into()),
+    ]
 }
