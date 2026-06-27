@@ -10,11 +10,15 @@ use ratatui::{
 use crate::app::{Screen, Tab, TuiApp};
 
 fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
+    let banner_content = include_str!("../../../assets/clawhive.txt");
+    let banner_lines_count = banner_content.lines().count();
+    let logo_height = 9 + 1 + banner_lines_count; // 9 ikon + 1 spacer + N teks
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Percentage(10), // Spacer atas sedikit dinaikkan agar seimbang di tengah
-            Constraint::Length(16),     // Logo setinggi 16 baris (9 ikon + 1 spacer + 6 teks)
+            Constraint::Length(logo_height as u16), // Logo setinggi dinamis
             Constraint::Length(2),      // Spacer logo-input
             Constraint::Length(4),      // Input Box (height 4 untuk text + model info di dalam)
             Constraint::Length(1),      // Sub-input info
@@ -77,8 +81,7 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
         Color::Rgb(184, 134, 11),
     ];
 
-    let ansi_content = include_str!("../../../assets/clawhive-gold-gradient.ans");
-    for (i, line) in ansi_content.lines().enumerate() {
+    for (i, line) in banner_content.lines().enumerate() {
         let color = gradient_colors.get(i).copied().unwrap_or(Color::Rgb(184, 134, 11));
         logo_lines.push(Line::from(Span::styled(
             line,
