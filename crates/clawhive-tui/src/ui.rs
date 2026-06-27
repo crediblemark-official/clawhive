@@ -13,8 +13,8 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Percentage(15), // Spacer atas sedikit dikurangi agar seimbang
-            Constraint::Length(9),      // Logo baru setinggi 9 baris
+            Constraint::Percentage(5), // Spacer atas dikurangi agar logo tinggi muat
+            Constraint::Length(20),     // Logo setinggi 20 baris
             Constraint::Length(2),      // Spacer logo-input
             Constraint::Length(4),      // Input Box (height 4 untuk text + model info di dalam)
             Constraint::Length(1),      // Sub-input info
@@ -25,19 +25,48 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
         ])
         .split(area);
 
-    // 1. Logo ASCII Baru dengan Warna Emas (Indexed 220) & Putih
+    // 1. Logo ASCII Baru dengan Warna Emas (Rgb(212, 175, 55)) & Putih
+    let gold = Color::Rgb(212, 175, 55);
+    let white = Color::White;
+
     let logo_lines = vec![
-        Line::from(Span::styled("██████", Style::default().fg(Color::Indexed(220)))),
-        Line::from(Span::styled("████████████████", Style::default().fg(Color::Indexed(220)))),
-        Line::from(Span::styled("██████      ██████", Style::default().fg(Color::White))),
-        Line::from(Span::styled("██████  ██  ██ ██████", Style::default().fg(Color::White))),
-        Line::from(Span::styled("██████      ██████", Style::default().fg(Color::White))),
-        Line::from(Span::styled("████████████████", Style::default().fg(Color::Indexed(220)))),
-        Line::from(Span::styled("████████████", Style::default().fg(Color::Indexed(220)))),
+        Line::from(Span::styled("          ▓▓", Style::default().fg(gold))),
+        Line::from(Span::styled("      ▓▓  ▓▓", Style::default().fg(gold))),
+        Line::from(Span::styled("      ▓▓  ▓▓", Style::default().fg(gold))),
+        Line::from(Span::styled("      ▓▓  ▓▓", Style::default().fg(gold))),
+        Line::from(Span::styled("  ▓▓▓▓▓▓▓▓▓▓▓▓▓", Style::default().fg(gold))),
+        Line::from(Span::styled(" ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓", Style::default().fg(gold))),
+        Line::from(Span::styled(" ▓▓▓▓  ██  ▓▓▓▓", Style::default().fg(gold))),
+        Line::from(Span::styled(" ▓▓▓▓      ▓▓▓▓", Style::default().fg(gold))),
+        Line::from(Span::styled(" ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓", Style::default().fg(gold))),
+        Line::from(Span::styled("  ▓▓▓▓▓▓▓▓▓▓▓▓▓", Style::default().fg(gold))),
+        Line::from(Span::styled("      ██████", Style::default().fg(gold))),
+        Line::from(Span::styled("      ██████", Style::default().fg(gold))),
+        Line::from(Span::styled("      ██████", Style::default().fg(gold))),
         Line::from(""),
         Line::from(vec![
-            Span::styled("CLAW", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-            Span::styled("HIVE", Style::default().fg(Color::Indexed(220)).add_modifier(Modifier::BOLD)),
+            Span::styled("██████╗██╗      █████╗ ██╗    ██╗", Style::default().fg(white)),
+            Span::styled("██╗  ██╗██╗██╗   ██╗███████╗", Style::default().fg(gold)),
+        ]),
+        Line::from(vec![
+            Span::styled("██╔════╝██║     ██╔══██╗██║    ██║", Style::default().fg(white)),
+            Span::styled("██║  ██║██║██║   ██║██╔════╝", Style::default().fg(gold)),
+        ]),
+        Line::from(vec![
+            Span::styled("██║     ██║     ███████║██║ █╗ ██║", Style::default().fg(white)),
+            Span::styled("███████║██║██║   ██║█████╗", Style::default().fg(gold)),
+        ]),
+        Line::from(vec![
+            Span::styled("██║     ██║     ██╔══██║██║███╗██║", Style::default().fg(white)),
+            Span::styled("██╔══██║██║╚██╗ ██╔╝██╔══╝", Style::default().fg(gold)),
+        ]),
+        Line::from(vec![
+            Span::styled("╚██████╗███████╗██║  ██║╚███╔███╔╝", Style::default().fg(white)),
+            Span::styled("██║  ██║██║ ╚████╔╝ ███████╗", Style::default().fg(gold)),
+        ]),
+        Line::from(vec![
+            Span::styled(" ╚═════╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝ ", Style::default().fg(white)),
+            Span::styled("╚═╝  ╚═╝╚═╝  ╚═══╝  ╚══════╝", Style::default().fg(gold)),
         ]),
     ];
     
