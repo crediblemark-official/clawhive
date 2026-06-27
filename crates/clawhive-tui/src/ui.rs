@@ -16,7 +16,7 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
             Constraint::Percentage(20), // Spacer atas
             Constraint::Length(5),      // Logo ASCII
             Constraint::Length(2),      // Spacer logo-input
-            Constraint::Length(3),      // Input Box (height 3 untuk text + border)
+            Constraint::Length(4),      // Input Box (height 4 untuk text + model info di dalam)
             Constraint::Length(1),      // Sub-input info
             Constraint::Length(2),      // Spacer input-tip
             Constraint::Length(1),      // Tip
@@ -67,21 +67,31 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
 
     let lines = if app.input_buffer.is_empty() {
         vec![
-            Line::from(""),
+            Line::from(""), // Padding atas
             Line::from(Span::styled(
                 "  Ask anything... \"Spawn a new research agent\"",
                 Style::default().fg(Color::DarkGray),
             )),
-            Line::from(""),
+            Line::from(vec![
+                Span::raw("  "),
+                Span::styled("Build", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                Span::styled(" · Kimi K2.7 Code ", Style::default().fg(Color::White)),
+                Span::styled("OpenCode Go", Style::default().fg(Color::DarkGray)),
+            ]),
         ]
     } else {
         vec![
-            Line::from(""),
+            Line::from(""), // Padding atas
             Line::from(Span::styled(
                 format!("  {}", app.input_buffer),
                 Style::default().fg(Color::White),
             )),
-            Line::from(""),
+            Line::from(vec![
+                Span::raw("  "),
+                Span::styled("Build", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                Span::styled(" · Kimi K2.7 Code ", Style::default().fg(Color::White)),
+                Span::styled("OpenCode Go", Style::default().fg(Color::DarkGray)),
+            ]),
         ]
     };
 
@@ -96,22 +106,16 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
         input_inner.y + 1,
     ));
 
-    // 3. Sub-input info (Model name & shortcuts)
-    let sub_chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-        .split(sub_info_area);
-
-    let model_info = Line::from(vec![
-        Span::styled("Build", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-        Span::raw(" · Base Kernel LLM"),
-    ]);
-    frame.render_widget(Paragraph::new(model_info), sub_chunks[0]);
-
-    let shortcuts = Paragraph::new("tab agents  ctrl+p commands")
-        .style(Style::default().fg(Color::DarkGray))
+    // 3. Sub-input info (Shortcuts saja di bawah kanan di luar box)
+    let shortcuts_spans = vec![
+        Span::styled("tab", Style::default().fg(Color::White)),
+        Span::styled(" agents  ", Style::default().fg(Color::DarkGray)),
+        Span::styled("ctrl+p", Style::default().fg(Color::White)),
+        Span::styled(" commands", Style::default().fg(Color::DarkGray)),
+    ];
+    let shortcuts = Paragraph::new(Line::from(shortcuts_spans))
         .alignment(ratatui::layout::Alignment::Right);
-    frame.render_widget(shortcuts, sub_chunks[1]);
+    frame.render_widget(shortcuts, sub_info_area);
 
     // 4. Tip
     let tip_line = Line::from(vec![
@@ -166,12 +170,11 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
             .split(area)
     };
 
-    // --- KOLOM KIRI (CHAT & INPUT AREA) ---
     let left_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Min(0),      // Chat history
-            Constraint::Length(3),   // Input Box
+            Constraint::Length(4),   // Input Box (height 4 untuk text + model info di dalam)
             Constraint::Length(1),   // Sub-input info
         ])
         .split(main_chunks[0]);
@@ -302,21 +305,31 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
 
     let chat_input_lines = if app.input_buffer.is_empty() {
         vec![
-            Line::from(""),
+            Line::from(""), // Padding atas
             Line::from(Span::styled(
                 "  Ketik pesan di sini...",
                 Style::default().fg(Color::DarkGray),
             )),
-            Line::from(""),
+            Line::from(vec![
+                Span::raw("  "),
+                Span::styled("Build", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                Span::styled(" · Kimi K2.7 Code ", Style::default().fg(Color::White)),
+                Span::styled("OpenCode Go", Style::default().fg(Color::DarkGray)),
+            ]),
         ]
     } else {
         vec![
-            Line::from(""),
+            Line::from(""), // Padding atas
             Line::from(Span::styled(
                 format!("  {}", app.input_buffer),
                 Style::default().fg(Color::White),
             )),
-            Line::from(""),
+            Line::from(vec![
+                Span::raw("  "),
+                Span::styled("Build", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                Span::styled(" · Kimi K2.7 Code ", Style::default().fg(Color::White)),
+                Span::styled("OpenCode Go", Style::default().fg(Color::DarkGray)),
+            ]),
         ]
     };
 
@@ -341,21 +354,15 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
         .split(left_chunks[2]);
     let active_info_area = horizontal_info_layout[1];
 
-    let sub_chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-        .split(active_info_area);
-
-    let model_info = Line::from(vec![
-        Span::styled("Build", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-        Span::raw(" · Base Kernel LLM"),
-    ]);
-    frame.render_widget(Paragraph::new(model_info), sub_chunks[0]);
-
-    let shortcuts = Paragraph::new("tab agents  ctrl+p commands")
-        .style(Style::default().fg(Color::DarkGray))
+    let shortcuts_spans = vec![
+        Span::styled("tab", Style::default().fg(Color::White)),
+        Span::styled(" agents  ", Style::default().fg(Color::DarkGray)),
+        Span::styled("ctrl+p", Style::default().fg(Color::White)),
+        Span::styled(" commands", Style::default().fg(Color::DarkGray)),
+    ];
+    let shortcuts = Paragraph::new(Line::from(shortcuts_spans))
         .alignment(ratatui::layout::Alignment::Right);
-    frame.render_widget(shortcuts, sub_chunks[1]);
+    frame.render_widget(shortcuts, active_info_area);
 
     if show_sidebar {
         // --- KOLOM KANAN (SIDEBAR) ---
