@@ -13,8 +13,8 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
     let banner_content = include_str!("../../../assets/clawhive.txt");
     let banner_lines_count = banner_content.lines().count();
     
-    // Hitung tinggi konten utama (logo + spacer + input + sub_input + spacer + tip)
-    let content_height = banner_lines_count as u16 + 10;
+    // Hitung tinggi konten utama (logo + spacer + input + spacer + tip)
+    let content_height = banner_lines_count as u16 + 9;
 
     // 1. Pisahkan Area Footer terlebih dahulu di bagian paling bawah
     let main_chunks = Layout::default()
@@ -45,7 +45,6 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
             Constraint::Length(banner_lines_count as u16), // Logo
             Constraint::Length(2),                         // Spacer logo-input
             Constraint::Length(4),                         // Input Box
-            Constraint::Length(1),                         // Sub-input info
             Constraint::Length(2),                         // Spacer input-tip
             Constraint::Length(1),                         // Tip
         ])
@@ -84,16 +83,6 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
         .split(inner_chunks[2]);
     let input_box_area = horizontal_input_layout[1];
 
-    let horizontal_sub_layout = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(20),
-            Constraint::Percentage(60),
-            Constraint::Percentage(20),
-        ])
-        .split(inner_chunks[3]);
-    let sub_info_area = horizontal_sub_layout[1];
-
     // 2. Input Box (dengan border kiri Cyan/Blue dan background gelap)
     let input_block = Block::default().borders(Borders::LEFT).border_style(
         Style::default()
@@ -102,6 +91,16 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
     );
 
     let input_inner = input_block.inner(input_box_area);
+
+    let provider = if app.active_model.contains("Kimi") { "Kimi" } else { "Ollama" };
+    let left_len = 2 + 3 + 3 + app.active_model.len() + 1 + provider.len();
+    let right_len = 40; // panjang visual dari: "/ commands  : terminal  ctrl+p palette  "
+    
+    let spacer_len = (input_inner.width as usize)
+        .saturating_sub(left_len)
+        .saturating_sub(right_len)
+        .max(1);
+    let middle_spacer = " ".repeat(spacer_len);
 
     let lines = if app.input_buffer.is_empty() {
         vec![
@@ -114,13 +113,20 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
             Line::from(vec![
                 Span::raw("  "),
                 Span::styled(
-                    "Build",
+                    "TUI",
                     Style::default()
                         .fg(Color::Cyan)
                         .add_modifier(Modifier::BOLD),
                 ),
-                Span::styled(" · Kimi K2.7 Code ", Style::default().fg(Color::White)),
-                Span::styled("OpenCode Go", Style::default().fg(Color::DarkGray)),
+                Span::styled(format!(" · {} ", app.active_model), Style::default().fg(Color::White)),
+                Span::styled(provider, Style::default().fg(Color::DarkGray)),
+                Span::raw(middle_spacer.clone()),
+                Span::styled("/", Style::default().fg(Color::White)),
+                Span::styled(" commands  ", Style::default().fg(Color::DarkGray)),
+                Span::styled(":", Style::default().fg(Color::White)),
+                Span::styled(" terminal  ", Style::default().fg(Color::DarkGray)),
+                Span::styled("ctrl+p", Style::default().fg(Color::White)),
+                Span::styled(" palette  ", Style::default().fg(Color::DarkGray)),
             ]),
         ]
     } else {
@@ -134,13 +140,20 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
             Line::from(vec![
                 Span::raw("  "),
                 Span::styled(
-                    "Build",
+                    "TUI",
                     Style::default()
                         .fg(Color::Cyan)
                         .add_modifier(Modifier::BOLD),
                 ),
-                Span::styled(" · Kimi K2.7 Code ", Style::default().fg(Color::White)),
-                Span::styled("OpenCode Go", Style::default().fg(Color::DarkGray)),
+                Span::styled(format!(" · {} ", app.active_model), Style::default().fg(Color::White)),
+                Span::styled(provider, Style::default().fg(Color::DarkGray)),
+                Span::raw(middle_spacer),
+                Span::styled("/", Style::default().fg(Color::White)),
+                Span::styled(" commands  ", Style::default().fg(Color::DarkGray)),
+                Span::styled(":", Style::default().fg(Color::White)),
+                Span::styled(" terminal  ", Style::default().fg(Color::DarkGray)),
+                Span::styled("ctrl+p", Style::default().fg(Color::White)),
+                Span::styled(" palette  ", Style::default().fg(Color::DarkGray)),
             ]),
         ]
     };
@@ -156,19 +169,6 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
         input_inner.y,
     ));
 
-    // 3. Sub-input info (Shortcuts saja di bawah kanan di luar box)
-    let shortcuts_spans = vec![
-        Span::styled("/", Style::default().fg(Color::White)),
-        Span::styled(" commands  ", Style::default().fg(Color::DarkGray)),
-        Span::styled(":", Style::default().fg(Color::White)),
-        Span::styled(" terminal  ", Style::default().fg(Color::DarkGray)),
-        Span::styled("ctrl+p", Style::default().fg(Color::White)),
-        Span::styled(" palette", Style::default().fg(Color::DarkGray)),
-    ];
-    let shortcuts =
-        Paragraph::new(Line::from(shortcuts_spans)).alignment(ratatui::layout::Alignment::Right);
-    frame.render_widget(shortcuts, sub_info_area);
-
     // 4. Tip
     let tip_line = Line::from(vec![
         Span::styled("●", Style::default().fg(Color::Yellow)),
@@ -183,7 +183,7 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
         Span::raw(" untuk perintah terminal."),
     ]);
     let tip = Paragraph::new(tip_line).alignment(ratatui::layout::Alignment::Center);
-    frame.render_widget(tip, inner_chunks[5]);
+    frame.render_widget(tip, inner_chunks[4]);
 
     // 5. Footer
     let footer_chunks = Layout::default()

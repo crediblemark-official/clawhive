@@ -57,6 +57,7 @@ pub struct TuiApp {
     pub active_screen: Screen,
     pub chat_history: Vec<(String, String, String)>, // (sender, role/model, message)
     pub command_mode: CommandMode,
+    pub active_model: String,
 }
 
 impl TuiApp {
@@ -76,6 +77,7 @@ impl TuiApp {
             active_screen: Screen::Home,
             chat_history: Vec::new(),
             command_mode: CommandMode::None,
+            active_model: "Kimi K2.7 Code".into(),
         }
     }
 
@@ -615,7 +617,12 @@ Commands:
                 self.active_screen = Screen::Chat;
             }
             "/model_switch" => {
-                self.chat_history.push(("System".into(), "".into(), "Model berhasil diubah ke: Build · Kimi K2.7 Code".into()));
+                if self.active_model == "Kimi K2.7 Code" {
+                    self.active_model = "Qwen 2.5 Coder".to_string();
+                } else {
+                    self.active_model = "Kimi K2.7 Code".to_string();
+                }
+                self.chat_history.push(("System".into(), "".into(), format!("Model berhasil diubah ke: {}", self.active_model)));
                 self.active_screen = Screen::Chat;
             }
             "/session_share" => {
