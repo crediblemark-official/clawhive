@@ -1,3 +1,4 @@
+use clawhive_domain::AgentState;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -5,9 +6,57 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
 };
-use clawhive_domain::AgentState;
 
 use crate::app::{Screen, Tab, TuiApp};
+
+fn parse_ansi_logo(content: &'static str) -> Vec<Line<'static>> {
+    let mut lines = Vec::new();
+    for line in content.lines() {
+        if line.is_empty() {
+            lines.push(Line::from(""));
+            continue;
+        }
+
+        if line.contains("\x1b[38;2;") {
+            let parts: Vec<&str> = line.split("\x1b[38;2;").collect();
+            let mut spans = Vec::new();
+            
+            if !parts[0].is_empty() && !parts[0].starts_with("\x1b[") {
+                spans.push(Span::raw(parts[0]));
+            }
+
+            for part in parts.iter().skip(1) {
+                if let Some(m_idx) = part.find('m') {
+                    let color_def = &part[..m_idx];
+                    let text = &part[m_idx + 1..];
+                    let clean_text = text.replace("\x1b[0m", "");
+                    
+                    let rgb: Vec<&str> = color_def.split(';').collect();
+                    if rgb.len() == 3 {
+                        if let (Ok(r), Ok(g), Ok(b)) = (rgb[0].parse::<u8>(), rgb[1].parse::<u8>(), rgb[2].parse::<u8>()) {
+                            spans.push(Span::styled(
+                                clean_text,
+                                Style::default().fg(Color::Rgb(r, g, b)),
+                            ));
+                            continue;
+                        }
+                    }
+                    spans.push(Span::raw(clean_text));
+                } else {
+                    spans.push(Span::raw(*part));
+                }
+            }
+            
+            lines.push(Line::from(spans));
+        } else {
+            let clean_line = line.replace("\x1b[0m", "");
+            if !clean_line.trim().is_empty() {
+                lines.push(Line::from(clean_line));
+            }
+        }
+    }
+    lines
+}
 
 fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
     let chunks = Layout::default()
@@ -25,30 +74,54 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
         ])
         .split(area);
 
-    // 1. Logo ASCII Baru dengan Warna Emas (Rgb(212, 175, 55)) & Gradient Teks Emas Kuning
+    // 1. Logo ASCII Baru dengan Warna Emas (Rgb(212, 175, 55)) & Gradient Teks Emas Kuning dari Aset
     let gold = Color::Rgb(212, 175, 55);
 
-    let logo_lines = vec![
-        Line::from(Span::styled(r"         ________   ____", Style::default().fg(gold))),
-        Line::from(Span::styled(r"     ___/   \_/   \_/____\", Style::default().fg(gold))),
-        Line::from(Span::styled(r"   _/   \_  :       /____\", Style::default().fg(gold))),
-        Line::from(Span::styled(r"  /|     :  :  .   /      \", Style::default().fg(gold))),
-        Line::from(Span::styled(r" | |    :|  ||    \ \____/", Style::default().fg(gold))),
-        Line::from(Span::styled(r" | |    ||  ||     |\ / |", Style::default().fg(gold))),
-        Line::from(Span::styled(r"  \|    ||  ||     | /_/_", Style::default().fg(gold))),
-        Line::from(Span::styled(r"   | __ || __ | __ |/__/ \", Style::default().fg(gold))),
-        Line::from(Span::styled(r"    \_-_/  \_-_/ \_-/  \_/", Style::default().fg(gold))),
+    let mut logo_lines = vec![
+        Line::from(Span::styled(
+            r"         ________   ____",
+            Style::default().fg(gold),
+        )),
+        Line::from(Span::styled(
+            r"     ___/   \_/   \_/____\",
+            Style::default().fg(gold),
+        )),
+        Line::from(Span::styled(
+            r"   _/   \_  :       /____\",
+            Style::default().fg(gold),
+        )),
+        Line::from(Span::styled(
+            r"  /|     :  :  .   /      \",
+            Style::default().fg(gold),
+        )),
+        Line::from(Span::styled(
+            r" | |    :|  ||    \ \____/",
+            Style::default().fg(gold),
+        )),
+        Line::from(Span::styled(
+            r" | |    ||  ||     |\ / |",
+            Style::default().fg(gold),
+        )),
+        Line::from(Span::styled(
+            r"  \|    ||  ||     | /_/_",
+            Style::default().fg(gold),
+        )),
+        Line::from(Span::styled(
+            r"   | __ || __ | __ |/__/ \",
+            Style::default().fg(gold),
+        )),
+        Line::from(Span::styled(
+            r"    \_-_/  \_-_/ \_-/  \_/",
+            Style::default().fg(gold),
+        )),
         Line::from(""),
-        Line::from(Span::styled(" ██████╗██╗      █████╗ ██╗    ██╗██╗  ██╗██╗██╗   ██╗███████╗", Style::default().fg(Color::Rgb(255, 225, 120)))),
-        Line::from(Span::styled(" ██╔════╝██║     ██╔══██╗██║    ██║██║  ██║██║██║   ██║██╔════╝", Style::default().fg(Color::Rgb(245, 205, 90)))),
-        Line::from(Span::styled(" ██║     ██║     ███████║██║ █╗ ██║███████║██║██║   ██║█████╗", Style::default().fg(Color::Rgb(230, 190, 65)))),
-        Line::from(Span::styled(" ██║     ██║     ██╔══██║██║███╗██║██╔══██║██║╚██╗ ██╔╝██╔══╝", Style::default().fg(Color::Rgb(220, 180, 55)))),
-        Line::from(Span::styled(" ╚██████╗███████╗██║  ██║╚███╔███╔╝██║  ██║██║ ╚████╔╝ ███████╗", Style::default().fg(Color::Rgb(205, 165, 40)))),
-        Line::from(Span::styled("  ╚═════╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═══╝  ╚══════╝", Style::default().fg(Color::Rgb(184, 134, 11)))),
     ];
-    
-    let logo = Paragraph::new(logo_lines)
-        .alignment(ratatui::layout::Alignment::Center);
+
+    let ansi_content = include_str!("../../../assets/clawhive-gold-gradient.ans");
+    let text_lines = parse_ansi_logo(ansi_content);
+    logo_lines.extend(text_lines);
+
+    let logo = Paragraph::new(logo_lines).alignment(ratatui::layout::Alignment::Center);
     frame.render_widget(logo, chunks[1]);
 
     // Pembagian horizontal di tengah (lebar 60%) agar input box tidak full-width
@@ -73,10 +146,12 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
     let sub_info_area = horizontal_sub_layout[1];
 
     // 2. Input Box (dengan border kiri Cyan/Blue dan background gelap)
-    let input_block = Block::default()
-        .borders(Borders::LEFT)
-        .border_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD));
-    
+    let input_block = Block::default().borders(Borders::LEFT).border_style(
+        Style::default()
+            .fg(Color::Cyan)
+            .add_modifier(Modifier::BOLD),
+    );
+
     let input_inner = input_block.inner(input_box_area);
 
     let lines = if app.input_buffer.is_empty() {
@@ -88,7 +163,12 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
             )),
             Line::from(vec![
                 Span::raw("  "),
-                Span::styled("Build", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "Build",
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(" · Kimi K2.7 Code ", Style::default().fg(Color::White)),
                 Span::styled("OpenCode Go", Style::default().fg(Color::DarkGray)),
             ]),
@@ -102,7 +182,12 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
             )),
             Line::from(vec![
                 Span::raw("  "),
-                Span::styled("Build", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "Build",
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(" · Kimi K2.7 Code ", Style::default().fg(Color::White)),
                 Span::styled("OpenCode Go", Style::default().fg(Color::DarkGray)),
             ]),
@@ -127,20 +212,24 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
         Span::styled("ctrl+p", Style::default().fg(Color::White)),
         Span::styled(" commands", Style::default().fg(Color::DarkGray)),
     ];
-    let shortcuts = Paragraph::new(Line::from(shortcuts_spans))
-        .alignment(ratatui::layout::Alignment::Right);
+    let shortcuts =
+        Paragraph::new(Line::from(shortcuts_spans)).alignment(ratatui::layout::Alignment::Right);
     frame.render_widget(shortcuts, sub_info_area);
 
     // 4. Tip
     let tip_line = Line::from(vec![
         Span::styled("●", Style::default().fg(Color::Yellow)),
-        Span::styled(" Tip", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            " Tip",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::raw(" Ketik prompt dan tekan Enter untuk menjalankan agen. Gunakan "),
         Span::styled(":help", Style::default().fg(Color::Cyan)),
         Span::raw(" untuk perintah terminal."),
     ]);
-    let tip = Paragraph::new(tip_line)
-        .alignment(ratatui::layout::Alignment::Center);
+    let tip = Paragraph::new(tip_line).alignment(ratatui::layout::Alignment::Center);
     frame.render_widget(tip, chunks[6]);
 
     // 5. Footer
@@ -152,7 +241,7 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
     let current_dir = std::env::current_dir()
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_else(|_| "~/PROJECT/clawhive".to_string());
-    
+
     let repo_info = format!("{}:master", current_dir);
     frame.render_widget(
         Paragraph::new(repo_info).style(Style::default().fg(Color::DarkGray)),
@@ -187,9 +276,9 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
     let left_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Min(0),      // Chat history
-            Constraint::Length(4),   // Input Box (height 4 untuk text + model info di dalam)
-            Constraint::Length(1),   // Sub-input info
+            Constraint::Min(0),    // Chat history
+            Constraint::Length(4), // Input Box (height 4 untuk text + model info di dalam)
+            Constraint::Length(1), // Sub-input info
         ])
         .split(main_chunks[0]);
 
@@ -207,7 +296,7 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
     let max_height = chat_history_area.height as i16;
     let mut current_height = 0;
     let mut visible_chats = Vec::new();
-    
+
     for (sender, model, msg) in app.chat_history.iter().rev() {
         let lines_count = msg.lines().count() as i16;
         let is_box = sender.to_lowercase() == "user" || sender.to_lowercase() == "system";
@@ -216,7 +305,7 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
         } else {
             1 + 1 + lines_count + 1 // 1 label + 1 blank line + lines_count + 1 margin
         };
-        
+
         if current_height + item_height <= max_height {
             visible_chats.push((sender, model, msg, item_height));
             current_height += item_height;
@@ -252,9 +341,9 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
         let horizontal_bubble_layout = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
-                Constraint::Length(2),      // Margin kiri 2 spasi
-                Constraint::Min(0),         // Gelembung chat utama
-                Constraint::Length(2),      // Margin kanan 2 spasi
+                Constraint::Length(2), // Margin kiri 2 spasi
+                Constraint::Min(0),    // Gelembung chat utama
+                Constraint::Length(2), // Margin kanan 2 spasi
             ])
             .split(bubble_area);
         let active_bubble_area = horizontal_bubble_layout[1];
@@ -266,7 +355,11 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
             let border_color = if is_user { Color::Cyan } else { Color::Red };
             let input_block = Block::default()
                 .borders(Borders::LEFT)
-                .border_style(Style::default().fg(border_color).add_modifier(Modifier::BOLD))
+                .border_style(
+                    Style::default()
+                        .fg(border_color)
+                        .add_modifier(Modifier::BOLD),
+                )
                 .style(Style::default().bg(Color::Indexed(236))); // Background abu-abu gelap solid
 
             let mut lines = Vec::new();
@@ -304,17 +397,19 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
     let horizontal_input_layout = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
-            Constraint::Length(2),      // Margin kiri 2 spasi
-            Constraint::Min(0),         // Input box utama
-            Constraint::Length(2),      // Margin kanan 2 spasi
+            Constraint::Length(2), // Margin kiri 2 spasi
+            Constraint::Min(0),    // Input box utama
+            Constraint::Length(2), // Margin kanan 2 spasi
         ])
         .split(left_chunks[1]);
     let active_input_area = horizontal_input_layout[1];
 
-    let input_block = Block::default()
-        .borders(Borders::LEFT)
-        .border_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD));
-    
+    let input_block = Block::default().borders(Borders::LEFT).border_style(
+        Style::default()
+            .fg(Color::Cyan)
+            .add_modifier(Modifier::BOLD),
+    );
+
     let input_inner = input_block.inner(active_input_area);
 
     let chat_input_lines = if app.input_buffer.is_empty() {
@@ -326,7 +421,12 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
             )),
             Line::from(vec![
                 Span::raw("  "),
-                Span::styled("Build", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "Build",
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(" · Kimi K2.7 Code ", Style::default().fg(Color::White)),
                 Span::styled("OpenCode Go", Style::default().fg(Color::DarkGray)),
             ]),
@@ -340,7 +440,12 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
             )),
             Line::from(vec![
                 Span::raw("  "),
-                Span::styled("Build", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "Build",
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(" · Kimi K2.7 Code ", Style::default().fg(Color::White)),
                 Span::styled("OpenCode Go", Style::default().fg(Color::DarkGray)),
             ]),
@@ -361,9 +466,9 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
     let horizontal_info_layout = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
-            Constraint::Length(2),      // Margin kiri 2 spasi
-            Constraint::Min(0),         // Sub-info utama
-            Constraint::Length(2),      // Margin kanan 2 spasi
+            Constraint::Length(2), // Margin kiri 2 spasi
+            Constraint::Min(0),    // Sub-info utama
+            Constraint::Length(2), // Margin kanan 2 spasi
         ])
         .split(left_chunks[2]);
     let active_info_area = horizontal_info_layout[1];
@@ -374,8 +479,8 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
         Span::styled("ctrl+p", Style::default().fg(Color::White)),
         Span::styled(" commands", Style::default().fg(Color::DarkGray)),
     ];
-    let shortcuts = Paragraph::new(Line::from(shortcuts_spans))
-        .alignment(ratatui::layout::Alignment::Right);
+    let shortcuts =
+        Paragraph::new(Line::from(shortcuts_spans)).alignment(ratatui::layout::Alignment::Right);
     frame.render_widget(shortcuts, active_info_area);
 
     if show_sidebar {
@@ -392,9 +497,9 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
         let horizontal_sidebar_layout = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
-                Constraint::Length(2),      // Padding kiri dari garis pembatas
-                Constraint::Min(0),         // Area utama sidebar
-                Constraint::Length(2),      // Padding kanan dari tepi terminal
+                Constraint::Length(2), // Padding kiri dari garis pembatas
+                Constraint::Min(0),    // Area utama sidebar
+                Constraint::Length(2), // Padding kanan dari tepi terminal
             ])
             .split(sidebar_inner);
         let active_sidebar_area = horizontal_sidebar_layout[1];
@@ -421,41 +526,75 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
                     Tab::SpawnRequests => i == 3,
                 };
                 if is_selected {
-                    Span::styled(format!(" {} ", t), Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+                    Span::styled(
+                        format!(" {} ", t),
+                        Style::default()
+                            .fg(Color::Cyan)
+                            .add_modifier(Modifier::BOLD),
+                    )
                 } else {
                     Span::styled(format!(" {} ", t), Style::default().fg(Color::DarkGray))
                 }
             })
             .collect();
-        
+
         let tab_header = Paragraph::new(vec![
-            Line::from(""), // Baris ke-1 kosong
+            Line::from(""),        // Baris ke-1 kosong
             Line::from(tab_spans), // Baris ke-2 berisi teks tab
         ])
         .style(Style::default().bg(Color::Black)) // Background hitam pekat
-        .block(Block::default()
-            .borders(Borders::BOTTOM)
-            .border_style(Style::default().fg(Color::DarkGray))
-            .style(Style::default().bg(Color::Black)));
+        .block(
+            Block::default()
+                .borders(Borders::BOTTOM)
+                .border_style(Style::default().fg(Color::DarkGray))
+                .style(Style::default().bg(Color::Black)),
+        );
         frame.render_widget(tab_header, sidebar_chunks[0]);
 
         // Tab Content
         match app.selected_tab {
             Tab::Session => {
-                let now_str = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S.000Z").to_string();
+                let now_str = chrono::Utc::now()
+                    .format("%Y-%m-%dT%H:%M:%S.000Z")
+                    .to_string();
                 let tokens_str = format!("{} tokens", app.chat_history.len() * 12);
-                
+
                 // Susun lines dengan kontras hierarki warna (Putih tebal untuk judul seksi, abu-abu untuk detail)
                 let lines = vec![
-                    Line::from(Span::styled(format!("New session - {}", now_str), Style::default().fg(Color::White))),
+                    Line::from(Span::styled(
+                        format!("New session - {}", now_str),
+                        Style::default().fg(Color::White),
+                    )),
                     Line::from(""),
-                    Line::from(Span::styled("Context", Style::default().fg(Color::White).add_modifier(Modifier::BOLD))),
-                    Line::from(Span::styled(tokens_str, Style::default().fg(Color::DarkGray))),
-                    Line::from(Span::styled("0% used", Style::default().fg(Color::DarkGray))),
-                    Line::from(Span::styled("$0.00 spent", Style::default().fg(Color::DarkGray))),
+                    Line::from(Span::styled(
+                        "Context",
+                        Style::default()
+                            .fg(Color::White)
+                            .add_modifier(Modifier::BOLD),
+                    )),
+                    Line::from(Span::styled(
+                        tokens_str,
+                        Style::default().fg(Color::DarkGray),
+                    )),
+                    Line::from(Span::styled(
+                        "0% used",
+                        Style::default().fg(Color::DarkGray),
+                    )),
+                    Line::from(Span::styled(
+                        "$0.00 spent",
+                        Style::default().fg(Color::DarkGray),
+                    )),
                     Line::from(""),
-                    Line::from(Span::styled("LSP", Style::default().fg(Color::White).add_modifier(Modifier::BOLD))),
-                    Line::from(Span::styled("LSPs are disabled", Style::default().fg(Color::DarkGray))),
+                    Line::from(Span::styled(
+                        "LSP",
+                        Style::default()
+                            .fg(Color::White)
+                            .add_modifier(Modifier::BOLD),
+                    )),
+                    Line::from(Span::styled(
+                        "LSPs are disabled",
+                        Style::default().fg(Color::DarkGray),
+                    )),
                 ];
 
                 let session_para = Paragraph::new(lines)
@@ -464,64 +603,94 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
                 frame.render_widget(session_para, sidebar_chunks[1]);
             }
             Tab::Agents => {
-                let items: Vec<ListItem> = app.agents.iter().enumerate().map(|(i, a)| {
-                    let prefix = if i == app.selected_index { "> " } else { "  " };
-                    let state_color = match a.state {
-                        AgentState::Active => Color::Green,
-                        AgentState::Paused => Color::Blue,
-                        _ => Color::DarkGray,
-                    };
-                    ListItem::new(Line::from(vec![
-                        Span::styled(prefix, Style::default().fg(Color::Cyan)),
-                        Span::raw(format!("{} ", a.name)),
-                        Span::styled(format!("{:?}", a.state), Style::default().fg(state_color)),
-                    ]))
-                }).collect();
+                let items: Vec<ListItem> = app
+                    .agents
+                    .iter()
+                    .enumerate()
+                    .map(|(i, a)| {
+                        let prefix = if i == app.selected_index { "> " } else { "  " };
+                        let state_color = match a.state {
+                            AgentState::Active => Color::Green,
+                            AgentState::Paused => Color::Blue,
+                            _ => Color::DarkGray,
+                        };
+                        ListItem::new(Line::from(vec![
+                            Span::styled(prefix, Style::default().fg(Color::Cyan)),
+                            Span::raw(format!("{} ", a.name)),
+                            Span::styled(
+                                format!("{:?}", a.state),
+                                Style::default().fg(state_color),
+                            ),
+                        ]))
+                    })
+                    .collect();
                 let list = List::new(items)
                     .style(Style::default().bg(Color::Black)) // Background hitam pekat
-                    .block(Block::default()
-                        .title(" Agents ")
-                        .title_alignment(ratatui::layout::Alignment::Center)
-                        .style(Style::default().bg(Color::Black)));
+                    .block(
+                        Block::default()
+                            .title(" Agents ")
+                            .title_alignment(ratatui::layout::Alignment::Center)
+                            .style(Style::default().bg(Color::Black)),
+                    );
                 frame.render_widget(list, sidebar_chunks[1]);
             }
             Tab::Workers => {
-                let items: Vec<ListItem> = app.workers.iter().enumerate().map(|(i, w)| {
-                    let prefix = if i == app.selected_index { "> " } else { "  " };
-                    ListItem::new(Line::from(vec![
-                        Span::styled(prefix, Style::default().fg(Color::Cyan)),
-                        Span::raw(format!("{} ", w.name)),
-                        Span::styled(format!("{:?}", w.state), Style::default().fg(Color::Green)),
-                    ]))
-                }).collect();
+                let items: Vec<ListItem> = app
+                    .workers
+                    .iter()
+                    .enumerate()
+                    .map(|(i, w)| {
+                        let prefix = if i == app.selected_index { "> " } else { "  " };
+                        ListItem::new(Line::from(vec![
+                            Span::styled(prefix, Style::default().fg(Color::Cyan)),
+                            Span::raw(format!("{} ", w.name)),
+                            Span::styled(
+                                format!("{:?}", w.state),
+                                Style::default().fg(Color::Green),
+                            ),
+                        ]))
+                    })
+                    .collect();
                 let list = List::new(items)
                     .style(Style::default().bg(Color::Black)) // Background hitam pekat
-                    .block(Block::default()
-                        .title(" Workers ")
-                        .title_alignment(ratatui::layout::Alignment::Center)
-                        .style(Style::default().bg(Color::Black)));
+                    .block(
+                        Block::default()
+                            .title(" Workers ")
+                            .title_alignment(ratatui::layout::Alignment::Center)
+                            .style(Style::default().bg(Color::Black)),
+                    );
                 frame.render_widget(list, sidebar_chunks[1]);
             }
             Tab::SpawnRequests => {
-                let items: Vec<ListItem> = app.spawn_requests.iter().enumerate().map(|(i, r)| {
-                    let prefix = if i == app.selected_index { "> " } else { "  " };
-                    let display_id = if r.id.0.to_string().len() > 8 {
-                        r.id.0.to_string()[..8].to_string()
-                    } else {
-                        r.id.0.to_string()
-                    };
-                    ListItem::new(Line::from(vec![
-                        Span::styled(prefix, Style::default().fg(Color::Cyan)),
-                        Span::raw(format!("{} ", display_id)),
-                        Span::styled(format!("{:?}", r.state), Style::default().fg(Color::Yellow)),
-                    ]))
-                }).collect();
+                let items: Vec<ListItem> = app
+                    .spawn_requests
+                    .iter()
+                    .enumerate()
+                    .map(|(i, r)| {
+                        let prefix = if i == app.selected_index { "> " } else { "  " };
+                        let display_id = if r.id.0.to_string().len() > 8 {
+                            r.id.0.to_string()[..8].to_string()
+                        } else {
+                            r.id.0.to_string()
+                        };
+                        ListItem::new(Line::from(vec![
+                            Span::styled(prefix, Style::default().fg(Color::Cyan)),
+                            Span::raw(format!("{} ", display_id)),
+                            Span::styled(
+                                format!("{:?}", r.state),
+                                Style::default().fg(Color::Yellow),
+                            ),
+                        ]))
+                    })
+                    .collect();
                 let list = List::new(items)
                     .style(Style::default().bg(Color::Black)) // Background hitam pekat
-                    .block(Block::default()
-                        .title(" Spawn Requests ")
-                        .title_alignment(ratatui::layout::Alignment::Center)
-                        .style(Style::default().bg(Color::Black)));
+                    .block(
+                        Block::default()
+                            .title(" Spawn Requests ")
+                            .title_alignment(ratatui::layout::Alignment::Center)
+                            .style(Style::default().bg(Color::Black)),
+                    );
                 frame.render_widget(list, sidebar_chunks[1]);
             }
         }
@@ -530,10 +699,13 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
         let current_dir = std::env::current_dir()
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_else(|_| "/home/rasyiqi/PROJECT/clawhive".to_string());
-        
+
         // Pecah path agar kata "clawhive" dicetak putih tebal
         let (base_path, folder_name) = if current_dir.ends_with("/clawhive") {
-            (current_dir[..current_dir.len() - 8].to_string(), "clawhive".to_string())
+            (
+                current_dir[..current_dir.len() - 8].to_string(),
+                "clawhive".to_string(),
+            )
         } else {
             (current_dir.to_string(), "".to_string())
         };
@@ -546,7 +718,12 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
         } else {
             Line::from(vec![
                 Span::styled(base_path, Style::default().fg(Color::DarkGray)),
-                Span::styled(folder_name, Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    folder_name,
+                    Style::default()
+                        .fg(Color::White)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(":master", Style::default().fg(Color::DarkGray)),
             ])
         };
@@ -555,7 +732,12 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
             repo_line,
             Line::from(vec![
                 Span::styled("● ", Style::default().fg(Color::Green)),
-                Span::styled("ClawHive ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "ClawHive ",
+                    Style::default()
+                        .fg(Color::White)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled("0.1.0", Style::default().fg(Color::DarkGray)),
             ]),
         ])
@@ -564,7 +746,11 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
     }
 
     // Render Slash Autocomplete Pop-up tepat di atas input box jika aktif
-    if let crate::app::CommandMode::SlashAutocomplete { selected_index, filtered_commands } = &app.command_mode {
+    if let crate::app::CommandMode::SlashAutocomplete {
+        selected_index,
+        filtered_commands,
+    } = &app.command_mode
+    {
         if !filtered_commands.is_empty() {
             let popup_height = (filtered_commands.len() + 2).min(8) as u16;
             let popup_area = Rect {
@@ -573,19 +759,34 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
                 width: active_input_area.width,
                 height: popup_height,
             };
-            
+
             let block = Block::default()
                 .borders(Borders::LEFT)
-                .border_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+                .border_style(
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                )
                 .style(Style::default().bg(Color::Rgb(15, 15, 15))); // Background super gelap
-            
+
             let mut lines = Vec::new();
             for (i, (cmd, desc)) in filtered_commands.iter().enumerate() {
                 let is_selected = i == *selected_index;
                 let line = if is_selected {
                     Line::from(vec![
-                        Span::styled(format!("  {:<12}", cmd), Style::default().fg(Color::Black).bg(Color::Rgb(254, 192, 126)).add_modifier(Modifier::BOLD)),
-                        Span::styled(format!("  {}", desc), Style::default().fg(Color::Black).bg(Color::Rgb(254, 192, 126))),
+                        Span::styled(
+                            format!("  {:<12}", cmd),
+                            Style::default()
+                                .fg(Color::Black)
+                                .bg(Color::Rgb(254, 192, 126))
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                        Span::styled(
+                            format!("  {}", desc),
+                            Style::default()
+                                .fg(Color::Black)
+                                .bg(Color::Rgb(254, 192, 126)),
+                        ),
                     ])
                 } else {
                     Line::from(vec![
@@ -595,11 +796,11 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
                 };
                 lines.push(line);
             }
-            
+
             let p = Paragraph::new(lines)
                 .block(block)
                 .style(Style::default().bg(Color::Rgb(15, 15, 15)));
-            
+
             frame.render_widget(ratatui::widgets::Clear, popup_area);
             frame.render_widget(p, popup_area);
         }
@@ -613,19 +814,24 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &TuiApp) {
     }
 
     // Render Command Palette Modal (Ctrl+P) di atas layar apa pun jika aktif
-    if let crate::app::CommandMode::CommandPalette { search_query, selected_index, filtered_items } = &app.command_mode {
+    if let crate::app::CommandMode::CommandPalette {
+        search_query,
+        selected_index,
+        filtered_items,
+    } = &app.command_mode
+    {
         let palette_area = get_fixed_centered_rect(65, 18, area);
-        
+
         let block = Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::DarkGray))
             .style(Style::default().bg(Color::Rgb(15, 15, 15))); // Background hitam pekat modal
-        
+
         let inner_area = block.inner(palette_area);
-        
+
         frame.render_widget(ratatui::widgets::Clear, palette_area);
         frame.render_widget(block, palette_area);
-        
+
         let palette_chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -636,22 +842,25 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &TuiApp) {
                 Constraint::Min(0),    // List
             ])
             .split(inner_area);
-        
+
         // --- 0. Render Header ---
         let header_chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
             .split(palette_chunks[0]);
-        
-        let header_left = Paragraph::new("Commands")
-            .style(Style::default().fg(Color::White).add_modifier(Modifier::BOLD));
+
+        let header_left = Paragraph::new("Commands").style(
+            Style::default()
+                .fg(Color::White)
+                .add_modifier(Modifier::BOLD),
+        );
         let header_right = Paragraph::new("esc")
             .style(Style::default().fg(Color::DarkGray))
             .alignment(ratatui::layout::Alignment::Right);
-        
+
         frame.render_widget(header_left, header_chunks[0]);
         frame.render_widget(header_right, header_chunks[1]);
-        
+
         // --- 2. Render Search Box ---
         let search_text = if search_query.is_empty() {
             Span::styled("Search", Style::default().fg(Color::DarkGray))
@@ -661,43 +870,68 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &TuiApp) {
         let search_para = Paragraph::new(Line::from(vec![
             Span::raw(" "), // Padding kiri 1 spasi
             search_text,
-        ])).style(Style::default().bg(Color::Rgb(25, 25, 25)));
+        ]))
+        .style(Style::default().bg(Color::Rgb(25, 25, 25)));
         frame.render_widget(search_para, palette_chunks[2]);
-        
+
         // --- 4. Render List ---
         let mut list_lines = Vec::new();
         let mut current_category = String::new();
-        
+
         for (flat_idx, (category, name, shortcut, _)) in filtered_items.iter().enumerate() {
             if category != &current_category {
                 current_category = category.clone();
                 list_lines.push(Line::from("")); // Spacer kategori
-                list_lines.push(Line::from(vec![
-                    Span::styled(format!(" {}", current_category), Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)),
-                ]));
+                list_lines.push(Line::from(vec![Span::styled(
+                    format!(" {}", current_category),
+                    Style::default()
+                        .fg(Color::Magenta)
+                        .add_modifier(Modifier::BOLD),
+                )]));
             }
-            
+
             let is_selected = flat_idx == *selected_index;
             let item_line = if is_selected {
-                let spaces_needed = (inner_area.width as usize).saturating_sub(name.len() + shortcut.len() + 6);
+                let spaces_needed =
+                    (inner_area.width as usize).saturating_sub(name.len() + shortcut.len() + 6);
                 let padding = " ".repeat(spaces_needed);
                 Line::from(vec![
-                    Span::styled(format!("  {}", name), Style::default().fg(Color::Black).bg(Color::Rgb(254, 192, 126)).add_modifier(Modifier::BOLD)),
-                    Span::styled(padding, Style::default().fg(Color::Black).bg(Color::Rgb(254, 192, 126))),
-                    Span::styled(format!("{}  ", shortcut), Style::default().fg(Color::Black).bg(Color::Rgb(254, 192, 126))),
+                    Span::styled(
+                        format!("  {}", name),
+                        Style::default()
+                            .fg(Color::Black)
+                            .bg(Color::Rgb(254, 192, 126))
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        padding,
+                        Style::default()
+                            .fg(Color::Black)
+                            .bg(Color::Rgb(254, 192, 126)),
+                    ),
+                    Span::styled(
+                        format!("{}  ", shortcut),
+                        Style::default()
+                            .fg(Color::Black)
+                            .bg(Color::Rgb(254, 192, 126)),
+                    ),
                 ])
             } else {
-                let spaces_needed = (inner_area.width as usize).saturating_sub(name.len() + shortcut.len() + 6);
+                let spaces_needed =
+                    (inner_area.width as usize).saturating_sub(name.len() + shortcut.len() + 6);
                 let padding = " ".repeat(spaces_needed);
                 Line::from(vec![
                     Span::styled(format!("  {}", name), Style::default().fg(Color::White)),
                     Span::raw(padding),
-                    Span::styled(format!("{}  ", shortcut), Style::default().fg(Color::DarkGray)),
+                    Span::styled(
+                        format!("{}  ", shortcut),
+                        Style::default().fg(Color::DarkGray),
+                    ),
                 ])
             };
             list_lines.push(item_line);
         }
-        
+
         let p_list = Paragraph::new(list_lines)
             .wrap(Wrap { trim: false })
             .style(Style::default().bg(Color::Rgb(15, 15, 15)));
