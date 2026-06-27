@@ -303,9 +303,11 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
     frame.render_widget(shortcuts, sub_chunks[1]);
 
     // --- KOLOM KANAN (SIDEBAR) ---
+    // Sidebar block dengan background hitam pekat solid untuk membedakannya dari chat area
     let sidebar_block = Block::default()
         .borders(Borders::LEFT)
-        .border_style(Style::default().fg(Color::DarkGray));
+        .border_style(Style::default().fg(Color::DarkGray))
+        .style(Style::default().bg(Color::Black));
     let sidebar_inner = sidebar_block.inner(main_chunks[1]);
     frame.render_widget(sidebar_block, main_chunks[1]);
 
@@ -318,7 +320,7 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
         ])
         .split(sidebar_inner);
 
-    // Tab Header
+    // Tab Header (Lebih minimalis dan modern tanpa bracket [])
     let tab_titles = vec!["Session", "Agents", "Workers", "Spawn"];
     let tab_spans: Vec<Span> = tab_titles
         .iter()
@@ -331,7 +333,7 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
                 Tab::SpawnRequests => i == 3,
             };
             if is_selected {
-                Span::styled(format!(" [{}] ", t), Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+                Span::styled(format!("  {}  ", t), Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
             } else {
                 Span::styled(format!("  {}  ", t), Style::default().fg(Color::DarkGray))
             }
@@ -339,25 +341,34 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
         .collect();
     
     let tab_header = Paragraph::new(Line::from(tab_spans))
-        .block(Block::default().borders(Borders::BOTTOM).border_style(Style::default().fg(Color::DarkGray)));
+        .style(Style::default().bg(Color::Black)) // Background hitam pekat
+        .block(Block::default()
+            .borders(Borders::BOTTOM)
+            .border_style(Style::default().fg(Color::DarkGray))
+            .style(Style::default().bg(Color::Black)));
     frame.render_widget(tab_header, sidebar_chunks[0]);
 
     // Tab Content
     match app.selected_tab {
         Tab::Session => {
-            let session_text = format!(
-                "New session - {}\n\n\
-                 Context\n\
-                 {} tokens\n\
-                 0% used\n\
-                 $0.00 spent\n\n\
-                 LSP\n\
-                 LSPs are disabled",
-                chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S.000Z"),
-                app.chat_history.len() * 12,
-            );
-            let session_para = Paragraph::new(session_text)
-                .style(Style::default().fg(Color::White))
+            let now_str = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S.000Z").to_string();
+            let tokens_str = format!("{} tokens", app.chat_history.len() * 12);
+            
+            // Susun lines dengan kontras hierarki warna (Putih tebal untuk judul seksi, abu-abu untuk detail)
+            let lines = vec![
+                Line::from(Span::styled(format!("New session - {}", now_str), Style::default().fg(Color::White))),
+                Line::from(""),
+                Line::from(Span::styled("Context", Style::default().fg(Color::White).add_modifier(Modifier::BOLD))),
+                Line::from(Span::styled(tokens_str, Style::default().fg(Color::DarkGray))),
+                Line::from(Span::styled("0% used", Style::default().fg(Color::DarkGray))),
+                Line::from(Span::styled("$0.00 spent", Style::default().fg(Color::DarkGray))),
+                Line::from(""),
+                Line::from(Span::styled("LSP", Style::default().fg(Color::White).add_modifier(Modifier::BOLD))),
+                Line::from(Span::styled("LSPs are disabled", Style::default().fg(Color::DarkGray))),
+            ];
+
+            let session_para = Paragraph::new(lines)
+                .style(Style::default().bg(Color::Black)) // Background hitam pekat
                 .wrap(Wrap { trim: false });
             frame.render_widget(session_para, sidebar_chunks[1]);
         }
@@ -375,7 +386,12 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
                     Span::styled(format!("{:?}", a.state), Style::default().fg(state_color)),
                 ]))
             }).collect();
-            let list = List::new(items).block(Block::default().title(" Agents ").title_alignment(ratatui::layout::Alignment::Center));
+            let list = List::new(items)
+                .style(Style::default().bg(Color::Black)) // Background hitam pekat
+                .block(Block::default()
+                    .title(" Agents ")
+                    .title_alignment(ratatui::layout::Alignment::Center)
+                    .style(Style::default().bg(Color::Black)));
             frame.render_widget(list, sidebar_chunks[1]);
         }
         Tab::Workers => {
@@ -387,7 +403,12 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
                     Span::styled(format!("{:?}", w.state), Style::default().fg(Color::Green)),
                 ]))
             }).collect();
-            let list = List::new(items).block(Block::default().title(" Workers ").title_alignment(ratatui::layout::Alignment::Center));
+            let list = List::new(items)
+                .style(Style::default().bg(Color::Black)) // Background hitam pekat
+                .block(Block::default()
+                    .title(" Workers ")
+                    .title_alignment(ratatui::layout::Alignment::Center)
+                    .style(Style::default().bg(Color::Black)));
             frame.render_widget(list, sidebar_chunks[1]);
         }
         Tab::SpawnRequests => {
@@ -404,7 +425,12 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
                     Span::styled(format!("{:?}", r.state), Style::default().fg(Color::Yellow)),
                 ]))
             }).collect();
-            let list = List::new(items).block(Block::default().title(" Spawn Requests ").title_alignment(ratatui::layout::Alignment::Center));
+            let list = List::new(items)
+                .style(Style::default().bg(Color::Black)) // Background hitam pekat
+                .block(Block::default()
+                    .title(" Spawn Requests ")
+                    .title_alignment(ratatui::layout::Alignment::Center)
+                    .style(Style::default().bg(Color::Black)));
             frame.render_widget(list, sidebar_chunks[1]);
         }
     }
@@ -441,7 +467,8 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
             Span::styled("ClawHive ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
             Span::styled("0.1.0", Style::default().fg(Color::DarkGray)),
         ]),
-    ]);
+    ])
+    .style(Style::default().bg(Color::Black)); // Background hitam pekat
     frame.render_widget(footer_text, sidebar_chunks[2]);
 }
 
