@@ -26,6 +26,9 @@ enum Commands {
         /// Path to sled database (in-memory if not set)
         #[arg(long)]
         db: Option<String>,
+        /// Also start TUI in the same process to share the database
+        #[arg(long)]
+        tui: bool,
     },
     /// Start the TUI
     Tui {
@@ -67,16 +70,21 @@ async fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Serve { bind, db } => {
+        Commands::Serve { bind, db, tui } => {
             let addr: SocketAddr = bind.parse().expect("invalid bind address");
 
             let kv_store: Arc<dyn clawhive_store::Store> = match db {
                 Some(path) => {
                     tracing::info!("using sled database at {path}");
-                    Arc::new(
-                        clawhive_store::SledStore::new(path)
-                            .expect("failed to open sled database"),
-                    )
+                    match clawhive_store::SledStore::new(&path) {
+                        Ok(store) => Arc::new(store),
+                        Err(e) => {
+                            eprintln!("Error: Gagal membuka database sled di '{path}'.");
+                            eprintln!("Detail: {e}");
+                            eprintln!("Pastikan tidak ada proses ClawHive server atau TUI lain yang sedang berjalan menggunakan database ini.");
+                            std::process::exit(1);
+                        }
+                    }
                 }
                 None => {
                     tracing::info!("using in-memory store");
@@ -84,21 +92,41 @@ async fn main() {
                 }
             };
 
-            let state = clawhive_control_api::AppState::new_with_store(kv_store);
+            let state = clawhive_control_api::AppState::new_with_store(Arc::clone(&kv_store));
             let app = clawhive_control_api::build_router(state);
 
             tracing::info!("ClawHive API server starting on {}", addr);
             let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-            axum::serve(listener, app).await.unwrap();
+
+            if tui {
+                // Jalankan API server di background task
+                tokio::spawn(async move {
+                    if let Err(e) = axum::serve(listener, app).await {
+                        tracing::error!("Server error: {e}");
+                    }
+                });
+                // Jalankan TUI di thread utama
+                if let Err(e) = clawhive_tui::run_with_store(kv_store).await {
+                    tracing::error!("TUI error: {e}");
+                }
+            } else {
+                axum::serve(listener, app).await.unwrap();
+            }
         }
         Commands::Tui { db } => {
             let result = match db {
                 Some(path) => {
-                    let store = Arc::new(
-                        clawhive_store::SledStore::new(path)
-                            .expect("failed to open sled database"),
-                    );
-                    clawhive_tui::run_with_store(store).await
+                    match clawhive_store::SledStore::new(&path) {
+                        Ok(store) => {
+                            clawhive_tui::run_with_store(Arc::new(store)).await
+                        }
+                        Err(e) => {
+                            eprintln!("Error: Gagal membuka database sled di '{path}'.");
+                            eprintln!("Detail: {e}");
+                            eprintln!("Pastikan tidak ada proses ClawHive server atau TUI lain yang sedang berjalan menggunakan database ini.");
+                            std::process::exit(1);
+                        }
+                    }
                 }
                 None => clawhive_tui::run().await,
             };
