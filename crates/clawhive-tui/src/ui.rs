@@ -92,8 +92,24 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
 
     let input_inner = input_block.inner(input_box_area);
 
-    let provider = if app.active_model.contains("Kimi") { "Kimi" } else { "Ollama" };
-    let left_len = 2 + 3 + 3 + app.active_model.len() + 1 + provider.len();
+    let (active_model_name, provider_name) = if let Some(router) = &app.state.model_router {
+        let registry = router.registry();
+        let profiles = registry.list_profiles();
+        if profiles.is_empty() {
+            ("Belum Dikonfigurasi".to_string(), "None".to_string())
+        } else {
+            let matched = profiles.iter().find(|p| p.model_name == app.active_model || p.id == app.active_model);
+            if let Some(profile) = matched {
+                (profile.model_name.clone(), profile.provider.clone())
+            } else {
+                (profiles[0].model_name.clone(), profiles[0].provider.clone())
+            }
+        }
+    } else {
+        ("Belum Dikonfigurasi".to_string(), "None".to_string())
+    };
+
+    let left_len = 2 + 3 + 3 + active_model_name.len() + 1 + provider_name.len();
     let right_len = 40; // panjang visual dari: "/ commands  : terminal  ctrl+p palette  "
     
     let spacer_len = (input_inner.width as usize)
@@ -118,8 +134,8 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
                         .fg(Color::Cyan)
                         .add_modifier(Modifier::BOLD),
                 ),
-                Span::styled(format!(" · {} ", app.active_model), Style::default().fg(Color::White)),
-                Span::styled(provider, Style::default().fg(Color::DarkGray)),
+                Span::styled(format!(" · {} ", active_model_name), Style::default().fg(Color::White)),
+                Span::styled(provider_name.clone(), Style::default().fg(Color::DarkGray)),
                 Span::raw(middle_spacer.clone()),
                 Span::styled("/", Style::default().fg(Color::White)),
                 Span::styled(" commands  ", Style::default().fg(Color::DarkGray)),
@@ -145,8 +161,8 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
                         .fg(Color::Cyan)
                         .add_modifier(Modifier::BOLD),
                 ),
-                Span::styled(format!(" · {} ", app.active_model), Style::default().fg(Color::White)),
-                Span::styled(provider, Style::default().fg(Color::DarkGray)),
+                Span::styled(format!(" · {} ", active_model_name), Style::default().fg(Color::White)),
+                Span::styled(provider_name, Style::default().fg(Color::DarkGray)),
                 Span::raw(middle_spacer),
                 Span::styled("/", Style::default().fg(Color::White)),
                 Span::styled(" commands  ", Style::default().fg(Color::DarkGray)),

@@ -617,12 +617,24 @@ Commands:
                 self.active_screen = Screen::Chat;
             }
             "/model_switch" => {
-                if self.active_model == "Kimi K2.7 Code" {
-                    self.active_model = "Qwen 2.5 Coder".to_string();
+                if let Some(router) = &self.state.model_router {
+                    let registry = router.registry();
+                    let profiles = registry.list_profiles();
+                    if !profiles.is_empty() {
+                        let current_idx = profiles.iter().position(|p| p.model_name == self.active_model || p.id == self.active_model);
+                        if let Some(idx) = current_idx {
+                            let next_idx = (idx + 1) % profiles.len();
+                            self.active_model = profiles[next_idx].model_name.clone();
+                        } else {
+                            self.active_model = profiles[0].model_name.clone();
+                        }
+                        self.chat_history.push(("System".into(), "".into(), format!("Model berhasil diubah ke: {}", self.active_model)));
+                    } else {
+                        self.chat_history.push(("System".into(), "".into(), "Tidak ada model yang terdaftar di registry".into()));
+                    }
                 } else {
-                    self.active_model = "Kimi K2.7 Code".to_string();
+                    self.chat_history.push(("System".into(), "".into(), "Model router belum dikonfigurasi".into()));
                 }
-                self.chat_history.push(("System".into(), "".into(), format!("Model berhasil diubah ke: {}", self.active_model)));
                 self.active_screen = Screen::Chat;
             }
             "/session_share" => {
