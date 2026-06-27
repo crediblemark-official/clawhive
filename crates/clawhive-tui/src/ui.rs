@@ -12,7 +12,7 @@ use crate::app::{Screen, Tab, TuiApp};
 fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
     let banner_content = include_str!("../../../assets/clawhive.txt");
     let banner_lines_count = banner_content.lines().count();
-    let logo_height = 9 + 1 + banner_lines_count; // 9 ikon + 1 spacer + N teks
+    let logo_height = banner_lines_count; // Setinggi teks saja
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -29,48 +29,7 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
         ])
         .split(area);
 
-    // 1. Logo ASCII Baru dengan Warna Emas (Rgb(212, 175, 55)) & Gradient Teks Emas Kuning dari Aset
-    let gold = Color::Rgb(212, 175, 55);
-
-    let mut logo_lines = vec![
-        Line::from(Span::styled(
-            r"         ________   ____",
-            Style::default().fg(gold),
-        )),
-        Line::from(Span::styled(
-            r"     ___/   \_/   \_/____\",
-            Style::default().fg(gold),
-        )),
-        Line::from(Span::styled(
-            r"   _/   \_  :       /____\",
-            Style::default().fg(gold),
-        )),
-        Line::from(Span::styled(
-            r"  /|     :  :  .   /      \",
-            Style::default().fg(gold),
-        )),
-        Line::from(Span::styled(
-            r" | |    :|  ||    \ \____/",
-            Style::default().fg(gold),
-        )),
-        Line::from(Span::styled(
-            r" | |    ||  ||     |\ / |",
-            Style::default().fg(gold),
-        )),
-        Line::from(Span::styled(
-            r"  \|    ||  ||     | /_/_",
-            Style::default().fg(gold),
-        )),
-        Line::from(Span::styled(
-            r"   | __ || __ | __ |/__/ \",
-            Style::default().fg(gold),
-        )),
-        Line::from(Span::styled(
-            r"    \_-_/  \_-_/ \_-/  \_/",
-            Style::default().fg(gold),
-        )),
-        Line::from(""),
-    ];
+    let mut logo_lines = Vec::new();
 
     let gradient_colors = [
         Color::Rgb(255, 225, 120),
