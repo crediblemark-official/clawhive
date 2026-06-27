@@ -40,27 +40,39 @@ fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
     // 2. Input Box (dengan border kiri Cyan/Blue dan background gelap)
     let input_block = Block::default()
         .borders(Borders::LEFT)
-        .border_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
-        .style(Style::default().bg(Color::Rgb(30, 30, 30)));
+        .border_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD));
     
     let input_inner = input_block.inner(chunks[3]);
-    frame.render_widget(input_block, chunks[3]);
 
-    let input_text = if app.input_buffer.is_empty() {
-        Paragraph::new(Span::styled(
-            "Ask anything... \"Spawn a new research agent\"",
-            Style::default().fg(Color::DarkGray),
-        ))
+    let lines = if app.input_buffer.is_empty() {
+        vec![
+            Line::from(""),
+            Line::from(Span::styled(
+                "  Ask anything... \"Spawn a new research agent\"",
+                Style::default().fg(Color::DarkGray),
+            )),
+            Line::from(""),
+        ]
     } else {
-        Paragraph::new(app.input_buffer.as_str())
-            .style(Style::default().fg(Color::White))
+        vec![
+            Line::from(""),
+            Line::from(Span::styled(
+                format!("  {}", app.input_buffer),
+                Style::default().fg(Color::White),
+            )),
+            Line::from(""),
+        ]
     };
-    frame.render_widget(input_text, input_inner);
 
-    // Set cursor position di dalam input box
+    let input_widget = Paragraph::new(lines)
+        .style(Style::default().bg(Color::Rgb(30, 30, 30)))
+        .block(input_block);
+    frame.render_widget(input_widget, chunks[3]);
+
+    // Set cursor position di baris tengah
     frame.set_cursor_position((
-        input_inner.x + app.input_buffer.len() as u16,
-        input_inner.y,
+        input_inner.x + 2 + app.input_buffer.len() as u16,
+        input_inner.y + 1,
     ));
 
     // 3. Sub-input info (Model name & shortcuts)
@@ -189,19 +201,38 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
     // 2. Input Box
     let input_block = Block::default()
         .borders(Borders::LEFT)
-        .border_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
-        .style(Style::default().bg(Color::Rgb(30, 30, 30)));
+        .border_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD));
     
     let input_inner = input_block.inner(left_chunks[1]);
-    frame.render_widget(input_block, left_chunks[1]);
 
-    let input_text = Paragraph::new(app.input_buffer.as_str())
-        .style(Style::default().fg(Color::White));
-    frame.render_widget(input_text, input_inner);
+    let chat_input_lines = if app.input_buffer.is_empty() {
+        vec![
+            Line::from(""),
+            Line::from(Span::styled(
+                "  Ketik pesan di sini...",
+                Style::default().fg(Color::DarkGray),
+            )),
+            Line::from(""),
+        ]
+    } else {
+        vec![
+            Line::from(""),
+            Line::from(Span::styled(
+                format!("  {}", app.input_buffer),
+                Style::default().fg(Color::White),
+            )),
+            Line::from(""),
+        ]
+    };
+
+    let input_widget = Paragraph::new(chat_input_lines)
+        .style(Style::default().bg(Color::Rgb(30, 30, 30)))
+        .block(input_block);
+    frame.render_widget(input_widget, left_chunks[1]);
 
     frame.set_cursor_position((
-        input_inner.x + app.input_buffer.len() as u16,
-        input_inner.y,
+        input_inner.x + 2 + app.input_buffer.len() as u16,
+        input_inner.y + 1,
     ));
 
     // 3. Sub-input info
