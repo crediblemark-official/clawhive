@@ -397,12 +397,15 @@ fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
             })
             .collect();
         
-        let tab_header = Paragraph::new(Line::from(tab_spans))
-            .style(Style::default().bg(Color::Black)) // Background hitam pekat
-            .block(Block::default()
-                .borders(Borders::BOTTOM)
-                .border_style(Style::default().fg(Color::DarkGray))
-                .style(Style::default().bg(Color::Black)));
+        let tab_header = Paragraph::new(vec![
+            Line::from(""), // Baris ke-1 kosong
+            Line::from(tab_spans), // Baris ke-2 berisi teks tab
+        ])
+        .style(Style::default().bg(Color::Black)) // Background hitam pekat
+        .block(Block::default()
+            .borders(Borders::BOTTOM)
+            .border_style(Style::default().fg(Color::DarkGray))
+            .style(Style::default().bg(Color::Black)));
         frame.render_widget(tab_header, sidebar_chunks[0]);
 
         // Tab Content
