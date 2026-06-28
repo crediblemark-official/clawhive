@@ -58,7 +58,7 @@ impl AgentExecutor {
             })
             .ok();
 
-        let messages = ContextBuilder::build_initial_messages(agent, objective, &context);
+        let messages = ContextBuilder::build_initial_messages(agent, objective, &context, &self.tool_registry);
         for msg in messages {
             session.add_message(msg);
         }
@@ -220,7 +220,7 @@ impl AgentExecutor {
             })
             .ok();
 
-        let messages = ContextBuilder::build_initial_messages(agent, objective, &context);
+        let messages = ContextBuilder::build_initial_messages(agent, objective, &context, &self.tool_registry);
         for msg in messages {
             session.add_message(msg);
         }

@@ -11,6 +11,7 @@ clawhive-budget = { path = "../clawhive-budget" }
 clawhive-lifecycle = { path = "../clawhive-lifecycle" }
 clawhive-store = { path = "../clawhive-store" }
 clawhive-worker = { path = "../clawhive-worker" }
+clawhive-prompt = { path = "../clawhive-prompt" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
