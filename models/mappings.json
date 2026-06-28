@@ -11,5 +11,20 @@
     "deepseek": "deepseek",
     "phi": "microsoft",
     "cohere": "cohere"
+  },
+  "openrouter": {
+    "gpt-4": "openai",
+    "gpt-3.5": "openai",
+    "o1": "openai",
+    "o3": "openai",
+    "claude": "anthropic",
+    "gemini": "google",
+    "deepseek": "deepseek",
+    "llama": "meta-llama",
+    "mistral": "mistralai",
+    "ministral": "mistralai",
+    "qwen": "qwen",
+    "cohere": "cohere",
+    "command": "cohere"
   }
 }

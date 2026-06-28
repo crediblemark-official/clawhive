@@ -585,6 +585,8 @@ impl TuiApp {
                 res
             } else if provider_key == "nvidia" {
                 format!("nvidia/{}", name)
+            } else if provider_key == "openrouter" {
+                format!("openrouter/{}", name)
             } else {
                 name.to_string()
             }
