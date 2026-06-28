@@ -193,8 +193,10 @@ impl AgentExecutor {
         events
     }
 
-    /// Versi streaming dari execute — emit setiap AgentEvent langsung ke `event_tx`
-    /// sehingga TUI bisa menampilkan progres real-time tanpa menunggu seluruh loop selesai.
+    /// Versi streaming dari execute — menggunakan route_chat_stream sehingga:
+    /// - TextDelta dikirim per-karakter ke TUI (real-time)
+    /// - ToolCallDelta di-assemble dari stream, lalu dieksekusi
+    /// - AgentEvent::Thought berisi teks lengkap setelah turn selesai
     pub async fn execute_streaming(
         &self,
         agent: &Agent,
@@ -204,6 +206,10 @@ impl AgentExecutor {
         max_turns: u32,
         event_tx: EventSender,
     ) -> Result<AgentSession, AgentError> {
+        use clawhive_model_router::types::StreamEvent;
+        use std::collections::HashMap as ToolMap;
+
+
         let mut session = AgentSession::new(agent.id.clone());
 
         event_tx
@@ -220,6 +226,7 @@ impl AgentExecutor {
         }
 
         let tool_defs = ContextBuilder::tool_definitions(&self.tool_registry);
+        let has_tools = !tool_defs.is_empty();
 
         for turn in 0..max_turns {
             if session.state != SessionState::Active {
@@ -235,14 +242,13 @@ impl AgentExecutor {
             }
 
             let profile_id = &agent.genome.model_policy.preferred_profile;
-            let fallbacks = &agent.genome.model_policy.fallback_profiles;
 
             let chat_request = ChatRequest {
                 model: profile_id.clone(),
                 messages: session.messages.clone(),
                 max_tokens: Some(4096),
                 temperature: Some(0.7),
-                tools: Some(tool_defs.clone()),
+                tools: if has_tools { Some(tool_defs.clone()) } else { None },
                 stop: None,
             };
 
@@ -254,88 +260,266 @@ impl AgentExecutor {
                 })
                 .ok();
 
-            let response = self
-                .model_router
-                .route_with_fallback(profile_id, fallbacks, chat_request)
-                .await?;
+            // ── Coba streaming terlebih dulu ─────────────────────────────
+            let stream_handle = self.model_router.route_chat_stream(profile_id, chat_request.clone()).await;
 
-            session.record_turn(response.usage.total_tokens, response.usage.cost_usd);
+            match stream_handle {
+                Ok(handle) => {
+                    // Kumpulkan stream: text deltas + tool call deltas
+                    let mut full_text = String::new();
+                    // key: index → (id, name, args_so_far)
+                    let mut tool_chunks: ToolMap<usize, (String, String, String)> = ToolMap::new();
+                    let mut total_tokens = 0u32;
+                    let mut total_cost = 0.0f64;
+                    let mut stream_had_error = false;
 
-            let msg = response.message.clone();
-            let has_tool_calls = response.finish_reason == FinishReason::ToolCalls
-                || response.message.tool_calls.is_some();
-
-            if !response.message.content.is_empty() {
-                event_tx
-                    .send(AgentEvent::Thought {
-                        turn,
-                        content: response.message.content.clone(),
-                    })
-                    .ok();
-            }
-
-            session.add_message(msg);
-
-            if has_tool_calls {
-                if let Some(tool_calls) = &response.message.tool_calls {
-                    for tc in tool_calls {
-                        let tool_name = &tc.name;
-                        let args = &tc.arguments;
-
-                        // Emit event "sedang memanggil tool" sebelum eksekusi
-                        event_tx
-                            .send(AgentEvent::ToolCall {
-                                tool: tool_name.clone(),
-                                args: args.clone(),
-                                result: serde_json::Value::Null,
-                            })
-                            .ok();
-
-                        let tool_result = match self.tool_registry.get(tool_name) {
-                            Ok(tool) => match tool.execute(&tool_context, args.clone()).await {
-                                Ok(output) => {
-                                    // Emit event "tool selesai" dengan hasil
-                                    event_tx
-                                        .send(AgentEvent::ToolCall {
-                                            tool: tool_name.clone(),
-                                            args: args.clone(),
-                                            result: output.data.clone(),
-                                        })
-                                        .ok();
-                                    output
-                                }
-                                Err(e) => ToolOutput::fail(e.to_string()),
-                            },
-                            Err(e) => {
-                                ToolOutput::fail(format!("tool '{tool_name}' not found: {e}"))
+                    loop {
+                        match handle.recv().await {
+                            Some(StreamEvent::TextDelta(delta)) => {
+                                full_text.push_str(&delta);
+                                // Emit ke TUI per-karakter
+                                event_tx
+                                    .send(AgentEvent::TextDelta {
+                                        turn,
+                                        delta: delta.clone(),
+                                    })
+                                    .ok();
                             }
+                            Some(StreamEvent::ToolCallDelta { index, id, name, arguments }) => {
+                                let entry = tool_chunks.entry(index).or_insert_with(|| {
+                                    (String::new(), String::new(), String::new())
+                                });
+                                if let Some(id_val) = id {
+                                    entry.0 = id_val;
+                                }
+                                if let Some(name_val) = name {
+                                    entry.1 = name_val;
+                                }
+                                entry.2.push_str(&arguments);
+                            }
+                            Some(StreamEvent::Usage(usage)) => {
+                                total_tokens = usage.total_tokens;
+                                total_cost = usage.cost_usd;
+                            }
+                            Some(StreamEvent::Done) | None => break,
+                            Some(StreamEvent::Error(e)) => {
+                                stream_had_error = true;
+                                event_tx
+                                    .send(AgentEvent::Error {
+                                        message: format!("Stream error turn {turn}: {e}"),
+                                    })
+                                    .ok();
+                                break;
+                            }
+                        }
+                    }
+
+                    if stream_had_error {
+                        return Err(AgentError::Other(format!("stream error at turn {turn}")));
+                    }
+
+                    session.record_turn(total_tokens, total_cost);
+
+                    // Tentukan apakah ada tool calls
+                    let has_tool_calls = !tool_chunks.is_empty();
+
+                    if has_tool_calls {
+                        // Emit Thought jika ada teks sebelum tool calls
+                        if !full_text.is_empty() {
+                            event_tx
+                                .send(AgentEvent::Thought {
+                                    turn,
+                                    content: full_text.clone(),
+                                })
+                                .ok();
+                        }
+
+                        // Tambah message assistant dengan tool calls ke session
+                        let assembled_tool_calls: Vec<clawhive_model_router::types::ToolCall> = {
+                            let mut sorted: Vec<(usize, (String, String, String))> =
+                                tool_chunks.into_iter().collect();
+                            sorted.sort_by_key(|(idx, _)| *idx);
+                            sorted
+                                .into_iter()
+                                .map(|(_, (id, name, args_str))| {
+                                    let args_val = serde_json::from_str(&args_str)
+                                        .unwrap_or(serde_json::Value::Null);
+                                    clawhive_model_router::types::ToolCall {
+                                        id,
+                                        name,
+                                        arguments: args_val,
+                                    }
+                                })
+                                .collect()
                         };
 
+                        // Simpan assistant message dengan tool calls
                         session.add_message(ModelMessage {
-                            role: MessageRole::Tool,
-                            content: serde_json::to_string(&tool_result.data)
-                                .unwrap_or_else(|_| "{}".into()),
-                            tool_calls: None,
-                            tool_call_id: Some(tc.id.clone()),
-                            name: Some(tool_name.clone()),
+                            role: MessageRole::Assistant,
+                            content: full_text.clone(),
+                            tool_calls: Some(assembled_tool_calls.clone()),
+                            tool_call_id: None,
+                            name: None,
                         });
+
+                        // Eksekusi setiap tool call
+                        for tc in &assembled_tool_calls {
+                            let tool_name = &tc.name;
+                            let tool_id = &tc.id;
+                            let args = &tc.arguments;
+
+                            // Emit "memanggil tool" sebelum eksekusi
+                            event_tx
+                                .send(AgentEvent::ToolCall {
+                                    tool: tool_name.to_string(),
+                                    args: args.clone(),
+                                    result: serde_json::Value::Null,
+                                })
+                                .ok();
+
+                            let tool_result = match self.tool_registry.get(tool_name) {
+                                Ok(tool) => match tool.execute(&tool_context, args.clone()).await {
+                                    Ok(output) => {
+                                        event_tx
+                                            .send(AgentEvent::ToolCall {
+                                                tool: tool_name.to_string(),
+                                                args: args.clone(),
+                                                result: output.data.clone(),
+                                            })
+                                            .ok();
+                                        output
+                                    }
+                                    Err(e) => ToolOutput::fail(e.to_string()),
+                                },
+                                Err(e) => {
+                                    ToolOutput::fail(format!("tool '{tool_name}' not found: {e}"))
+                                }
+                            };
+
+                            session.add_message(ModelMessage {
+                                role: MessageRole::Tool,
+                                content: serde_json::to_string(&tool_result.data)
+                                    .unwrap_or_else(|_| "{}".into()),
+                                tool_calls: None,
+                                tool_call_id: Some(tool_id.to_string()),
+                                name: Some(tool_name.to_string()),
+                            });
+                        }
+                        continue; // lanjut ke turn berikutnya
+                    } else {
+                        // Tidak ada tool calls = jawaban final
+                        if !full_text.is_empty() {
+                            event_tx
+                                .send(AgentEvent::Thought {
+                                    turn,
+                                    content: full_text.clone(),
+                                })
+                                .ok();
+                        }
+
+                        session.add_message(ModelMessage {
+                            role: MessageRole::Assistant,
+                            content: full_text.clone(),
+                            tool_calls: None,
+                            tool_call_id: None,
+                            name: None,
+                        });
+
+                        event_tx
+                            .send(AgentEvent::ObjectiveComplete {
+                                summary: full_text,
+                                evidence: vec![],
+                            })
+                            .ok();
+                        session.state = SessionState::Completed;
+                        return Ok(session);
                     }
                 }
-                continue;
-            }
+                Err(_stream_err) => {
+                    // Fallback ke non-streaming jika provider tidak support stream
+                    let fallbacks = &agent.genome.model_policy.fallback_profiles;
+                    let response = self
+                        .model_router
+                        .route_with_fallback(profile_id, fallbacks, chat_request)
+                        .await?;
 
-            // LLM menjawab tanpa tool call = jawaban final
-            event_tx
-                .send(AgentEvent::ObjectiveComplete {
-                    summary: response.message.content.clone(),
-                    evidence: vec![],
-                })
-                .ok();
-            session.state = SessionState::Completed;
-            return Ok(session);
+                    session.record_turn(response.usage.total_tokens, response.usage.cost_usd);
+
+                    let has_tool_calls = response.finish_reason == FinishReason::ToolCalls
+                        || response.message.tool_calls.is_some();
+
+                    if !response.message.content.is_empty() {
+                        event_tx
+                            .send(AgentEvent::Thought {
+                                turn,
+                                content: response.message.content.clone(),
+                            })
+                            .ok();
+                    }
+
+                    let msg = response.message.clone();
+                    session.add_message(msg);
+
+                    if has_tool_calls {
+                        if let Some(tool_calls) = &response.message.tool_calls {
+                            for tc in tool_calls {
+                                let tool_name = &tc.name;
+                                let args = &tc.arguments;
+
+                                event_tx
+                                    .send(AgentEvent::ToolCall {
+                                        tool: tool_name.clone(),
+                                        args: args.clone(),
+                                        result: serde_json::Value::Null,
+                                    })
+                                    .ok();
+
+                                let tool_result = match self.tool_registry.get(tool_name) {
+                                    Ok(tool) => match tool.execute(&tool_context, args.clone()).await {
+                                        Ok(output) => {
+                                            event_tx
+                                                .send(AgentEvent::ToolCall {
+                                                    tool: tool_name.clone(),
+                                                    args: args.clone(),
+                                                    result: output.data.clone(),
+                                                })
+                                                .ok();
+                                            output
+                                        }
+                                        Err(e) => ToolOutput::fail(e.to_string()),
+                                    },
+                                    Err(e) => {
+                                        ToolOutput::fail(format!("tool '{tool_name}' not found: {e}"))
+                                    }
+                                };
+
+                                session.add_message(ModelMessage {
+                                    role: MessageRole::Tool,
+                                    content: serde_json::to_string(&tool_result.data)
+                                        .unwrap_or_else(|_| "{}".into()),
+                                    tool_calls: None,
+                                    tool_call_id: Some(tc.id.clone()),
+                                    name: Some(tool_name.clone()),
+                                });
+                            }
+                        }
+                        continue;
+                    }
+
+                    event_tx
+                        .send(AgentEvent::ObjectiveComplete {
+                            summary: response.message.content.clone(),
+                            evidence: vec![],
+                        })
+                        .ok();
+                    session.state = SessionState::Completed;
+                    return Ok(session);
+                }
+            }
         }
 
         // Batas giliran tercapai tanpa penyelesaian
         Err(AgentError::MaxTurnsReached(max_turns))
     }
 }
+

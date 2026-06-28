@@ -141,6 +141,9 @@ impl TuiApp {
         use clawhive_control_api::store::{AGENT_PREFIX, SPAWNREQ_PREFIX};
         use clawhive_store::StoreExt;
 
+        // Proses spawn request yang Approved sebelum refresh data list
+        self.process_approved_spawns().await;
+
         self.agents = self
             .state
             .kv_store
@@ -307,4 +310,90 @@ impl TuiApp {
         self.active_agent_id = Some(agent_id.clone());
         Some(agent_id)
     }
+
+    /// Deteksi spawn requests yang Approved, buat Agent baru di DB,
+    /// jalankan reasoning loop-nya, dan ubah state request ke Executed.
+    pub(crate) async fn process_approved_spawns(&mut self) {
+        use clawhive_control_api::store::{AGENT_PREFIX, SPAWNREQ_PREFIX};
+        use clawhive_domain::{SpawnState, AgentId};
+        use clawhive_store::StoreExt;
+
+        let requests = self
+            .state
+            .kv_store
+            .scan_prefix::<SpawnRequest>(SPAWNREQ_PREFIX)
+            .await
+            .unwrap_or_default();
+
+
+        for (key, mut req) in requests {
+            if req.state == SpawnState::Approved {
+
+                req.state = SpawnState::Completed;
+                req.updated_at = chrono::Utc::now();
+                let _ = self.state.kv_store.set(&key, &req).await;
+
+                // Eksekusi setiap anak di spec
+                for child in &req.children {
+                    let child_id = AgentId(uuid::Uuid::now_v7());
+                    let mut child_agent = crate::tui_agent::make_default_agent(
+                        child_id.clone(),
+                        if child.model_profile == "default" { &self.active_model } else { &child.model_profile },
+                        req.mission_id.clone(),
+                    );
+                    child_agent.name = format!("Child ({})", child.role);
+                    child_agent.role = child.role.clone();
+                    child_agent.parent_agent_id = Some(req.requested_by.clone());
+                    child_agent.budget.allocated_usd = child.budget_usd;
+                    child_agent.budget.hard_limit_usd = Some(child.budget_usd);
+                    child_agent.budget.soft_limit_usd = Some(child.budget_usd * 0.8);
+
+                    // Simpan child agent ke DB
+                    let agent_key = format!("{AGENT_PREFIX}{}", child_id.0);
+                    let _ = self.state.kv_store.set(&agent_key, &child_agent).await;
+
+                    // Kirim info ke chat TUI
+                    self.chat_history.push((
+                        "System".to_string(),
+                        "".to_string(),
+                        format!(
+                            "Spawned child agent '{}' (role: {}) untuk objective: '{}'",
+                            child_agent.name, child_agent.role, child.objective
+                        ),
+                    ));
+
+                    // Jalankan child agent jika runtime siap
+                    if let Some(runtime) = &self.agent_runtime {
+                        let runtime_clone = std::sync::Arc::clone(runtime);
+                        let objective = child.objective.clone();
+                        let (agent_tx, agent_rx) = tokio::sync::mpsc::unbounded_channel();
+                        
+                        // Set receiver ke TUI agar output streaming masuk ke UI chat
+                        self.agent_rx = Some(agent_rx);
+                        self.is_streaming = true;
+                        self.stream_status = Some(format!("Executing child agent {}...", child_agent.name));
+
+                        tokio::spawn(async move {
+                            let ctx = std::collections::HashMap::new();
+                            match runtime_clone.execute_agent_streaming(
+                                &child_id,
+                                objective,
+                                ctx,
+                                None,
+                                agent_tx.clone(),
+                            ).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    let _ = agent_tx.send(AgentEvent::Error {
+                                        message: format!("Child Agent error: {e}"),
+                                    });
+                                }
+                            }
+                        });
+                    }
+                }
+            }
+        }
+    }
 }
+

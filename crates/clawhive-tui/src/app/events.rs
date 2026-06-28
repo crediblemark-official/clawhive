@@ -514,16 +514,20 @@ impl TuiApp {
             AgentEvent::ModelCall { turn, .. } => {
                 self.stream_status = Some(format!("Giliran {} — memanggil model...", turn + 1));
             }
-            AgentEvent::Thought { content, .. } => {
-                // Append konten berpikir ke bubble chat agent terakhir
-                self.stream_status = Some("Berpikir...".to_string());
+            AgentEvent::TextDelta { delta, .. } => {
+                self.stream_status = Some("Menerima respon...".to_string());
                 if let Some((_, _, chat_content)) = self.chat_history.last_mut() {
-                    if !chat_content.is_empty() {
-                        chat_content.push('\n');
-                    }
-                    chat_content.push_str(&content);
+                    chat_content.push_str(&delta);
                 }
             }
+            AgentEvent::Thought { content, .. } => {
+                // Sinkronisasi absolut thought di akhir turn agar rapi
+                self.stream_status = Some("Berpikir...".to_string());
+                if let Some((_, _, chat_content)) = self.chat_history.last_mut() {
+                    *chat_content = content;
+                }
+            }
+
             AgentEvent::ToolCall { tool, args, result } => {
                 if result.is_null() {
                     // Event "sedang memanggil tool"

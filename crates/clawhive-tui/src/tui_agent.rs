@@ -27,7 +27,7 @@ use clawhive_worker::WorkerService;
 pub async fn build_tui_runtime(
     kv_store: Arc<dyn clawhive_store::Store>,
     model_router: Arc<ModelRouter>,
-    tool_registry: Arc<ToolRegistry>,
+    _ignored_tool_registry: Arc<ToolRegistry>,
     worker_service: Arc<WorkerService>,
 ) -> Result<(AgentRuntime, WorkerId), String> {
     // Daftarkan default worker TUI
@@ -44,6 +44,14 @@ pub async fn build_tui_runtime(
         .await;
     let worker_id = worker.id.clone();
 
+    // Daftarkan semua builtin tools agar agent dapat berinteraksi dengan sistem nyata
+    let mut tool_registry = ToolRegistry::new();
+    tool_registry.register(Box::new(clawhive_tool::builtin::ShellTool));
+    tool_registry.register(Box::new(clawhive_tool::builtin::ReadFileTool));
+    tool_registry.register(Box::new(clawhive_tool::builtin::WriteFileTool));
+    tool_registry.register(Box::new(clawhive_tool::builtin::HttpTool));
+    let tool_registry_arc = Arc::new(tool_registry);
+
     let agent_store = AgentStore::new(Arc::clone(&kv_store));
     // BudgetService adalah unit struct, tidak punya Default
     let budget_service = Arc::new(BudgetService);
@@ -51,7 +59,7 @@ pub async fn build_tui_runtime(
     let runtime = AgentRuntime::new(
         agent_store,
         model_router,
-        tool_registry,
+        tool_registry_arc,
         budget_service,
         worker_service,
         Some(worker_id.clone()),
@@ -59,6 +67,7 @@ pub async fn build_tui_runtime(
 
     Ok((runtime, worker_id))
 }
+
 
 /// Buat agent default ephemeral untuk sesi TUI dengan model yang dipilih.
 pub fn make_default_agent(agent_id: AgentId, model_id: &str, mission_id: MissionId) -> Agent {

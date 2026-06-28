@@ -12,6 +12,11 @@ pub enum AgentEvent {
         tokens: u32,
         cost: f64,
     },
+    /// Delta teks streaming per-karakter dari LLM (sebelum turn selesai).
+    TextDelta {
+        turn: u32,
+        delta: String,
+    },
     ToolCall {
         tool: String,
         args: serde_json::Value,
