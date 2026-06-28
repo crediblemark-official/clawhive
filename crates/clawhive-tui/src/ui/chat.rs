@@ -280,7 +280,6 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
             let item_height = 2; // 1 baris status + 1 baris spacer kosong
             let item_start = current_y_offset;
             let item_end = item_start + item_height;
-            current_y_offset += item_height;
 
             if item_end > scroll_offset {
                 let relative_y = item_start.saturating_sub(scroll_offset) as u16;
