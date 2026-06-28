@@ -175,6 +175,31 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
             let p = Paragraph::new(lines)
                 .wrap(Wrap { trim: false });
             frame.render_widget(p, bubble_chunks[2]);
+        } else if sender.to_lowercase() == "tool" {
+            // Render pesan Tool secara khusus dengan warna/ikon tersendiri
+            let mut lines = Vec::new();
+
+            // Header: ikon kunci/tool + nama tool
+            lines.push(Line::from(vec![
+                Span::raw("  "),
+                Span::styled("🔧 ", Style::default().fg(Color::LightBlue)),
+                Span::styled(format!("Tool: {model}"), Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC)),
+            ]));
+            lines.push(Line::from(""));
+
+            // Teks konten tool (bisa multiline, kita wrap_text)
+            for line_str in crate::ui::wrap_text(msg, asst_wrap_w) {
+                if line_str.is_empty() {
+                    lines.push(Line::from(Span::raw("  ")));
+                } else {
+                    let mut markdown_line = parse_markdown_line(&line_str, Style::default().fg(Color::Rgb(170, 180, 190)));
+                    markdown_line.spans.insert(0, Span::raw("  "));
+                    lines.push(markdown_line);
+                }
+            }
+
+            let p = Paragraph::new(lines);
+            frame.render_widget(p, render_area);
         } else {
             // Agent / Assistant: padding kiri 2 spasi, pre-wrap manual agar indentasi konsisten
             let mut lines = Vec::new();

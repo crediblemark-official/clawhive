@@ -535,7 +535,7 @@ impl TuiApp {
                     self.chat_history.push((
                         "Tool".to_string(),
                         tool.clone(),
-                        format!("▶ {} ({})", tool, args),
+                        format!("▶ {}\n{}", tool, format_tool_args(&tool, &args)),
                     ));
                 } else {
                     // Event "tool selesai"
@@ -543,7 +543,7 @@ impl TuiApp {
                     self.chat_history.push((
                         "Tool".to_string(),
                         tool.clone(),
-                        format!("✓ {} → {}", tool, result),
+                        format!("✓ {} selesai:\n{}", tool, format_tool_result(&tool, &result)),
                     ));
                 }
             }
@@ -625,5 +625,88 @@ impl TuiApp {
         if self.is_streaming {
             self.agent_rx = Some(rx);
         }
+    }
+}
+
+fn format_tool_args(_tool: &str, args: &serde_json::Value) -> String {
+    match args {
+        serde_json::Value::Object(map) => {
+            if map.is_empty() {
+                return "{}".to_string();
+            }
+            let mut parts = Vec::new();
+            for (k, v) in map {
+                let val_str = match v {
+                    serde_json::Value::String(s) => {
+                        if s.contains('\n') {
+                            format!("{}: \"\"\"\n{}\n\"\"\"", k, s)
+                        } else {
+                            format!("{}: {:?}", k, s)
+                        }
+                    }
+                    _ => format!("{}: {}", k, v),
+                };
+                parts.push(val_str);
+            }
+            if parts.len() == 1 && !parts[0].contains('\n') {
+                format!("{{{}}}", parts[0])
+            } else {
+                format!("{{\n  {}\n}}", parts.join(",\n  ").replace('\n', "\n  "))
+            }
+        }
+        _ => args.to_string(),
+    }
+}
+
+fn format_tool_result(_tool: &str, result: &serde_json::Value) -> String {
+    match result {
+        serde_json::Value::Object(map) => {
+            if map.contains_key("exit_code") || map.contains_key("stdout") || map.contains_key("stderr") {
+                let exit_code = map.get("exit_code").and_then(|v| v.as_i64()).unwrap_or(0);
+                let stdout = map.get("stdout").and_then(|v| v.as_str()).unwrap_or("");
+                let stderr = map.get("stderr").and_then(|v| v.as_str()).unwrap_or("");
+                
+                let mut out = format!("exit_code: {exit_code}");
+                if !stdout.is_empty() {
+                    out.push_str(&format!("\nstdout:\n{}", stdout));
+                }
+                if !stderr.is_empty() {
+                    out.push_str(&format!("\nstderr:\n{}", stderr));
+                }
+                return out;
+            }
+            
+            if map.contains_key("content") && map.len() == 1 {
+                if let Some(content) = map.get("content").and_then(|v| v.as_str()) {
+                    if content.len() > 1000 {
+                        return format!(
+                            "content (truncated):\n{}...\n[+{} bytes]", 
+                            &content[..1000], 
+                            content.len() - 1000
+                        );
+                    } else {
+                        return format!("content:\n{}", content);
+                    }
+                }
+            }
+            
+            let mut parts = Vec::new();
+            for (k, v) in map {
+                let val_str = match v {
+                    serde_json::Value::String(s) => {
+                        if s.contains('\n') {
+                            format!("{}:\n{}", k, s)
+                        } else {
+                            format!("{}: {:?}", k, s)
+                        }
+                    }
+                    _ => format!("{}: {}", k, v),
+                };
+                parts.push(val_str);
+            }
+            parts.join("\n")
+        }
+        serde_json::Value::String(s) => s.clone(),
+        _ => result.to_string(),
     }
 }
