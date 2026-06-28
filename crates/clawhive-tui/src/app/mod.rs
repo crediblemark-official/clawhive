@@ -454,6 +454,19 @@ impl TuiApp {
         // Muat model dari folder models/ secara statis ke registry model_router
         self.load_static_models();
 
+        // Picu pembaruan latar belakang secara asinkron untuk mengambil profile model riil dari API server
+        let router_clone = std::sync::Arc::clone(&router);
+        tokio::spawn(async move {
+            let providers = router_clone.registry().list_providers();
+            for provider_name in providers {
+                if let Ok(provider) = router_clone.registry().get_provider(&provider_name) {
+                    if let Ok(models) = provider.fetch_models().await {
+                        router_clone.inject_profiles(models);
+                    }
+                }
+            }
+        });
+
         let tool_registry = match self.state.tool_registry.as_ref() {
             Some(t) => std::sync::Arc::clone(t),
             None => {
@@ -547,7 +560,28 @@ impl TuiApp {
         } else if let Some(mid) = matched_id {
             mid
         } else if provider_key == "nvidia" {
-            format!("nvidia/{}", name)
+            let name_lower = name.to_lowercase();
+            if name_lower.starts_with("llama") {
+                format!("meta/{}", name)
+            } else if name_lower.starts_with("mistral") || name_lower.starts_with("ministral") {
+                format!("mistralai/{}", name)
+            } else if name_lower.starts_with("kimi") {
+                format!("moonshotai/{}", name)
+            } else if name_lower.starts_with("gemma") || name_lower.starts_with("diffusiongemma") {
+                format!("google/{}", name)
+            } else if name_lower.starts_with("qwen") {
+                format!("qwen/{}", name)
+            } else if name_lower.starts_with("minimax") {
+                format!("minimaxai/{}", name)
+            } else if name_lower.starts_with("deepseek") {
+                format!("deepseek/{}", name)
+            } else if name_lower.starts_with("phi") {
+                format!("microsoft/{}", name)
+            } else if name_lower.starts_with("cohere") {
+                format!("cohere/{}", name)
+            } else {
+                format!("nvidia/{}", name)
+            }
         } else {
             name.to_string()
         }

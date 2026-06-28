@@ -109,6 +109,10 @@ impl ModelRegistry {
         }
     }
 
+    pub fn list_providers(&self) -> Vec<String> {
+        self.providers.keys().cloned().collect()
+    }
+
     pub fn get_provider(&self, name: &str) -> Result<&dyn ModelProvider, ModelError> {
         self.providers
             .get(name)
