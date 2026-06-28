@@ -82,10 +82,14 @@ pub struct TuiApp {
     /// If set, model selection was interrupted to ask for API key.
     /// After key is set, resume selecting models for this provider.
     pub model_sel_pending_provider: Option<String>,
-    /// Receiver for streaming response events from a spawned task.
+    /// Receiver untuk streaming response events dari spawned task.
     stream_rx: Option<tokio::sync::mpsc::UnboundedReceiver<StreamEvent>>,
-    /// True while a streaming response is in flight.
+    /// True saat streaming response sedang berjalan.
     is_streaming: bool,
+    /// Offset scroll chat history (jumlah baris yang discroll ke atas).
+    pub chat_scroll_offset: usize,
+    /// True = auto-scroll ke bawah. False = user sedang scroll manual ke atas.
+    pub chat_at_bottom: bool,
 }
 
 impl TuiApp {
@@ -115,6 +119,8 @@ impl TuiApp {
             model_sel_pending_provider: None,
             stream_rx: None,
             is_streaming: false,
+            chat_scroll_offset: 0,
+            chat_at_bottom: true,
         }
     }
 
@@ -862,21 +868,11 @@ Type any message to start a chat with the active model.",
             }
         });
 
-        let tx_timer = tx.clone();
-        tokio::spawn(async move {
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-                if tx_timer.send(Event::Resize(0, 0)).await.is_err() {
-                    break;
-                }
-            }
-        });
-
         self.refresh().await;
         self.load_saved_api_key().await;
 
         while !self.should_quit {
-            // Flush pending stream events before rendering
+            // Flush stream events sebelum render
             self.try_flush_stream().await;
 
             terminal
@@ -886,9 +882,13 @@ Type any message to start a chat with the active model.",
                 })
                 .map_err(|e| crate::TuiError::Runtime(e.to_string()))?;
 
+            // Tick 50ms agar streaming terus diflush meski tidak ada keystroke
             tokio::select! {
                 Some(event) = rx.recv() => {
                     self.handle_event(event).await;
+                }
+                _ = tokio::time::sleep(std::time::Duration::from_millis(50)) => {
+                    // Tick kosong — loop kembali untuk flush stream & redraw
                 }
             }
         }
@@ -1079,6 +1079,9 @@ Type any message to start a chat with the active model.",
                                     } else {
                                         self.chat_history.push(("User".to_string(), "".to_string(), trimmed.to_string()));
                                         self.active_screen = Screen::Chat;
+                                        // Reset scroll ke bawah agar respons baru langsung terlihat
+                                        self.chat_scroll_offset = 0;
+                                        self.chat_at_bottom = true;
 
                                         let router_opt = self
                                             .state
@@ -1170,14 +1173,44 @@ Type any message to start a chat with the active model.",
                                 self.selected_index = 0;
                             }
                             KeyCode::Up => {
-                                if self.selected_index > 0 {
+                                if self.active_screen == Screen::Chat {
+                                    // Scroll chat ke atas (3 baris per langkah)
+                                    self.chat_scroll_offset = self.chat_scroll_offset.saturating_add(3);
+                                    self.chat_at_bottom = false;
+                                } else if self.selected_index > 0 {
                                     self.selected_index -= 1;
                                 }
                             }
                             KeyCode::Down => {
-                                let max = self.current_list_len().saturating_sub(1);
-                                if self.selected_index < max {
-                                    self.selected_index += 1;
+                                if self.active_screen == Screen::Chat {
+                                    // Scroll chat ke bawah (3 baris per langkah)
+                                    if self.chat_scroll_offset >= 3 {
+                                        self.chat_scroll_offset -= 3;
+                                    } else {
+                                        self.chat_scroll_offset = 0;
+                                        self.chat_at_bottom = true;
+                                    }
+                                } else {
+                                    let max = self.current_list_len().saturating_sub(1);
+                                    if self.selected_index < max {
+                                        self.selected_index += 1;
+                                    }
+                                }
+                            }
+                            KeyCode::PageUp => {
+                                if self.active_screen == Screen::Chat {
+                                    self.chat_scroll_offset = self.chat_scroll_offset.saturating_add(20);
+                                    self.chat_at_bottom = false;
+                                }
+                            }
+                            KeyCode::PageDown => {
+                                if self.active_screen == Screen::Chat {
+                                    if self.chat_scroll_offset >= 20 {
+                                        self.chat_scroll_offset -= 20;
+                                    } else {
+                                        self.chat_scroll_offset = 0;
+                                        self.chat_at_bottom = true;
+                                    }
                                 }
                             }
                             _ => {}

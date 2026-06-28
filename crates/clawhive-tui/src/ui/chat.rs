@@ -8,7 +8,7 @@ use ratatui::{
 };
 
 use crate::app::{Tab, TuiApp};
-use crate::ui::components::draw_slash_autocomplete;
+
 
 pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
     // Tampilkan sidebar hanya jika lebar layar >= 90
@@ -57,53 +57,47 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
 
     let chat_area = horizontal_chat_layout[1];
 
-    let max_text_width = (chat_area.width as usize).saturating_sub(6).max(1);
+    // Lebar wrap: user bubble pakai penuh, assistant pakai -4 (2 padding + 2 safety)
+    let user_wrap_w = (chat_area.width as usize).saturating_sub(6).max(1);
+    let asst_wrap_w = (chat_area.width as usize).saturating_sub(10).max(1);
 
-    // Hitung tinggi total yang dibutuhkan oleh seluruh chat history
-    let mut total_needed_height = 0;
-    for (sender, _, msg) in &app.chat_history {
-        let mut visual_lines = 0;
-        for line in msg.lines() {
-            let line_len = line.len();
-            if line_len == 0 {
-                visual_lines += 1;
-            } else {
-                visual_lines += (line_len + max_text_width - 1) / max_text_width;
-            }
-        }
-        let msg_height = if sender.to_lowercase() == "user" || sender.to_lowercase() == "system" {
-            visual_lines + 2 // padding vertikal atas-bawah
+    // Helper: hitung visual line count sebuah pesan dengan wrap_width tertentu
+    let count_lines = |msg: &str, wrap_w: usize| -> usize {
+        msg.lines().map(|line| {
+            let len = line.chars().count();
+            if len == 0 { 1 } else { (len + wrap_w - 1) / wrap_w }
+        }).sum::<usize>().max(1)
+    };
+
+    // Helper: hitung tinggi bubble (visual lines + chrome)
+    let bubble_height = |sender: &str, msg: &str| -> usize {
+        let is_user = sender.eq_ignore_ascii_case("user") || sender.eq_ignore_ascii_case("system");
+        let wrap_w = if is_user { user_wrap_w } else { asst_wrap_w };
+        let vlines = count_lines(msg, wrap_w);
+        if is_user {
+            vlines + 2 // padding atas + bawah
         } else {
-            1 + 1 + visual_lines // header + blank line + lines
-        };
-        total_needed_height += msg_height;
-    }
-
-    // Buat scrolling offset dinamis agar pesan terbaru selalu terlihat di bawah
-    let mut scroll_offset = 0;
-    if total_needed_height > chat_area.height as usize {
-        scroll_offset = total_needed_height - chat_area.height as usize;
-    }
-
-    // Bagi area chat_area menjadi deretan sub-layout secara dinamis per gelembung pesan
-    let mut constraints = Vec::new();
-    for (sender, _, msg) in &app.chat_history {
-        let mut visual_lines = 0;
-        for line in msg.lines() {
-            let line_len = line.len();
-            if line_len == 0 {
-                visual_lines += 1;
-            } else {
-                visual_lines += (line_len + max_text_width - 1) / max_text_width;
-            }
+            1 + 1 + vlines // header + blank + lines
         }
-        let msg_height = if sender.to_lowercase() == "user" || sender.to_lowercase() == "system" {
-            visual_lines + 2
-        } else {
-            1 + 1 + visual_lines
-        };
-        constraints.push(Constraint::Length(msg_height as u16));
-    }
+    };
+
+    // Hitung tinggi total semua bubble
+    let total_needed_height: usize = app.chat_history.iter()
+        .map(|(sender, _, msg)| bubble_height(sender, msg))
+        .sum();
+
+    // Scroll offset dari state app (clamp ke max)
+    let max_scroll = total_needed_height.saturating_sub(chat_area.height as usize);
+    let scroll_offset = if app.chat_at_bottom {
+        max_scroll
+    } else {
+        app.chat_scroll_offset.min(max_scroll)
+    };
+
+    // Constraints per bubble untuk layout
+    let constraints: Vec<Constraint> = app.chat_history.iter()
+        .map(|(sender, _, msg)| Constraint::Length(bubble_height(sender, msg) as u16))
+        .collect();
 
     let bubble_layout = Layout::default()
         .direction(Direction::Vertical)
@@ -180,24 +174,39 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
                 .wrap(Wrap { trim: false });
             frame.render_widget(p, bubble_chunks[2]);
         } else {
-            // Agent / Assistant (Respon polos dengan padding kiri 2 spasi)
+            // Agent / Assistant: padding kiri 2 spasi, pre-wrap manual agar indentasi konsisten
             let mut lines = Vec::new();
-            // Solid blue box icon: ■
+
+            // Header: ikon + model
             lines.push(Line::from(vec![
-                Span::raw("  "), // Padding kiri 2 spasi
+                Span::raw("  "),
                 Span::styled("■ ", Style::default().fg(Color::Rgb(218, 165, 32))),
                 Span::styled(model.as_str(), Style::default().fg(Color::DarkGray)),
             ]));
-            lines.push(Line::from("")); // Blank line
+            lines.push(Line::from(""));
+
+            // Pre-wrap teks manual: setiap paragraph line dipecah ke chunks
+            // agar prefix "  " konsisten di setiap visual line
             for part in msg.lines() {
-                lines.push(Line::from(vec![
-                    Span::raw("  "), // Padding kiri 2 spasi
-                    Span::styled(part, Style::default()),
-                ]));
+                if part.is_empty() {
+                    lines.push(Line::from(Span::raw("  ")));
+                } else {
+                    // Pecah per asst_wrap_w karakter
+                    let chars: Vec<char> = part.chars().collect();
+                    let mut start = 0;
+                    while start < chars.len() {
+                        let end = (start + asst_wrap_w).min(chars.len());
+                        let chunk: String = chars[start..end].iter().collect();
+                        lines.push(Line::from(vec![
+                            Span::raw("  "),
+                            Span::styled(chunk, Style::default()),
+                        ]));
+                        start = end;
+                    }
+                }
             }
 
-            let p = Paragraph::new(lines)
-                .wrap(Wrap { trim: false });
+            let p = Paragraph::new(lines);
             frame.render_widget(p, render_area);
         }
     }
@@ -546,6 +555,4 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
         frame.render_widget(footer_text, sidebar_chunks[4]);
     }
 
-    // Render autocomplete jika sedang aktif mengetik /
-    draw_slash_autocomplete(frame, active_input_area, app);
 }
