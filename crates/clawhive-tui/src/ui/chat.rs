@@ -62,12 +62,9 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
     let user_wrap_w = (chat_area.width as usize).saturating_sub(6).max(1);
     let asst_wrap_w = (chat_area.width as usize).saturating_sub(10).max(1);
 
-    // Helper: hitung visual line count sebuah pesan dengan wrap_width tertentu
+    // Helper: hitung visual line count sebuah pesan dengan wrap_width tertentu menggunakan wrap_text helper
     let count_lines = |msg: &str, wrap_w: usize| -> usize {
-        msg.lines().map(|line| {
-            let len = line.chars().count();
-            if len == 0 { 1 } else { (len + wrap_w - 1) / wrap_w }
-        }).sum::<usize>().max(1)
+        wrap_text(msg, wrap_w).len().max(1)
     };
 
     // Helper: hitung tinggi bubble (visual lines + chrome)
@@ -158,7 +155,7 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
             let mut lines = Vec::new();
             lines.push(Line::from("")); // Padding vertikal atas
             for part in msg.lines() {
-                lines.push(Line::from(part.to_string()));
+                lines.push(parse_markdown_line(part, Style::default()));
             }
             lines.push(Line::from("")); // Padding vertikal bawah
 
@@ -177,24 +174,14 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
             ]));
             lines.push(Line::from(""));
 
-            // Pre-wrap teks manual: setiap paragraph line dipecah ke chunks
-            // agar prefix "  " konsisten di setiap visual line
-            for part in msg.lines() {
-                if part.is_empty() {
+            // Pre-wrap menggunakan word-wrap helper dan parse markdown bold
+            for line_str in wrap_text(msg, asst_wrap_w) {
+                if line_str.is_empty() {
                     lines.push(Line::from(Span::raw("  ")));
                 } else {
-                    // Pecah per asst_wrap_w karakter
-                    let chars: Vec<char> = part.chars().collect();
-                    let mut start = 0;
-                    while start < chars.len() {
-                        let end = (start + asst_wrap_w).min(chars.len());
-                        let chunk: String = chars[start..end].iter().collect();
-                        lines.push(Line::from(vec![
-                            Span::raw("  "),
-                            Span::styled(chunk, Style::default()),
-                        ]));
-                        start = end;
-                    }
+                    let mut markdown_line = parse_markdown_line(&line_str, Style::default());
+                    markdown_line.spans.insert(0, Span::raw("  "));
+                    lines.push(markdown_line);
                 }
             }
 
@@ -546,5 +533,94 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
         .style(Style::default().fg(Color::Rgb(255, 255, 255)).bg(Color::Rgb(0, 0, 0))); // Background hitam pekat
         frame.render_widget(footer_text, sidebar_chunks[4]);
     }
+}
 
+/// Melakukan word-wrap manual per baris teks ke lebar maksimal `max_width`.
+/// Menjaga line breaks yang ditulis secara eksplisit dari input.
+fn wrap_text(text: &str, max_width: usize) -> Vec<String> {
+    let mut lines = Vec::new();
+    for paragraph in text.lines() {
+        if paragraph.is_empty() {
+            lines.push(String::new());
+            continue;
+        }
+
+        let words: Vec<&str> = paragraph.split_whitespace().collect();
+        if words.is_empty() {
+            lines.push(String::new());
+            continue;
+        }
+
+        let mut current_line = String::new();
+        for word in words {
+            let space_needed = if current_line.is_empty() { 0 } else { 1 };
+            if current_line.chars().count() + space_needed + word.chars().count() > max_width {
+                // Baris penuh, flush ke lines
+                lines.push(current_line);
+                current_line = word.to_string();
+            } else {
+                if !current_line.is_empty() {
+                    current_line.push(' ');
+                }
+                current_line.push_str(word);
+            }
+        }
+        if !current_line.is_empty() {
+            lines.push(current_line);
+        }
+    }
+    lines
+}
+
+/// Melakukan parsing markdown bold sederhana (**text**) menjadi kumpulan Span.
+/// Karakter asterisk (**) tidak ikut ditampilkan, melainkan diganti dengan Modifier::BOLD.
+fn parse_markdown_line(text: &str, base_style: Style) -> Line<'static> {
+    let mut spans = Vec::new();
+    let mut current_pos = 0;
+    let chars: Vec<char> = text.chars().collect();
+
+    while current_pos < chars.len() {
+        // Cek token bold "**"
+        if current_pos + 1 < chars.len() && chars[current_pos] == '*' && chars[current_pos + 1] == '*' {
+            current_pos += 2; // Lewati "**" pembuka
+            let mut accum = String::new();
+            let mut found_end = false;
+
+            while current_pos < chars.len() {
+                if current_pos + 1 < chars.len() && chars[current_pos] == '*' && chars[current_pos + 1] == '*' {
+                    current_pos += 2; // Lewati "**" penutup
+                    found_end = true;
+                    break;
+                }
+                accum.push(chars[current_pos]);
+                current_pos += 1;
+            }
+
+            if found_end {
+                spans.push(Span::styled(accum, base_style.add_modifier(Modifier::BOLD)));
+            } else {
+                // Jika tidak ada token penutup, render literal "**"
+                let mut literal = String::from("**");
+                literal.push_str(&accum);
+                spans.push(Span::styled(literal, base_style));
+            }
+        } else {
+            // Teks biasa
+            let mut accum = String::new();
+            while current_pos < chars.len() {
+                if current_pos + 1 < chars.len() && chars[current_pos] == '*' && chars[current_pos + 1] == '*' {
+                    break;
+                }
+                accum.push(chars[current_pos]);
+                current_pos += 1;
+            }
+            spans.push(Span::styled(accum, base_style));
+        }
+    }
+
+    if spans.is_empty() {
+        spans.push(Span::styled(String::new(), base_style));
+    }
+
+    Line::from(spans)
 }
