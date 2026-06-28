@@ -71,7 +71,7 @@ impl TuiApp {
         if total > 0 {
             let router = Arc::new(clawhive_model_router::router::ModelRouter::new(registry));
             if let Some(first) = router.registry().list_profiles().first() {
-                self.active_model = first.model_name.clone();
+                self.set_active_model(first.id.clone());
             }
             self.state.model_router = Some(router);
         }
@@ -234,7 +234,7 @@ impl TuiApp {
                 self.model_sel_index = 0;
                 if variants.len() == 1 {
                     // Only one variant — select it directly
-                    self.active_model = variants[0].id.clone();
+                    self.set_active_model(variants[0].id.clone());
                     self.status_message = format!(
                         "Active model: {} ({})",
                         self.active_model, variants[0].provider,
@@ -273,7 +273,7 @@ impl TuiApp {
                     router.inject_profile(selected.clone());
                 }
 
-                self.active_model = selected.id.clone();
+                self.set_active_model(selected.id.clone());
                 self.status_message = format!("Model: {} (via {})", selected.id, selected.provider);
                 self.command_mode = CommandMode::None;
                 self.reset_model_selection();

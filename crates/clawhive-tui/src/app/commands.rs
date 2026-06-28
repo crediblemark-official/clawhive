@@ -98,6 +98,41 @@ Type any message to start a chat with the active model.",
                     }
                 }
             }
+            "model" => {
+                if parts.len() < 2 {
+                    if let Some(router) = &self.state.model_router {
+                        let profiles = router.registry().list_profiles();
+                        if profiles.is_empty() {
+                            "Tidak ada model yang terkonfigurasi. Set API key terlebih dahulu.".into()
+                        } else {
+                            let mut msg = "Model terkonfigurasi yang tersedia:\n".to_string();
+                            for p in profiles {
+                                msg.push_str(&format!("  - {} ({})\n", p.id, p.provider));
+                            }
+                            msg.push_str("\nGunakan ':model <model_id>' untuk beralih.");
+                            msg
+                        }
+                    } else {
+                        "Tidak ada model yang terkonfigurasi. Set API key terlebih dahulu.".into()
+                    }
+                } else {
+                    let target_model = parts[1];
+                    let mut matched = false;
+                    if let Some(router) = &self.state.model_router {
+                        let profiles = router.registry().list_profiles();
+                        if profiles.iter().any(|p| p.id == target_model || p.model_name == target_model) {
+                            matched = true;
+                        }
+                    }
+                    if matched {
+                        self.set_active_model(target_model.to_string());
+                        self.init_agent_runtime().await;
+                        format!("Model berhasil dialihkan ke: {}", target_model)
+                    } else {
+                        format!("Model '{}' tidak terkonfigurasi. Gunakan ':model' untuk melihat daftar.", target_model)
+                    }
+                }
+            }
             "terminate" => {
                 if parts.len() < 2 {
                     "Usage: :terminate <agent_id|name>".into()

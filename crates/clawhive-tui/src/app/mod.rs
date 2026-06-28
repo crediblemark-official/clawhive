@@ -5,6 +5,7 @@ use clawhive_agent::runtime::AgentRuntime;
 use clawhive_control_api::state::AppState;
 use clawhive_domain::{Agent, AgentId, MissionId, SpawnRequest, Worker};
 use clawhive_model_router::types::{ModelFamily, ModelProfile, StreamEvent};
+use clawhive_store::StoreExt;
 
 mod commands;
 mod events;
@@ -258,6 +259,20 @@ impl TuiApp {
 
         self.refresh().await;
         self.load_saved_api_key().await;
+        
+        // Load model aktif terakhir dari database
+        if let Ok(Some(last_model)) = self.state.kv_store.get::<String>("last_active_model").await {
+            self.active_model = last_model;
+        } else {
+            // Fallback ke model pertama jika ada
+            if let Some(router) = &self.state.model_router {
+                let profiles = router.registry().list_profiles();
+                if !profiles.is_empty() {
+                    self.active_model = profiles[0].id.clone();
+                }
+            }
+        }
+
         self.init_agent_runtime().await;
 
         while !self.should_quit {
@@ -320,6 +335,14 @@ impl TuiApp {
                 tracing::warn!("Gagal init AgentRuntime: {e}");
             }
         }
+    }
+
+    pub(crate) fn set_active_model(&mut self, model_id: String) {
+        self.active_model = model_id.clone();
+        let store = std::sync::Arc::clone(&self.state.kv_store);
+        tokio::spawn(async move {
+            let _ = store.set("last_active_model", &model_id).await;
+        });
     }
 
     /// Pastikan agent aktif sudah ada di store. Jika belum, buat dan simpan.
