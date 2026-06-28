@@ -502,7 +502,9 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
                         .spawn_requests
                         .iter()
                         .map(|r| {
-                            let name = format!("  {:<15}", r.team.name.chars().take(12).collect::<String>());
+                            let req_id_prefix = &r.id.0.to_string()[..8];
+                            let display_name = r.team.name.replace("-team", "");
+                            let name = format!("  {:<12} ({})", display_name.chars().take(10).collect::<String>(), req_id_prefix);
                             ListItem::new(Line::from(vec![
                                 Span::styled(name, Style::default().fg(Color::White).bg(Color::Rgb(0, 0, 0))),
                                 Span::styled(" Pending", Style::default().fg(Color::Yellow).bg(Color::Rgb(0, 0, 0))),
