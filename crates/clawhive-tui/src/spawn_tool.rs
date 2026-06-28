@@ -121,7 +121,7 @@ impl Tool for SpawnTool {
         };
 
 
-        let key = format!("spawn_request:{}", request_id.0);
+        let key = format!("spawnreq:{}", request_id.0);
         self.kv_store.set(&key, &spawn_request).await
             .map_err(|e| ToolError::Other(format!("gagal simpan spawn request: {e}")))?;
 
