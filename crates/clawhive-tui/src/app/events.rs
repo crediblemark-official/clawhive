@@ -226,6 +226,7 @@ impl TuiApp {
                                                             String::new(),
                                                         ));
                                                         self.is_streaming = true;
+                                                        self.stream_status = Some("Menghubungi API model...".to_string());
 
                                                         let (stream_tx, stream_rx) =
                                                             tokio::sync::mpsc::unbounded_channel();
@@ -391,18 +392,21 @@ impl TuiApp {
     pub(crate) fn handle_stream_event(&mut self, event: StreamEvent) {
         match event {
             StreamEvent::TextDelta(delta) => {
+                self.stream_status = Some("Menerima respon...".to_string());
                 if let Some((_, _, content)) = self.chat_history.last_mut() {
                     content.push_str(&delta);
                 }
             }
-            StreamEvent::ToolCallDelta { .. } => {
-                // Future: render tool call state
+            StreamEvent::ToolCallDelta { name, .. } => {
+                let tool_name = name.clone().unwrap_or_else(|| "tool".to_string());
+                self.stream_status = Some(format!("Menjalankan tool: {}...", tool_name));
             }
             StreamEvent::Usage(_usage) => {
                 // Future: show token usage in status bar
             }
             StreamEvent::Done => {
                 self.is_streaming = false;
+                self.stream_status = None;
                 self.stream_rx = None;
                 // Ensure non-empty response
                 if let Some((_, _, content)) = self.chat_history.last_mut() {
@@ -413,6 +417,7 @@ impl TuiApp {
             }
             StreamEvent::Error(e) => {
                 self.is_streaming = false;
+                self.stream_status = None;
                 self.stream_rx = None;
                 self.chat_history.push((
                     "System".to_string(),

@@ -79,6 +79,10 @@ pub struct TuiApp {
     pub(crate) stream_rx: Option<tokio::sync::mpsc::UnboundedReceiver<StreamEvent>>,
     /// True saat streaming response sedang berjalan.
     pub(crate) is_streaming: bool,
+    /// Status detail streaming (misal: "Berpikir...", "Memanggil tool...")
+    pub stream_status: Option<String>,
+    /// Indeks spinner untuk animasi progress/status
+    pub spinner_tick: usize,
     /// Offset scroll chat history (jumlah baris yang discroll ke atas).
     pub chat_scroll_offset: std::cell::Cell<usize>,
     /// True = auto-scroll ke bawah. False = user sedang scroll manual ke atas.
@@ -114,6 +118,8 @@ impl TuiApp {
             model_sel_pending_provider: None,
             stream_rx: None,
             is_streaming: false,
+            stream_status: None,
+            spinner_tick: 0,
             chat_scroll_offset: std::cell::Cell::new(0),
             chat_at_bottom: true,
             last_refresh: std::time::Instant::now(),
@@ -197,6 +203,7 @@ impl TuiApp {
         self.load_saved_api_key().await;
 
         while !self.should_quit {
+            self.spinner_tick = self.spinner_tick.wrapping_add(1);
             // Refresh data dari database secara periodik setiap 1 detik
             if self.last_refresh.elapsed() >= std::time::Duration::from_secs(1) {
                 self.refresh().await;

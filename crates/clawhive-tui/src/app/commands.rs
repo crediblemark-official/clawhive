@@ -34,6 +34,7 @@ Commands:
   :deny <spawn_id>                   Deny spawn request
   :spawn <mission> <role> <objective> <budget>  Create spawn request
   :goto <agents|workers|spawn>       Switch tab
+  :save <filename.md>                Save last assistant response to a markdown file
   :q                                 Quit TUI
 
 Available providers ({} total):
@@ -265,6 +266,29 @@ Type any message to start a chat with the active model.",
                             "Switched to Spawn Requests".into()
                         }
                         other => format!("Unknown tab: {other}"),
+                    }
+                }
+            }
+            "save" => {
+                if parts.len() < 2 {
+                    "Usage: :save <filename.md>".into()
+                } else {
+                    let filename = parts[1];
+                    let last_assistant_msg = self.chat_history.iter().rev().find(|(sender, _, _)| {
+                        sender.to_lowercase() == "agent" || sender.to_lowercase() == "assistant"
+                    });
+                    match last_assistant_msg {
+                        Some((_, _, content)) => {
+                            if content.is_empty() {
+                                "Pesan terakhir kosong, tidak ada yang bisa disimpan.".into()
+                            } else {
+                                match tokio::fs::write(filename, content).await {
+                                    Ok(_) => format!("Berhasil menyimpan jawaban terakhir ke file '{}'", filename),
+                                    Err(e) => format!("Gagal menulis file: {}", e),
+                                }
+                            }
+                        }
+                        None => "Tidak ada jawaban asisten yang bisa disimpan.".into()
                     }
                 }
             }

@@ -247,7 +247,17 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
         ("Belum Dikonfigurasi".to_string(), "None".to_string())
     };
 
-    let left_len = 2 + 3 + 3 + active_model_name.len() + 1 + provider_name.len();
+    let status_label = if app.is_streaming {
+        const SPINNER_FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+        let spinner = SPINNER_FRAMES[app.spinner_tick % SPINNER_FRAMES.len()];
+        let status_text = app.stream_status.as_deref().unwrap_or("Berpikir...");
+        format!("TUI {} {}", spinner, status_text)
+    } else {
+        "TUI".to_string()
+    };
+    let status_color = if app.is_streaming { Color::Yellow } else { Color::Rgb(218, 165, 32) };
+
+    let left_len = 2 + status_label.len() + 3 + active_model_name.len() + 1 + provider_name.len();
     let right_len = 40; // panjang visual dari: "/ commands  : terminal  ctrl+p palette  "
     
     let spacer_len = (input_inner.width as usize)
@@ -255,9 +265,6 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
         .saturating_sub(right_len)
         .max(1);
     let middle_spacer = " ".repeat(spacer_len);
-
-    let status_label = if app.is_streaming { "TUI (Streaming...)" } else { "TUI" };
-    let status_color = if app.is_streaming { Color::Yellow } else { Color::Rgb(218, 165, 32) };
 
     let mut chat_input_lines = Vec::new();
     let text_style = if app.input_buffer.is_empty() {
