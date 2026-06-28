@@ -332,47 +332,61 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
         if app.input_buffer.starts_with('/') {
             if app.input_buffer == "/" {
                 chat_input_lines.push(Line::from(Span::styled("   [Commands] ---------------------------------------------", Style::default().fg(Color::DarkGray))));
-                chat_input_lines.push(Line::from(vec![
-                    Span::styled("     /model <id>", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-                    Span::styled("   - Ganti model aktif secara cepat", Style::default().fg(Color::Gray)),
-                ]));
-                chat_input_lines.push(Line::from(vec![
-                    Span::styled("     /help", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-                    Span::styled("         - Tampilkan daftar perintah lengkap", Style::default().fg(Color::Gray)),
-                ]));
-                chat_input_lines.push(Line::from(vec![
-                    Span::styled("     /refresh", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-                    Span::styled("      - Segarkan database agen dan task", Style::default().fg(Color::Gray)),
-                ]));
-                chat_input_lines.push(Line::from(vec![
-                    Span::styled("     /q", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-                    Span::styled("            - Keluar dari aplikasi TUI", Style::default().fg(Color::Gray)),
-                ]));
+                
+                let commands = vec![
+                    ("/model <id>", "   - Ganti model aktif secara cepat"),
+                    ("/help", "         - Tampilkan daftar perintah lengkap"),
+                    ("/refresh", "      - Segarkan database agen dan task"),
+                    ("/q", "            - Keluar dari aplikasi TUI"),
+                ];
+                
+                for (idx, (cmd, desc)) in commands.into_iter().enumerate() {
+                    let is_selected = idx == app.suggestion_index;
+                    let (prefix, style) = if is_selected {
+                        (" >  ", Style::default().fg(Color::Rgb(0, 0, 0)).bg(Color::Rgb(254, 192, 126)).add_modifier(Modifier::BOLD))
+                    } else {
+                        ("    ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+                    };
+                    chat_input_lines.push(Line::from(vec![
+                        Span::styled(format!("{}{:<15}", prefix, cmd), style),
+                        Span::styled(desc, Style::default().fg(Color::Gray)),
+                    ]));
+                }
+                
                 chat_input_lines.push(Line::from(Span::styled("   --------------------------------------------------------", Style::default().fg(Color::DarkGray))));
                 chat_input_lines.push(Line::from(""));
             } else if app.input_buffer.starts_with("/model") {
                 chat_input_lines.push(Line::from(Span::styled("   [Select Model] -----------------------------------------", Style::default().fg(Color::DarkGray))));
-                if let Some(router) = &app.state.model_router {
-                    let profiles = router.registry().list_profiles();
-                    if profiles.is_empty() {
-                        chat_input_lines.push(Line::from(Span::styled("     (Tidak ada model terkonfigurasi)", Style::default().fg(Color::Red))));
-                    } else {
-                        for p in profiles {
-                            let is_active = p.id == app.active_model || p.model_name == app.active_model;
-                            let prefix = if is_active { "   ✓ " } else { "     " };
-                            let style = if is_active {
-                                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
-                            } else {
-                                Style::default().fg(Color::Cyan)
-                            };
-                            chat_input_lines.push(Line::from(vec![
-                                Span::styled(format!("{}{:<25}", prefix, p.id), style),
-                                Span::styled(format!(" ({})", p.provider), Style::default().fg(Color::DarkGray)),
-                            ]));
-                        }
-                    }
+                if app.active_suggestions.is_empty() {
+                    chat_input_lines.push(Line::from(Span::styled("     (Tidak ada model terkonfigurasi cocok)", Style::default().fg(Color::Red))));
                 } else {
-                    chat_input_lines.push(Line::from(Span::styled("     (Tidak ada model terkonfigurasi)", Style::default().fg(Color::Red))));
+                    for (idx, (model_id, _)) in app.active_suggestions.iter().enumerate() {
+                        let is_selected = idx == app.suggestion_index;
+                        let is_active = model_id == &app.active_model;
+                        
+                        let mut prefix = if is_active { " ✓  ".to_string() } else { "    ".to_string() };
+                        if is_selected {
+                            prefix = " >  ".to_string();
+                        }
+                        
+                        let style = if is_selected {
+                            Style::default().fg(Color::Rgb(0, 0, 0)).bg(Color::Rgb(254, 192, 126)).add_modifier(Modifier::BOLD)
+                        } else if is_active {
+                            Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+                        } else {
+                            Style::default().fg(Color::Cyan)
+                        };
+                        
+                        // Dapatkan nama provider dari router registry (jika ada)
+                        let provider = app.state.model_router.as_ref()
+                            .and_then(|r| r.registry().list_profiles().iter().find(|p| &p.id == model_id).map(|p| p.provider.clone()))
+                            .unwrap_or_else(|| "Unknown".to_string());
+                        
+                        chat_input_lines.push(Line::from(vec![
+                            Span::styled(format!("{}{:<25}", prefix, model_id), style),
+                            Span::styled(format!(" ({})", provider), Style::default().fg(Color::DarkGray)),
+                        ]));
+                    }
                 }
                 chat_input_lines.push(Line::from(Span::styled("   --------------------------------------------------------", Style::default().fg(Color::DarkGray))));
                 chat_input_lines.push(Line::from(""));

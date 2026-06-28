@@ -201,6 +201,23 @@ impl TuiApp {
                         // Standard Input / Navigation handling
                         match key.code {
                             KeyCode::Enter => {
+                                if !self.active_suggestions.is_empty() {
+                                    let selected_val = self.active_suggestions[self.suggestion_index].1.clone();
+                                    self.input_buffer = selected_val;
+                                    self.update_suggestions();
+                                    
+                                    // Jika autocomplete-nya lengkap (tidak diakhiri spasi), langsung jalankan command
+                                    if !self.input_buffer.ends_with(' ') {
+                                        let content = std::mem::take(&mut self.input_buffer);
+                                        let trimmed = content.trim();
+                                        if let Some(cmd) = trimmed.strip_prefix(':').or_else(|| trimmed.strip_prefix('/')) {
+                                            self.execute_command(cmd).await;
+                                        }
+                                        self.active_suggestions.clear();
+                                    }
+                                    return;
+                                }
+
                                 let content = std::mem::take(&mut self.input_buffer);
                                 let trimmed = content.trim();
                                 if !trimmed.is_empty() {
@@ -330,6 +347,7 @@ impl TuiApp {
                             }
                             KeyCode::Backspace => {
                                 self.input_buffer.pop();
+                                self.update_suggestions();
                             }
                             KeyCode::Char(c) => {
                                 if self.active_screen == Screen::Home {
@@ -346,18 +364,12 @@ impl TuiApp {
                                         _ => {
                                             self.input_buffer.push(c);
                                             self.active_screen = Screen::Chat;
+                                            self.update_suggestions();
                                         }
                                     }
                                 } else {
-                                    if c == '/' && self.input_buffer.is_empty() {
-                                        self.command_mode = CommandMode::CommandPalette {
-                                            search_query: String::new(),
-                                            selected_index: 0,
-                                            filtered_items: get_palette_items(),
-                                        };
-                                    } else {
-                                        self.input_buffer.push(c);
-                                    }
+                                    self.input_buffer.push(c);
+                                    self.update_suggestions();
                                 }
                             }
                             KeyCode::Tab => {
@@ -370,7 +382,13 @@ impl TuiApp {
                                 self.selected_index = 0;
                             }
                             KeyCode::Up => {
-                                if self.active_screen == Screen::Chat {
+                                if self.active_screen == Screen::Chat && !self.active_suggestions.is_empty() {
+                                    if self.suggestion_index > 0 {
+                                        self.suggestion_index -= 1;
+                                    } else {
+                                        self.suggestion_index = self.active_suggestions.len().saturating_sub(1);
+                                    }
+                                } else if self.active_screen == Screen::Chat {
                                     // Scroll chat ke atas (3 baris per langkah)
                                     let next = self.chat_scroll_offset.get().saturating_add(3);
                                     self.chat_scroll_offset.set(next);
@@ -380,7 +398,14 @@ impl TuiApp {
                                 }
                             }
                             KeyCode::Down => {
-                                if self.active_screen == Screen::Chat {
+                                if self.active_screen == Screen::Chat && !self.active_suggestions.is_empty() {
+                                    let max = self.active_suggestions.len().saturating_sub(1);
+                                    if self.suggestion_index < max {
+                                        self.suggestion_index += 1;
+                                    } else {
+                                        self.suggestion_index = 0;
+                                    }
+                                } else if self.active_screen == Screen::Chat {
                                     // Scroll chat ke bawah (3 baris per langkah)
                                     let current = self.chat_scroll_offset.get();
                                     if current >= 3 {

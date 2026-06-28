@@ -100,6 +100,10 @@ pub struct TuiApp {
     pub(crate) agent_rx: Option<tokio::sync::mpsc::UnboundedReceiver<AgentEvent>>,
     /// Request approval tool yang sedang tertunda (pending).
     pub pending_tool_approval: Option<clawhive_domain::approval::ToolApprovalRequest>,
+    /// Indeks item suggestion autocomplete yang sedang dipilih (selected).
+    pub suggestion_index: usize,
+    /// Daftar suggestions aktif: (teks tampilan, nilai autocomplete/command)
+    pub active_suggestions: Vec<(String, String)>,
 }
 
 impl TuiApp {
@@ -138,6 +142,8 @@ impl TuiApp {
             active_agent_id: None,
             agent_rx: None,
             pending_tool_approval: None,
+            suggestion_index: 0,
+            active_suggestions: Vec::new(),
         }
     }
 
@@ -343,6 +349,41 @@ impl TuiApp {
         tokio::spawn(async move {
             let _ = store.set("last_active_model", &model_id).await;
         });
+    }
+
+    pub(crate) fn update_suggestions(&mut self) {
+        self.active_suggestions.clear();
+        
+        if self.input_buffer.starts_with('/') {
+            if self.input_buffer == "/" {
+                self.active_suggestions = vec![
+                    ("/model ".to_string(), "/model ".to_string()),
+                    ("/help".to_string(), "/help".to_string()),
+                    ("/refresh".to_string(), "/refresh".to_string()),
+                    ("/q".to_string(), "/q".to_string()),
+                ];
+            } else if self.input_buffer.starts_with("/model") {
+                if let Some(router) = &self.state.model_router {
+                    let profiles = router.registry().list_profiles();
+                    let search = if self.input_buffer.len() > 7 {
+                        self.input_buffer[7..].trim().to_lowercase()
+                    } else {
+                        String::new()
+                    };
+                    
+                    self.active_suggestions = profiles
+                        .iter()
+                        .filter(|p| search.is_empty() || p.id.to_lowercase().contains(&search))
+                        .map(|p| (p.id.clone(), format!("/model {}", p.id)))
+                        .collect();
+                }
+            }
+        }
+        
+        let max = self.active_suggestions.len().saturating_sub(1);
+        if self.suggestion_index > max {
+            self.suggestion_index = 0;
+        }
     }
 
     /// Pastikan agent aktif sudah ada di store. Jika belum, buat dan simpan.
