@@ -7,6 +7,7 @@ edition = "2024"
 clawhive-control-api = { path = "../clawhive-control-api" }
 clawhive-domain = { path = "../clawhive-domain" }
 clawhive-store = { path = "../clawhive-store" }
+clawhive-model-router = { path = "../clawhive-model-router" }
 ratatui = { workspace = true }
 crossterm = { workspace = true }
 tokio = { workspace = true }

@@ -7,7 +7,7 @@ use ratatui::{
 };
 
 use crate::app::TuiApp;
-use crate::ui::components::draw_slash_autocomplete;
+
 
 pub fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
     let banner_content = include_str!("../../../../assets/clawhive.txt");
@@ -224,6 +224,4 @@ pub fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
         footer_chunks[1],
     );
 
-    // Render autocomplete jika sedang aktif mengetik /
-    draw_slash_autocomplete(frame, input_box_area, app);
 }

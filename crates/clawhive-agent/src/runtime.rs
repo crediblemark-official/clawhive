@@ -648,8 +648,8 @@ mod tests {
                     model_name: model_name.to_string(),
                     context_window: 4096,
                     max_output_tokens: 1024,
-                    cost_per_1k_input: 0.01,
-                    cost_per_1k_output: 0.03,
+                    cost_per_1m_input: 10.00,
+                    cost_per_1m_output: 30.00,
                     suitable_for: vec!["general".to_string()],
                 })
             } else {

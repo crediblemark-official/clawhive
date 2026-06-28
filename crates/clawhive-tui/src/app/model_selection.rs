@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use clawhive_model_router::types::{group_models_by_family, ModelFamily, ModelProfile};
-use clawhive_store::StoreExt;
 use crate::app::{CommandMode, ModelSelectionStep, TuiApp};
+use clawhive_model_router::types::{ModelFamily, ModelProfile, group_models_by_family};
+use clawhive_store::StoreExt;
 
 impl TuiApp {
     /// Scan config file, env vars, and KV store for every known provider.
@@ -44,7 +44,10 @@ impl TuiApp {
                     Ok(k) if !k.is_empty() => Some(k),
                     _ => {
                         let store_key = format!("config:{}_api_key", config.name);
-                        self.state.kv_store.get::<String>(&store_key).await
+                        self.state
+                            .kv_store
+                            .get::<String>(&store_key)
+                            .await
                             .ok()
                             .flatten()
                             .filter(|k| !k.trim().is_empty())
@@ -161,7 +164,9 @@ impl TuiApp {
                         .filter(|v| {
                             v.id.to_lowercase().contains(&search)
                                 || v.model_name.to_lowercase().contains(&search)
-                                || v.suitable_for.iter().any(|t| t.to_lowercase().contains(&search))
+                                || v.suitable_for
+                                    .iter()
+                                    .any(|t| t.to_lowercase().contains(&search))
                         })
                         .count()
                 }
@@ -232,8 +237,7 @@ impl TuiApp {
                     self.active_model = variants[0].id.clone();
                     self.status_message = format!(
                         "Active model: {} ({})",
-                        self.active_model,
-                        variants[0].provider,
+                        self.active_model, variants[0].provider,
                     );
                     self.reset_model_selection();
                     self.command_mode = CommandMode::None;
@@ -252,7 +256,9 @@ impl TuiApp {
                         .filter(|v| {
                             v.id.to_lowercase().contains(&search)
                                 || v.model_name.to_lowercase().contains(&search)
-                                || v.suitable_for.iter().any(|t| t.to_lowercase().contains(&search))
+                                || v.suitable_for
+                                    .iter()
+                                    .any(|t| t.to_lowercase().contains(&search))
                         })
                         .collect()
                 };
@@ -268,11 +274,7 @@ impl TuiApp {
                 }
 
                 self.active_model = selected.id.clone();
-                self.status_message = format!(
-                    "Model: {} (via {})",
-                    selected.id,
-                    selected.provider
-                );
+                self.status_message = format!("Model: {} (via {})", selected.id, selected.provider);
                 self.command_mode = CommandMode::None;
                 self.reset_model_selection();
             }
@@ -323,9 +325,10 @@ impl TuiApp {
 
     /// Check if a provider name is registered in the router.
     pub fn provider_is_configured(&self, name: &str) -> bool {
-        self.state.model_router.as_ref().is_some_and(|r| {
-            r.registry().get_provider(name).is_ok()
-        })
+        self.state
+            .model_router
+            .as_ref()
+            .is_some_and(|r| r.registry().get_provider(name).is_ok())
     }
 
     pub(crate) async fn persist_api_key(&self, provider: &str, api_key: &str) {

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelMessage {
@@ -73,7 +74,154 @@ pub struct ModelProfile {
     pub model_name: String,
     pub context_window: u32,
     pub max_output_tokens: u32,
-    pub cost_per_1k_input: f64,
-    pub cost_per_1k_output: f64,
+    pub cost_per_1m_input: f64,
+    pub cost_per_1m_output: f64,
     pub suitable_for: Vec<String>,
+}
+
+/// A single event from a streaming chat response.
+/// Mirrors the OpenAI SSE stream format (text deltas, tool calls, usage).
+#[derive(Debug, Clone)]
+pub enum StreamEvent {
+    /// Incremental text content delta.
+    TextDelta(String),
+    /// Tool call fragment — accumulated across multiple deltas.
+    ToolCallDelta {
+        index: usize,
+        id: Option<String>,
+        name: Option<String>,
+        arguments: String,
+    },
+    /// Final usage information (sent once at stream end).
+    Usage(UsageInfo),
+    /// Stream complete.
+    Done,
+    /// Stream encountered an error.
+    Error(String),
+}
+
+/// A handle to consume streaming responses via a channel.
+/// Clones share the same underlying receiver.
+#[derive(Debug, Clone)]
+pub struct StreamHandle {
+    rx: Arc<std::sync::Mutex<Option<tokio::sync::mpsc::UnboundedReceiver<StreamEvent>>>>,
+}
+
+impl StreamHandle {
+    pub(crate) fn new(rx: tokio::sync::mpsc::UnboundedReceiver<StreamEvent>) -> Self {
+        Self {
+            rx: Arc::new(std::sync::Mutex::new(Some(rx))),
+        }
+    }
+
+    /// Receive the next stream event. Returns `None` when the stream is exhausted.
+    pub async fn recv(&self) -> Option<StreamEvent> {
+        let mut rx = self.rx.lock().unwrap().take()?;
+        let event = rx.recv().await;
+        self.rx.lock().unwrap().replace(rx);
+        event
+    }
+
+    /// Collect all remaining events into a vector.
+    pub async fn collect(&self) -> Vec<StreamEvent> {
+        let mut events = Vec::new();
+        while let Some(event) = self.recv().await {
+            match event {
+                StreamEvent::Done => break,
+                StreamEvent::Error(_) => {
+                    events.push(event);
+                    break;
+                }
+                _ => events.push(event),
+            }
+        }
+        events
+    }
+}
+
+/// A model family (e.g. "Gemini 2.0") containing specific variants (Flash, Pro, …).
+#[derive(Debug, Clone)]
+pub struct ModelFamily {
+    pub name: String,
+    pub variants: Vec<ModelProfile>,
+}
+
+/// Group models into families using a heuristic that strips trailing variant/version
+/// segments from model IDs. Models that share a common stem are grouped together.
+///
+/// Stems are derived by removing known variant suffixes (`mini`, `flash`, `pro`, `turbo`,
+/// version numbers, date stamps, etc.) and checking what remains.
+pub fn group_models_by_family(models: Vec<ModelProfile>) -> Vec<ModelFamily> {
+    use std::collections::HashMap;
+
+    let mut families: HashMap<String, Vec<ModelProfile>> = HashMap::new();
+
+    for model in models {
+        let stem = extract_model_stem(&model.id);
+        let label = stem
+            .split('/')
+            .last()
+            .unwrap_or(&stem)
+            .replace('-', " ")
+            .split_whitespace()
+            .map(|w| {
+                let mut c = w.chars();
+                c.next().map(|f| f.to_uppercase().to_string() + c.as_str()).unwrap_or_default()
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        families.entry(label).or_default().push(model);
+    }
+
+    let mut result: Vec<ModelFamily> = families
+        .into_iter()
+        .map(|(name, variants)| ModelFamily { name, variants })
+        .collect();
+    result.sort_by(|a, b| a.name.cmp(&b.name));
+    result
+}
+
+/// Remove trailing variant/version segments from a model ID to find its stem.
+///
+/// Examples:
+/// - `gemini-2.0-flash`       → `gemini-2.0`
+/// - `gemini-2.0-flash-lite`  → `gemini-2.0`
+/// - `gpt-4o-mini`            → `gpt-4o`
+/// - `claude-sonnet-4-20250514` → `claude-sonnet-4`
+fn extract_model_stem(model_id: &str) -> String {
+    let id = model_id.split('/').last().unwrap_or(model_id);
+
+    let variant_suffixes = [
+        "mini", "micro", "nano", "small", "medium", "large",
+        "flash", "pro", "turbo", "lite", "ultra", "max", "plus",
+        "sonnet", "haiku", "opus",
+        "instruct", "chat", "code", "reasoning", "thinking",
+        "preview", "exp", "experimental", "latest", "stable",
+        "vision", "audio", "realtime",
+    ];
+
+    let parts: Vec<&str> = id.split('-').collect();
+    if parts.len() <= 2 {
+        return id.to_string();
+    }
+
+    // Walk backwards and strip known variant/version segments
+    let mut end = parts.len();
+    for i in (1..parts.len()).rev() {
+        let segment = parts[i];
+        // Version number or date
+        if segment.chars().all(|c| c.is_ascii_digit() || c == '.') {
+            end = i;
+            continue;
+        }
+        // Known variant suffix
+        if variant_suffixes.contains(&segment) {
+            end = i;
+            continue;
+        }
+        break;
+    }
+
+    parts[..end].join("-")
 }

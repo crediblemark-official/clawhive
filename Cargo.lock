@@ -372,7 +372,9 @@ name = "clawhive"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "chrono",
  "clap",
+ "clawhive-agent",
  "clawhive-auth",
  "clawhive-budget",
  "clawhive-control-api",
@@ -386,12 +388,14 @@ dependencies = [
  "clawhive-task",
  "clawhive-tool",
  "clawhive-tui",
+ "clawhive-worker",
  "serde",
  "serde_json",
  "tokio",
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]

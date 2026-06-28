@@ -5,3 +5,4 @@
 .DS_Store
 /clawhive.db
 /logs
+clawhive.toml
