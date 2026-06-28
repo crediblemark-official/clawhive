@@ -50,7 +50,9 @@ pub async fn build_tui_runtime(
     tool_registry.register(Box::new(clawhive_tool::builtin::ReadFileTool));
     tool_registry.register(Box::new(clawhive_tool::builtin::WriteFileTool));
     tool_registry.register(Box::new(clawhive_tool::builtin::HttpTool));
+    tool_registry.register(Box::new(crate::spawn_tool::SpawnTool::new(Arc::clone(&kv_store))));
     let tool_registry_arc = Arc::new(tool_registry);
+
 
     let agent_store = AgentStore::new(Arc::clone(&kv_store));
     // BudgetService adalah unit struct, tidak punya Default

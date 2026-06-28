@@ -1,4 +1,5 @@
 mod app;
+pub(crate) mod spawn_tool;
 pub(crate) mod tui_agent;
 mod ui;
 

@@ -1,0 +1,136 @@
+use std::sync::Arc;
+use async_trait::async_trait;
+use serde_json::json;
+
+use clawhive_domain::{
+    ChildSpawnPolicy, ChildSpec, SpawnRequest, SpawnRequestId, SpawnState,
+    SwarmTeamSpec, TerminationPolicy, SideEffectClass
+};
+use clawhive_tool::{registry::Tool, context::ToolContext, error::ToolError, result::ToolOutput};
+use clawhive_store::{Store, StoreExt};
+
+pub struct SpawnTool {
+    kv_store: Arc<dyn Store>,
+}
+
+impl SpawnTool {
+    pub fn new(kv_store: Arc<dyn Store>) -> Self {
+        Self { kv_store }
+    }
+}
+
+#[async_trait]
+impl Tool for SpawnTool {
+    fn name(&self) -> &str {
+        "spawn"
+    }
+
+    fn description(&self) -> &str {
+        "Meminta pembuatan (spawn) child agent baru untuk mengerjakan sub-tugas/objective spesifik. Menerima parameter 'role', 'objective', 'budget_usd', dan 'model_profile'."
+    }
+
+    fn input_schema(&self) -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "role": {
+                    "type": "string",
+                    "description": "Nama peran child agent spesialis (misal: Security Engineer, DB Designer)"
+                },
+                "objective": {
+                    "type": "string",
+                    "description": "Tugas atau tujuan spesifik yang harus diselesaikan oleh child agent"
+                },
+                "budget_usd": {
+                    "type": "number",
+                    "description": "Anggaran biaya maksimal untuk child agent (dalam USD). Default: 1.0"
+                },
+                "model_profile": {
+                    "type": "string",
+                    "description": "Profile model yang digunakan. Default: default"
+                }
+            },
+            "required": ["role", "objective"]
+        })
+    }
+
+    fn categories(&self) -> Vec<&str> {
+        vec!["swarm", "orchestration"]
+    }
+
+    fn side_effect_class(&self) -> SideEffectClass {
+        SideEffectClass::ControlledWrite
+    }
+
+    async fn execute(
+        &self,
+        context: &ToolContext,
+        args: serde_json::Value,
+    ) -> Result<ToolOutput, ToolError> {
+        let role = args.get("role")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| ToolError::InvalidArguments("missing role".to_string()))?;
+
+        let objective = args.get("objective")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| ToolError::InvalidArguments("missing objective".to_string()))?;
+
+        let budget_usd = args.get("budget_usd")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1.0);
+
+        let model_profile = args.get("model_profile")
+            .and_then(|v| v.as_str())
+            .unwrap_or("default");
+
+        let request_id = SpawnRequestId(uuid::Uuid::now_v7());
+        let spawn_request = SpawnRequest {
+            id: request_id.clone(),
+            mission_id: context.mission_id.clone(),
+            task_id: Some(context.task_id.0.to_string()),
+            requested_by: context.agent_id.clone(),
+            reason: format!("LLM spawn call for child role '{}'", role),
+            team: SwarmTeamSpec {
+                name: format!("{}-team", role),
+                lifecycle_mode: clawhive_domain::LifecycleMode::Ephemeral,
+                ttl_seconds: Some(3600),
+                idle_timeout_seconds: Some(300),
+            },
+            children: vec![ChildSpec {
+                role: role.to_string(),
+                objective: objective.to_string(),
+                budget_usd,
+                model_profile: model_profile.to_string(),
+                max_turns: 100,
+                custom_permissions: None,
+            }],
+            child_spawn_policy: ChildSpawnPolicy {
+                allowed: true,
+                max_depth: Some(3),
+                max_children: Some(5),
+            },
+            termination: TerminationPolicy {
+                on_task_complete: true,
+                on_parent_terminated: true,
+                on_budget_exhausted: true,
+            },
+            state: SpawnState::Pending,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        };
+
+
+        let key = format!("spawn_request:{}", request_id.0);
+        self.kv_store.set(&key, &spawn_request).await
+            .map_err(|e| ToolError::Other(format!("gagal simpan spawn request: {e}")))?;
+
+        Ok(ToolOutput::ok(json!({
+            "spawn_request_id": request_id.0.to_string(),
+            "status": "Pending approval",
+            "message": format!(
+                "Spawn request untuk child '{}' berhasil dibuat. Harap instruksikan operator manusia untuk menyetujuinya menggunakan command ':approve {}' di TUI console.",
+                role, &request_id.0.to_string()[..8]
+            )
+        })))
+    }
+}
