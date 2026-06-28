@@ -40,7 +40,21 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
         .into_iter()
         .map(|line| format!("  {}", line))
         .collect();
-    let input_height = (input_lines.len() + 2) as u16; // input lines + 1 spacer + 1 status bar
+
+    // Hitung tinggi tambahan untuk slash command suggestions
+    let mut suggestion_height = 0;
+    if app.input_buffer.starts_with('/') {
+        if app.input_buffer == "/" {
+            suggestion_height = 7; // Header + 4 commands + footer + spacer
+        } else if app.input_buffer.starts_with("/model") {
+            let model_count = app.state.model_router.as_ref()
+                .map(|r| r.registry().list_profiles().len())
+                .unwrap_or(0);
+            suggestion_height = 2 + model_count.max(1) + 1; // Header + model count + footer + spacer
+        }
+    }
+
+    let input_height = (input_lines.len() + 2 + suggestion_height) as u16; // input lines + spacer + status + suggestions
 
     let left_chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -314,6 +328,57 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
             Span::styled("[d] Deny (Tolak)", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
         ]));
     } else {
+        // Tambahkan suggestions jika input diawali dengan '/'
+        if app.input_buffer.starts_with('/') {
+            if app.input_buffer == "/" {
+                chat_input_lines.push(Line::from(Span::styled("   [Commands] ---------------------------------------------", Style::default().fg(Color::DarkGray))));
+                chat_input_lines.push(Line::from(vec![
+                    Span::styled("     /model <id>", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                    Span::styled("   - Ganti model aktif secara cepat", Style::default().fg(Color::Gray)),
+                ]));
+                chat_input_lines.push(Line::from(vec![
+                    Span::styled("     /help", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                    Span::styled("         - Tampilkan daftar perintah lengkap", Style::default().fg(Color::Gray)),
+                ]));
+                chat_input_lines.push(Line::from(vec![
+                    Span::styled("     /refresh", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                    Span::styled("      - Segarkan database agen dan task", Style::default().fg(Color::Gray)),
+                ]));
+                chat_input_lines.push(Line::from(vec![
+                    Span::styled("     /q", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                    Span::styled("            - Keluar dari aplikasi TUI", Style::default().fg(Color::Gray)),
+                ]));
+                chat_input_lines.push(Line::from(Span::styled("   --------------------------------------------------------", Style::default().fg(Color::DarkGray))));
+                chat_input_lines.push(Line::from(""));
+            } else if app.input_buffer.starts_with("/model") {
+                chat_input_lines.push(Line::from(Span::styled("   [Select Model] -----------------------------------------", Style::default().fg(Color::DarkGray))));
+                if let Some(router) = &app.state.model_router {
+                    let profiles = router.registry().list_profiles();
+                    if profiles.is_empty() {
+                        chat_input_lines.push(Line::from(Span::styled("     (Tidak ada model terkonfigurasi)", Style::default().fg(Color::Red))));
+                    } else {
+                        for p in profiles {
+                            let is_active = p.id == app.active_model || p.model_name == app.active_model;
+                            let prefix = if is_active { "   ✓ " } else { "     " };
+                            let style = if is_active {
+                                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+                            } else {
+                                Style::default().fg(Color::Cyan)
+                            };
+                            chat_input_lines.push(Line::from(vec![
+                                Span::styled(format!("{}{:<25}", prefix, p.id), style),
+                                Span::styled(format!(" ({})", p.provider), Style::default().fg(Color::DarkGray)),
+                            ]));
+                        }
+                    }
+                } else {
+                    chat_input_lines.push(Line::from(Span::styled("     (Tidak ada model terkonfigurasi)", Style::default().fg(Color::Red))));
+                }
+                chat_input_lines.push(Line::from(Span::styled("   --------------------------------------------------------", Style::default().fg(Color::DarkGray))));
+                chat_input_lines.push(Line::from(""));
+            }
+        }
+
         let text_style = if app.input_buffer.is_empty() {
             Style::default().fg(Color::DarkGray)
         } else {
@@ -351,12 +416,12 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
         // Sembunyikan cursor dengan menaruhnya di pojok kanan bawah terminal
         (frame.area().width.saturating_sub(1), frame.area().height.saturating_sub(1))
     } else if app.input_buffer.is_empty() {
-        (input_inner.x + 2, input_inner.y)
+        (input_inner.x + 2, input_inner.y + suggestion_height as u16)
     } else {
         let last_line = input_lines.last().cloned().unwrap_or_default();
         (
             input_inner.x + last_line.len() as u16,
-            input_inner.y + (input_lines.len() - 1) as u16,
+            input_inner.y + (input_lines.len() - 1 + suggestion_height) as u16,
         )
     };
     frame.set_cursor_position(cursor_pos);
