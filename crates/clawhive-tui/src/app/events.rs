@@ -27,6 +27,12 @@ impl TuiApp {
                     return;
                 }
 
+                // 2b. Handle Ctrl+I to toggle show_internal_process
+                if key.code == KeyCode::Char('i') && key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL) {
+                    self.show_internal_process = !self.show_internal_process;
+                    return;
+                }
+
                 // 3. Handle key based on current CommandMode
                 match &mut self.command_mode {
                     CommandMode::ApiKeyInput { key_input, error_message } => {

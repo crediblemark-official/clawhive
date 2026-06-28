@@ -358,8 +358,25 @@ impl AgentExecutor {
                             sorted
                                 .into_iter()
                                 .map(|(_, (id, name, args_str))| {
-                                    let args_val = serde_json::from_str(&args_str)
-                                        .unwrap_or(serde_json::Value::Null);
+                                    let cleaned_args = {
+                                        let mut s = args_str.trim();
+                                        if s.starts_with("```json") {
+                                            s = s.strip_prefix("```json").unwrap_or(s).trim();
+                                        } else if s.starts_with("```") {
+                                            s = s.strip_prefix("```").unwrap_or(s).trim();
+                                        }
+                                        if s.ends_with("```") {
+                                            s = s.strip_suffix("```").unwrap_or(s).trim();
+                                        }
+                                        s
+                                    };
+                                    let args_val = match serde_json::from_str(cleaned_args) {
+                                        Ok(val) => val,
+                                        Err(e) => {
+                                            tracing::warn!("Gagal parse tool arguments: '{}'. Error: {:?}", args_str, e);
+                                            serde_json::Value::Null
+                                        }
+                                    };
                                     clawhive_model_router::types::ToolCall {
                                         id,
                                         name,

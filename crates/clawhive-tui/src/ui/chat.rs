@@ -104,6 +104,9 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
 
     // Helper: hitung tinggi bubble (visual lines + chrome)
     let bubble_height = |sender: &str, msg: &str| -> usize {
+        if sender.eq_ignore_ascii_case("tool") && !app.show_internal_process {
+            return 1; // Hanya 1 baris ringkas
+        }
         let is_user = sender.eq_ignore_ascii_case("user") || sender.eq_ignore_ascii_case("system");
         let wrap_w = if is_user { user_wrap_w } else { asst_wrap_w };
         let vlines = count_lines(msg, wrap_w);
@@ -115,9 +118,13 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
     };
 
     // Hitung tinggi total semua bubble
-    let total_needed_height: usize = app.chat_history.iter()
+    let mut total_needed_height: usize = app.chat_history.iter()
         .map(|(sender, _, msg)| bubble_height(sender, msg))
         .sum();
+
+    if app.is_streaming && app.stream_status.is_some() {
+        total_needed_height += 2; // 1 baris status + 1 baris spacer kosong
+    }
 
     // Scroll offset dari state app (clamp ke max secara dinamis via Cell)
     let max_scroll = total_needed_height.saturating_sub(chat_area.height as usize);
@@ -198,26 +205,35 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
                 .wrap(Wrap { trim: false });
             frame.render_widget(p, bubble_chunks[2]);
         } else if sender.to_lowercase() == "tool" {
-            // Render pesan Tool secara khusus dengan warna/ikon tersendiri
             let mut lines = Vec::new();
 
-            // Header: ikon kunci/tool + nama tool
-            lines.push(Line::from(vec![
-                Span::raw("  "),
-                Span::styled("🔧 ", Style::default().fg(Color::LightBlue)),
-                Span::styled(format!("Tool: {model}"), Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC)),
-            ]));
-            lines.push(Line::from(""));
+            if app.show_internal_process {
+                // Header: ikon kunci/tool + nama tool (Expanded)
+                lines.push(Line::from(vec![
+                    Span::raw("  "),
+                    Span::styled("🔧 ", Style::default().fg(Color::LightBlue)),
+                    Span::styled(format!("Tool: {model} (click Ctrl+I to collapse)", model = model), Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC)),
+                ]));
+                lines.push(Line::from(""));
 
-            // Teks konten tool (bisa multiline, kita wrap_text)
-            for line_str in crate::ui::wrap_text(msg, asst_wrap_w) {
-                if line_str.is_empty() {
-                    lines.push(Line::from(Span::raw("  ")));
-                } else {
-                    let mut markdown_line = parse_markdown_line(&line_str, Style::default().fg(Color::Rgb(170, 180, 190)));
-                    markdown_line.spans.insert(0, Span::raw("  "));
-                    lines.push(markdown_line);
+                // Teks konten tool (bisa multiline, kita wrap_text)
+                for line_str in crate::ui::wrap_text(msg, asst_wrap_w) {
+                    if line_str.is_empty() {
+                        lines.push(Line::from(Span::raw("  ")));
+                    } else {
+                        let mut markdown_line = parse_markdown_line(&line_str, Style::default().fg(Color::Rgb(170, 180, 190)));
+                        markdown_line.spans.insert(0, Span::raw("  "));
+                        lines.push(markdown_line);
+                    }
                 }
+            } else {
+                // Render ringkas (Collapsed)
+                let status_icon = if msg.contains("selesai") { "✓" } else { "▶" };
+                lines.push(Line::from(vec![
+                    Span::raw("  "),
+                    Span::styled("🔧 ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(format!("Tool: {model} {status_icon} (Ctrl+I to expand)", model = model), Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC)),
+                ]));
             }
 
             let p = Paragraph::new(lines);
@@ -255,6 +271,46 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
 
             let p = Paragraph::new(lines);
             frame.render_widget(p, render_area);
+        }
+    }
+
+    // Render streaming status real-time di paling bawah body chat jika sedang streaming
+    if app.is_streaming {
+        if let Some(ref status_text) = app.stream_status {
+            let item_height = 2; // 1 baris status + 1 baris spacer kosong
+            let item_start = current_y_offset;
+            let item_end = item_start + item_height;
+            current_y_offset += item_height;
+
+            if item_end > scroll_offset {
+                let relative_y = item_start.saturating_sub(scroll_offset) as u16;
+                if relative_y < chat_area.height {
+                    let visible_height = (item_end - scroll_offset).min(chat_area.height as usize) - relative_y as usize;
+                    if visible_height > 0 {
+                        let render_area = Rect {
+                            x: chat_area.x,
+                            y: chat_area.y + relative_y,
+                            width: chat_area.width,
+                            height: visible_height as u16,
+                        };
+
+                        let mut lines = Vec::new();
+                        const SPINNER_FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+                        let spinner = SPINNER_FRAMES[app.spinner_tick % SPINNER_FRAMES.len()];
+                        
+                        lines.push(Line::from(vec![
+                            Span::raw("  "),
+                            Span::styled(format!("{} ", spinner), Style::default().fg(Color::Yellow)),
+                            Span::styled(status_text, Style::default().fg(Color::Rgb(254, 192, 126)).add_modifier(Modifier::ITALIC)),
+                            Span::styled(" (Ctrl+I to expand processes)", Style::default().fg(Color::DarkGray)),
+                        ]));
+                        lines.push(Line::from("")); // Spacer bawah
+
+                        let p = Paragraph::new(lines);
+                        frame.render_widget(p, render_area);
+                    }
+                }
+            }
         }
     }
 
@@ -297,14 +353,13 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
     let status_label = if app.is_streaming {
         const SPINNER_FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
         let spinner = SPINNER_FRAMES[app.spinner_tick % SPINNER_FRAMES.len()];
-        let status_text = app.stream_status.as_deref().unwrap_or("Berpikir...");
-        format!("TUI {} {}", spinner, status_text)
+        format!("TUI {} Merespons...", spinner)
     } else {
         "TUI".to_string()
     };
     let status_color = if app.is_streaming { Color::Yellow } else { Color::Rgb(218, 165, 32) };
 
-    let left_len = 2 + status_label.len() + 3 + active_model_name.len() + 1 + provider_name.len();
+    let _left_len = 2 + status_label.len() + 3 + active_model_name.len() + 1 + provider_name.len();
     let workspace_label = if let Some(ref ws) = app.active_workspace {
         format!("⬡ {} ", ws.name)
     } else {
@@ -312,13 +367,7 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
     };
 
     // right_len: workspace label + shortcut hints + esc hint
-    let right_len = workspace_label.len() + 56;
-
-    let spacer_len = (input_inner.width as usize)
-        .saturating_sub(left_len)
-        .saturating_sub(right_len)
-        .max(1);
-    let middle_spacer = " ".repeat(spacer_len);
+    let _right_len = workspace_label.len() + 56;
 
     let mut chat_input_lines = Vec::new();
     if let Some(ref req) = app.pending_tool_approval {
@@ -426,6 +475,15 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
         }
     }
     chat_input_lines.push(Line::from("")); // Spacer
+    let ctrl_i_hint_label = if app.show_internal_process { " collapse  " } else { " expand  " };
+    let left_len = 2 + status_label.len() + 3 + active_model_name.len() + 1 + provider_name.len();
+    let right_len = workspace_label.len() + 56 + 18 + ctrl_i_hint_label.len();
+    let spacer_len = (input_inner.width as usize)
+        .saturating_sub(left_len)
+        .saturating_sub(right_len)
+        .max(1);
+    let middle_spacer = " ".repeat(spacer_len);
+
     chat_input_lines.push(Line::from(vec![
         Span::raw("  "),
         Span::styled(
@@ -446,6 +504,8 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
         Span::styled(" terminal  ", Style::default().fg(Color::DarkGray)),
         Span::styled("ctrl+p", Style::default()),
         Span::styled(" palette  ", Style::default().fg(Color::DarkGray)),
+        Span::styled("ctrl+i", Style::default()),
+        Span::styled(ctrl_i_hint_label, Style::default().fg(Color::DarkGray)),
     ]));
 
     let input_widget = Paragraph::new(chat_input_lines)

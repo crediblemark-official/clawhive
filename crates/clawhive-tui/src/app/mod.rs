@@ -118,6 +118,8 @@ pub struct TuiApp {
     pub workspace_input: String,
     /// Indeks item workspace yang sedang di-highlight di daftar.
     pub workspace_selected_index: usize,
+    /// Menentukan apakah proses internal agent di-expand atau di-collapse.
+    pub show_internal_process: bool,
 }
 
 impl TuiApp {
@@ -165,6 +167,7 @@ impl TuiApp {
             workspaces: Vec::new(),
             workspace_input: String::new(),
             workspace_selected_index: 0,
+            show_internal_process: false,
         }
     }
 
