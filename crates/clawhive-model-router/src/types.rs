@@ -182,81 +182,16 @@ pub fn group_models_by_family(models: Vec<ModelProfile>) -> Vec<ModelFamily> {
     // Sort: Berdasarkan skor prioritas NVIDIA (descending), lalu alfabetis jika skor sama
     let get_priority_score = |name: &str| -> i32 {
         let name_lower = name.to_lowercase();
-        if name_lower.contains("minimax-m3") { return 1000; }
-        if name_lower.contains("diffusiongemma") { return 990; }
-        if name_lower.contains("nemotron-3-ultra") { return 980; }
-        if name_lower.contains("nemotron-3.5-content-safety") { return 970; }
-        if name_lower.contains("cosmos3-nano-reasoner") { return 960; }
-        if name_lower.contains("cosmos3-nano") { return 950; }
-        if name_lower.contains("step-3.7") { return 940; }
-        if name_lower.contains("kimi-k2.6") { return 930; }
-        if name_lower.contains("mistral-medium") { return 920; }
-        if name_lower.contains("nemotron-3-nano-omni") { return 910; }
-        if name_lower.contains("deepseek-v4-flash") { return 900; }
-        if name_lower.contains("deepseek-v4-pro") { return 890; }
-        if name_lower.contains("glm-5.1") { return 880; }
-        if name_lower.contains("nemotron-3-content-safety") { return 870; }
-        if name_lower.contains("synthetic-video-detector") { return 860; }
-        if name_lower.contains("active speaker") || name_lower.contains("active-speaker") { return 850; }
-        if name_lower.contains("ising-calibration") { return 840; }
-        if name_lower.contains("minimax-m2.7") { return 830; }
-        if name_lower.contains("gemma-4-31b") { return 820; }
-        if name_lower.contains("mistral-small-4") { return 810; }
-        if name_lower.contains("nemotron-voicechat") { return 800; }
-        if name_lower.contains("nemotron-3-super") { return 790; }
-        if name_lower.contains("qwen3.5-122b") { return 780; }
-        if name_lower.contains("gliner-pii") { return 770; }
-        if name_lower.contains("cosmos-transfer2.5") { return 760; }
-        if name_lower.contains("qwen3.5-397b") { return 750; }
-        if name_lower.contains("step-3.5") { return 740; }
-        if name_lower.contains("nemotron-content-safety-reasoning") { return 730; }
-        if name_lower.contains("nemotron-3-nano-30b") { return 720; }
-        if name_lower.contains("riva-translate") { return 710; }
-        if name_lower.contains("mistral-large-3") { return 700; }
-        if name_lower.contains("ministral-14b") { return 690; }
-        if name_lower.contains("streampetr") { return 680; }
-        if name_lower.contains("nemotron-nano-12b") { return 670; }
-        if name_lower.contains("llama-3.1-nemotron-safety-guard") { return 660; }
-        if name_lower.contains("stockmark-2-100b") { return 650; }
-        if name_lower.contains("qwen3-next-80b") { return 640; }
-        if name_lower.contains("seed-oss-36b") { return 630; }
-        if name_lower.contains("nvidia-nemotron-nano-9b") { return 620; }
-        if name_lower.contains("gpt-oss-20b") { return 610; }
-        if name_lower.contains("gpt-oss-120b") { return 600; }
-        if name_lower.contains("llama-3.3-nemotron-super") { return 590; }
-        if name_lower.contains("sarvam-m") { return 580; }
-        if name_lower.contains("llama-guard-4-12b") { return 570; }
-        if name_lower.contains("gemma-3n-e4b") { return 560; }
-        if name_lower.contains("gemma-3n-e2b") { return 550; }
-        if name_lower.contains("cosmos-transfer1") { return 540; }
-        if name_lower.contains("background noise") || name_lower.contains("background-noise") { return 530; }
-        if name_lower.contains("mistral-nemotron") { return 520; }
-        if name_lower.contains("llama-3.1-nemotron-nano-vl") { return 510; }
-        if name_lower.contains("magpie-tts") { return 500; }
-        if name_lower.contains("llama-4-maverick") { return 490; }
-        if name_lower.contains("sparsedrive") { return 480; }
-        if name_lower.contains("bevformer") { return 470; }
-        if name_lower.contains("llama-3.1-nemotron-nano") { return 460; }
-        if name_lower.contains("nv-embedcode") { return 450; }
-        if name_lower.contains("phi-4-mini") { return 440; }
-        if name_lower.contains("phi-4-multimodal") { return 430; }
-        if name_lower.contains("llama-3.3-70b") { return 420; }
-        if name_lower.contains("studio voice") || name_lower.contains("studio-voice") { return 410; }
-        if name_lower.contains("llama-3.2-3b") { return 400; }
-        if name_lower.contains("llama-3.2-11b") { return 390; }
-        if name_lower.contains("llama-3.2-90b") { return 380; }
-        if name_lower.contains("llama-3.2-1b") { return 370; }
-        if name_lower.contains("dracarys-llama") { return 360; }
-        if name_lower.contains("esm2-650m") { return 350; }
-        if name_lower.contains("nemotron-mini-4b") { return 340; }
-        if name_lower.contains("gemma-2-2b") { return 330; }
-        if name_lower.contains("llama-3.1-70b") { return 320; }
-        if name_lower.contains("llama-3.1-8b") { return 310; }
-        if name_lower.contains("nv-embed-v1") { return 300; }
-        if name_lower.contains("solar-10.7b") { return 290; }
-        if name_lower.contains("paligemma") { return 280; }
-        if name_lower.contains("rerank-qa") { return 270; }
-        if name_lower.contains("esmfold") { return 260; }
+        
+        // Cari posisi model dari array prioritas eksternal
+        if let Some(pos) = crate::nvidia_priority::NVIDIA_PRIORITY_MODELS
+            .iter()
+            .position(|&m| name_lower.contains(m))
+        {
+            // Score tertinggi didapatkan oleh index terawal:
+            // 1000 untuk index 0, dan berkurang 10 di setiap index berikutnya
+            return 1000 - (pos as i32 * 10);
+        }
 
         // Keyword umum jika tidak cocok spesifik
         if name_lower.contains("deepseek") { return 100; }
