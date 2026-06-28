@@ -201,7 +201,9 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
             }
             lines.push(Line::from("")); // Padding vertikal bawah
 
+            let paragraph_scroll_y = scroll_offset.saturating_sub(item_start) as u16;
             let p = Paragraph::new(lines)
+                .scroll((paragraph_scroll_y, 0))
                 .wrap(Wrap { trim: false });
             frame.render_widget(p, bubble_chunks[2]);
         } else if sender.to_lowercase() == "tool" {
@@ -236,7 +238,9 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
                 ]));
             }
 
-            let p = Paragraph::new(lines);
+            let paragraph_scroll_y = scroll_offset.saturating_sub(item_start) as u16;
+            let p = Paragraph::new(lines)
+                .scroll((paragraph_scroll_y, 0));
             frame.render_widget(p, render_area);
         } else {
             // Agent / Assistant: padding kiri 2 spasi, pre-wrap manual agar indentasi konsisten
@@ -269,7 +273,9 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
                 }
             }
 
-            let p = Paragraph::new(lines);
+            let paragraph_scroll_y = scroll_offset.saturating_sub(item_start) as u16;
+            let p = Paragraph::new(lines)
+                .scroll((paragraph_scroll_y, 0));
             frame.render_widget(p, render_area);
         }
     }
@@ -305,7 +311,9 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
                         ]));
                         lines.push(Line::from("")); // Spacer bawah
 
-                        let p = Paragraph::new(lines);
+                        let paragraph_scroll_y = scroll_offset.saturating_sub(item_start) as u16;
+                        let p = Paragraph::new(lines)
+                            .scroll((paragraph_scroll_y, 0));
                         frame.render_widget(p, render_area);
                     }
                 }
