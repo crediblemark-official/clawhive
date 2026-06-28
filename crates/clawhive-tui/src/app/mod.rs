@@ -505,25 +505,7 @@ impl TuiApp {
                                     p.id == name || p.model_name == name
                                 });
                                 if !exists {
-                                    let id = if name.contains('/') {
-                                        name.clone()
-                                    } else if provider_key == "nvidia" {
-                                        if name.starts_with("llama") {
-                                            format!("meta/{}", name)
-                                        } else if name.starts_with("mistral") {
-                                            format!("mistralai/{}", name)
-                                        } else if name.starts_with("kimi") {
-                                            format!("moonshotai/{}", name)
-                                        } else if name.starts_with("gemma") {
-                                            format!("google/{}", name)
-                                        } else if name.starts_with("qwen") {
-                                            format!("qwen/{}", name)
-                                        } else {
-                                            format!("nvidia/{}", name)
-                                        }
-                                    } else {
-                                        name.clone()
-                                    };
+                                    let id = self.resolve_model_id(&name, &provider_key);
 
                                     models.push(clawhive_model_router::types::ModelProfile {
                                         id,
@@ -544,6 +526,30 @@ impl TuiApp {
                     }
                 }
             }
+        }
+    }
+
+    /// Resolves a dynamic model ID by trying to match prefix from registry or fallback.
+    pub(crate) fn resolve_model_id(&self, name: &str, provider_key: &str) -> String {
+        let router = match self.state.model_router.as_ref() {
+            Some(r) => r,
+            None => return name.to_string(),
+        };
+
+        let matched_id = router.registry().list_profiles().iter().find(|p| {
+            let p_id_lower = p.id.to_lowercase();
+            let name_lower = name.to_lowercase();
+            p_id_lower.contains(&name_lower) || name_lower.contains(&p_id_lower)
+        }).map(|p| p.id.clone());
+
+        if name.contains('/') {
+            name.to_string()
+        } else if let Some(mid) = matched_id {
+            mid
+        } else if provider_key == "nvidia" {
+            format!("nvidia/{}", name)
+        } else {
+            name.to_string()
         }
     }
 
