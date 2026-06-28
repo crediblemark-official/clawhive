@@ -215,6 +215,7 @@ impl TuiApp {
 
         self.refresh().await;
         self.load_saved_api_key().await;
+        self.init_agent_runtime().await;
 
         while !self.should_quit {
             self.spinner_tick = self.spinner_tick.wrapping_add(1);
