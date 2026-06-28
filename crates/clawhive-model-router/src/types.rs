@@ -179,24 +179,40 @@ pub fn group_models_by_family(models: Vec<ModelProfile>) -> Vec<ModelFamily> {
         .map(|(name, variants)| ModelFamily { name, variants })
         .collect();
 
-    // Sort: Populer diletakkan di atas, lalu secara alfabetis
-    let is_popular = |name: &str| -> bool {
+    // Sort: Berdasarkan skor popularitas (descending), lalu alfabetis jika skor sama
+    let get_popularity_score = |name: &str| -> i32 {
         let name_lower = name.to_lowercase();
-        let popular_keywords = [
-            "deepseek", "kimi", "llama", "mistral", "qwen", "phi", "gemma", "codestral"
-        ];
-        popular_keywords.iter().any(|&kw| name_lower.contains(kw))
+        if name_lower.contains("deepseek") {
+            return 100;
+        }
+        if name_lower.contains("kimi") {
+            return 90;
+        }
+        if name_lower.contains("llama") || name_lower.contains("nemotron") {
+            return 80;
+        }
+        if name_lower.contains("mistral") || name_lower.contains("codestral") {
+            return 70;
+        }
+        if name_lower.contains("qwen") {
+            return 60;
+        }
+        if name_lower.contains("gemma") {
+            return 50;
+        }
+        if name_lower.contains("phi") {
+            return 40;
+        }
+        0
     };
 
     result.sort_by(|a, b| {
-        let a_pop = is_popular(&a.name);
-        let b_pop = is_popular(&b.name);
-        if a_pop && !b_pop {
-            std::cmp::Ordering::Less
-        } else if !a_pop && b_pop {
-            std::cmp::Ordering::Greater
+        let a_score = get_popularity_score(&a.name);
+        let b_score = get_popularity_score(&b.name);
+        if a_score != b_score {
+            b_score.cmp(&a_score) // Descending score
         } else {
-            a.name.cmp(&b.name)
+            a.name.cmp(&b.name) // Alfabetis jika score sama
         }
     });
     result
