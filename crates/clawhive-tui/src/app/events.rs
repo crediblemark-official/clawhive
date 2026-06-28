@@ -189,7 +189,7 @@ impl TuiApp {
                                         self.chat_history.push(("User".to_string(), "".to_string(), trimmed.to_string()));
                                         self.active_screen = Screen::Chat;
                                         // Reset scroll ke bawah agar respons baru langsung terlihat
-                                        self.chat_scroll_offset = 0;
+                                        self.chat_scroll_offset.set(0);
                                         self.chat_at_bottom = true;
 
                                         let router_opt = self
@@ -284,7 +284,8 @@ impl TuiApp {
                             KeyCode::Up => {
                                 if self.active_screen == Screen::Chat {
                                     // Scroll chat ke atas (3 baris per langkah)
-                                    self.chat_scroll_offset = self.chat_scroll_offset.saturating_add(3);
+                                    let next = self.chat_scroll_offset.get().saturating_add(3);
+                                    self.chat_scroll_offset.set(next);
                                     self.chat_at_bottom = false;
                                 } else if self.selected_index > 0 {
                                     self.selected_index -= 1;
@@ -293,10 +294,11 @@ impl TuiApp {
                             KeyCode::Down => {
                                 if self.active_screen == Screen::Chat {
                                     // Scroll chat ke bawah (3 baris per langkah)
-                                    if self.chat_scroll_offset >= 3 {
-                                        self.chat_scroll_offset -= 3;
+                                    let current = self.chat_scroll_offset.get();
+                                    if current >= 3 {
+                                        self.chat_scroll_offset.set(current - 3);
                                     } else {
-                                        self.chat_scroll_offset = 0;
+                                        self.chat_scroll_offset.set(0);
                                         self.chat_at_bottom = true;
                                     }
                                 } else {
@@ -308,16 +310,18 @@ impl TuiApp {
                             }
                             KeyCode::PageUp => {
                                 if self.active_screen == Screen::Chat {
-                                    self.chat_scroll_offset = self.chat_scroll_offset.saturating_add(20);
+                                    let next = self.chat_scroll_offset.get().saturating_add(20);
+                                    self.chat_scroll_offset.set(next);
                                     self.chat_at_bottom = false;
                                 }
                             }
                             KeyCode::PageDown => {
                                 if self.active_screen == Screen::Chat {
-                                    if self.chat_scroll_offset >= 20 {
-                                        self.chat_scroll_offset -= 20;
+                                    let current = self.chat_scroll_offset.get();
+                                    if current >= 20 {
+                                        self.chat_scroll_offset.set(current - 20);
                                     } else {
-                                        self.chat_scroll_offset = 0;
+                                        self.chat_scroll_offset.set(0);
                                         self.chat_at_bottom = true;
                                     }
                                 }

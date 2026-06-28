@@ -86,12 +86,15 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
         .map(|(sender, _, msg)| bubble_height(sender, msg))
         .sum();
 
-    // Scroll offset dari state app (clamp ke max)
+    // Scroll offset dari state app (clamp ke max secara dinamis via Cell)
     let max_scroll = total_needed_height.saturating_sub(chat_area.height as usize);
-    let scroll_offset = if app.chat_at_bottom {
+    let clamped_scroll_offset = app.chat_scroll_offset.get().min(max_scroll);
+    app.chat_scroll_offset.set(clamped_scroll_offset);
+
+    let scroll_offset = if app.chat_at_bottom || max_scroll == 0 {
         max_scroll
     } else {
-        app.chat_scroll_offset.min(max_scroll)
+        max_scroll.saturating_sub(clamped_scroll_offset)
     };
 
     // Constraints per bubble untuk layout

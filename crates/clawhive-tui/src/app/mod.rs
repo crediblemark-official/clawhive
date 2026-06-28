@@ -80,7 +80,7 @@ pub struct TuiApp {
     /// True saat streaming response sedang berjalan.
     pub(crate) is_streaming: bool,
     /// Offset scroll chat history (jumlah baris yang discroll ke atas).
-    pub chat_scroll_offset: usize,
+    pub chat_scroll_offset: std::cell::Cell<usize>,
     /// True = auto-scroll ke bawah. False = user sedang scroll manual ke atas.
     pub chat_at_bottom: bool,
 }
@@ -112,7 +112,7 @@ impl TuiApp {
             model_sel_pending_provider: None,
             stream_rx: None,
             is_streaming: false,
-            chat_scroll_offset: 0,
+            chat_scroll_offset: std::cell::Cell::new(0),
             chat_at_bottom: true,
         }
     }
