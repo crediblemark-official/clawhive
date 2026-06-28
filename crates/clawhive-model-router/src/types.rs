@@ -178,7 +178,27 @@ pub fn group_models_by_family(models: Vec<ModelProfile>) -> Vec<ModelFamily> {
         .into_iter()
         .map(|(name, variants)| ModelFamily { name, variants })
         .collect();
-    result.sort_by(|a, b| a.name.cmp(&b.name));
+
+    // Sort: Populer diletakkan di atas, lalu secara alfabetis
+    let is_popular = |name: &str| -> bool {
+        let name_lower = name.to_lowercase();
+        let popular_keywords = [
+            "deepseek", "kimi", "llama", "mistral", "qwen", "phi", "gemma", "codestral"
+        ];
+        popular_keywords.iter().any(|&kw| name_lower.contains(kw))
+    };
+
+    result.sort_by(|a, b| {
+        let a_pop = is_popular(&a.name);
+        let b_pop = is_popular(&b.name);
+        if a_pop && !b_pop {
+            std::cmp::Ordering::Less
+        } else if !a_pop && b_pop {
+            std::cmp::Ordering::Greater
+        } else {
+            a.name.cmp(&b.name)
+        }
+    });
     result
 }
 
