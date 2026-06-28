@@ -252,7 +252,7 @@ pub fn draw_model_selection(frame: &mut Frame, area: Rect, app: &TuiApp) {
         ModelSelectionStep::SelectFamily => {
             title = format!("{} \u{2192} Select Model", app.model_sel_provider);
             let search = app.model_sel_search.to_lowercase();
-            items = if search.is_empty() {
+            let mut list_items: Vec<String> = if search.is_empty() {
                 app.model_sel_families.iter().map(|f| f.name.clone()).collect()
             } else {
                 app.model_sel_families
@@ -261,6 +261,8 @@ pub fn draw_model_selection(frame: &mut Frame, area: Rect, app: &TuiApp) {
                     .map(|f| f.name.clone())
                     .collect()
             };
+            list_items.insert(0, "< Tambah Model Manual >".to_string());
+            items = list_items;
         }
         ModelSelectionStep::SelectVariant => {
             title = format!("{} \u{2192} Select Type", app.model_sel_provider);
@@ -350,4 +352,85 @@ pub fn draw_model_selection(frame: &mut Frame, area: Rect, app: &TuiApp) {
     ]))
     .style(Style::default().bg(Color::Rgb(15, 15, 15)));
     frame.render_widget(hint, chunks[0]);
+}
+
+pub fn draw_manual_model_input(frame: &mut Frame, area: Rect, app: &TuiApp) {
+    if let CommandMode::ManualModelInput { model_input, error_message } = &app.command_mode {
+        let modal_area = get_fixed_centered_rect(65, 8, area);
+
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Rgb(218, 165, 32)))
+            .style(Style::default().bg(Color::Rgb(15, 15, 15)))
+            .title(" Add Model Manually ");
+
+        let inner = block.inner(modal_area);
+        frame.render_widget(ratatui::widgets::Clear, modal_area);
+        frame.render_widget(block, modal_area);
+
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(1),
+                Constraint::Length(1),
+                Constraint::Length(3),
+                Constraint::Length(1),
+            ])
+            .split(inner);
+
+        let provider_label = &app.model_sel_provider;
+
+        let input_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Length(provider_label.len() as u16 + 2), Constraint::Min(0)])
+            .split(chunks[2]);
+
+        let provider_tag = Paragraph::new(Line::from(vec![Span::styled(
+            format!(" {}:", provider_label),
+            Style::default().fg(Color::Rgb(218, 165, 32)).add_modifier(Modifier::BOLD),
+        )]))
+        .style(Style::default().bg(Color::Rgb(25, 25, 25)));
+        frame.render_widget(provider_tag, input_chunks[0]);
+
+        let input_block = Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::DarkGray));
+        let input_inner = input_block.inner(input_chunks[1]);
+        frame.render_widget(input_block, input_chunks[1]);
+
+        let display_text = if model_input.is_empty() {
+            "Masukkan nama model (misal: nvidia/llama-3.1-nemotron-70b-instruct)".to_string()
+        } else {
+            model_input.clone()
+        };
+        let text_color = if model_input.is_empty() { Color::DarkGray } else { Color::Rgb(218, 165, 32) };
+        let input_para = Paragraph::new(Line::from(vec![Span::styled(
+            display_text,
+            Style::default().fg(text_color),
+        )]))
+        .style(Style::default().bg(Color::Rgb(25, 25, 25)));
+        frame.render_widget(input_para, input_inner);
+
+        if !error_message.is_empty() {
+            let err = Paragraph::new(Line::from(vec![Span::styled(
+                format!("  {}", error_message),
+                Style::default().fg(Color::Red),
+            )]))
+            .style(Style::default().bg(Color::Rgb(15, 15, 15)));
+            frame.render_widget(err, chunks[3]);
+        }
+
+        let hint = Paragraph::new(Line::from(vec![
+            Span::styled("Esc", Style::default().fg(Color::Rgb(218, 165, 32)).add_modifier(Modifier::BOLD)),
+            Span::raw(" back  "),
+            Span::styled("Enter", Style::default().fg(Color::Rgb(218, 165, 32)).add_modifier(Modifier::BOLD)),
+            Span::raw(" add model"),
+        ]))
+        .style(Style::default().bg(Color::Rgb(15, 15, 15)));
+        frame.render_widget(hint, chunks[0]);
+
+        // Cursor
+        let cursor_x = input_inner.x + model_input.len() as u16;
+        frame.set_cursor_position((cursor_x, input_inner.y));
+    }
 }

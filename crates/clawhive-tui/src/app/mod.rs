@@ -54,6 +54,10 @@ pub enum CommandMode {
         error_message: String,
     },
     ModelSelection,
+    ManualModelInput {
+        model_input: String,
+        error_message: String,
+    },
 }
 
 pub struct TuiApp {

@@ -122,6 +122,48 @@ impl TuiApp {
                             _ => {}
                         }
                     }
+                    CommandMode::ManualModelInput { model_input, error_message } => {
+                        match key.code {
+                            KeyCode::Esc => {
+                                self.command_mode = CommandMode::ModelSelection;
+                                self.model_sel_index = 0;
+                            }
+                            KeyCode::Backspace => {
+                                model_input.pop();
+                            }
+                            KeyCode::Enter => {
+                                let val = model_input.trim().to_string();
+                                if val.is_empty() {
+                                    *error_message = "Nama model tidak boleh kosong".into();
+                                } else {
+                                    let provider_name = self.model_sel_provider.clone();
+                                    let profile = clawhive_model_router::types::ModelProfile {
+                                        id: val.clone(),
+                                        provider: provider_name.clone(),
+                                        model_name: val.clone(),
+                                        context_window: 128_000,
+                                        max_output_tokens: 8_192,
+                                        cost_per_1m_input: 0.0,
+                                        cost_per_1m_output: 0.0,
+                                        suitable_for: vec!["general".to_string()],
+                                    };
+
+                                    if let Some(router) = &self.state.model_router {
+                                        router.inject_profile(profile.clone());
+                                    }
+
+                                    self.set_active_model(val.clone());
+                                    self.status_message = format!("Model manual ditambahkan: {} (via {})", val, provider_name);
+                                    self.command_mode = CommandMode::None;
+                                    self.reset_model_selection();
+                                }
+                            }
+                            KeyCode::Char(c) => {
+                                model_input.push(c);
+                            }
+                            _ => {}
+                        }
+                    }
                     CommandMode::ModelSelection => {
                         match key.code {
                             KeyCode::Esc => {

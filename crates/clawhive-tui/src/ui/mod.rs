@@ -26,6 +26,9 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &TuiApp) {
     if matches!(app.command_mode, CommandMode::ModelSelection) {
         draw_model_selection(frame, area, app);
     }
+    if matches!(app.command_mode, CommandMode::ManualModelInput { .. }) {
+        crate::ui::components::draw_manual_model_input(frame, area, app);
+    }
 }
 
 /// Melakukan word-wrap manual per baris teks ke lebar maksimal `max_width`.

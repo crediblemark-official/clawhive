@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::app::{CommandMode, ModelSelectionStep, TuiApp};
-use clawhive_model_router::types::{ModelFamily, ModelProfile, group_models_by_family};
+use clawhive_model_router::types::{ModelProfile, group_models_by_family};
 use clawhive_store::StoreExt;
 
 impl TuiApp {
@@ -155,14 +155,16 @@ impl TuiApp {
                 }
             }
             ModelSelectionStep::SelectFamily => {
-                if search.is_empty() {
+                let search = self.model_sel_search.to_lowercase();
+                let base_len = if search.is_empty() {
                     self.model_sel_families.len()
                 } else {
                     self.model_sel_families
                         .iter()
                         .filter(|f| f.name.to_lowercase().contains(&search))
                         .count()
-                }
+                };
+                base_len + 1 // Ditambah 1 karena ada opsi "< Tambah Model Manual >"
             }
             ModelSelectionStep::SelectVariant => {
                 if search.is_empty() {
@@ -227,18 +229,33 @@ impl TuiApp {
             }
             ModelSelectionStep::SelectFamily => {
                 let search = self.model_sel_search.to_lowercase();
-                let filtered: Vec<&ModelFamily> = if search.is_empty() {
-                    self.model_sel_families.iter().collect()
+                let mut options: Vec<String> = if search.is_empty() {
+                    self.model_sel_families.iter().map(|f| f.name.clone()).collect()
                 } else {
                     self.model_sel_families
                         .iter()
                         .filter(|f| f.name.to_lowercase().contains(&search))
+                        .map(|f| f.name.clone())
                         .collect()
                 };
-                if self.model_sel_index >= filtered.len() {
+                options.insert(0, "< Tambah Model Manual >".to_string());
+
+                if self.model_sel_index >= options.len() {
                     return;
                 }
-                let variants = filtered[self.model_sel_index].variants.clone();
+
+                let selected_item = options[self.model_sel_index].clone();
+                if selected_item == "< Tambah Model Manual >" {
+                    self.command_mode = CommandMode::ManualModelInput {
+                        model_input: String::new(),
+                        error_message: String::new(),
+                    };
+                    return;
+                }
+
+                let family_name = selected_item;
+                let family = self.model_sel_families.iter().find(|f| f.name == family_name).unwrap();
+                let variants = family.variants.clone();
                 self.model_sel_search.clear();
                 self.model_sel_index = 0;
                 if variants.len() == 1 {
