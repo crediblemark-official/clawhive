@@ -12,6 +12,7 @@ use crate::ui::home::draw_home;
 pub fn draw(frame: &mut Frame, area: Rect, app: &TuiApp) {
     match app.active_screen {
         Screen::Home => draw_home(frame, area, app),
+        Screen::WorkspaceSelect => draw_home(frame, area, app),
         Screen::Chat => draw_chat(frame, area, app),
     }
 

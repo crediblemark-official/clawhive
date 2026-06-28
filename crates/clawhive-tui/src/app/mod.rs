@@ -1,11 +1,13 @@
+use std::sync::Arc;
+
 use crossterm::event::Event;
 
 use clawhive_agent::events::AgentEvent;
 use clawhive_agent::runtime::AgentRuntime;
 use clawhive_control_api::state::AppState;
-use clawhive_domain::{Agent, AgentId, MissionId, SpawnRequest, Worker};
+use clawhive_domain::{Agent, AgentId, MissionId, SpawnRequest, Worker, Workspace};
 use clawhive_model_router::types::{ModelFamily, ModelProfile, StreamEvent};
-use clawhive_store::StoreExt;
+use clawhive_store::{NamespacedStore, Store, StoreExt};
 
 mod commands;
 mod events;
@@ -24,6 +26,7 @@ pub enum Tab {
 pub enum Screen {
     Home,
     Chat,
+    WorkspaceSelect,
 }
 
 pub enum InputMode {
@@ -104,6 +107,15 @@ pub struct TuiApp {
     pub suggestion_index: usize,
     /// Daftar suggestions aktif: (teks tampilan, nilai autocomplete/command)
     pub active_suggestions: Vec<(String, String)>,
+    // ── Workspace fields ─────────────────────────────────────────
+    /// Workspace yang sedang aktif.
+    pub active_workspace: Option<Workspace>,
+    /// Daftar semua workspace tersedia dari database.
+    pub workspaces: Vec<Workspace>,
+    /// Buffer input untuk form create new workspace di Home screen.
+    pub workspace_input: String,
+    /// Indeks item workspace yang sedang di-highlight di daftar.
+    pub workspace_selected_index: usize,
 }
 
 impl TuiApp {
@@ -144,7 +156,68 @@ impl TuiApp {
             pending_tool_approval: None,
             suggestion_index: 0,
             active_suggestions: Vec::new(),
+            active_workspace: None,
+            workspaces: Vec::new(),
+            workspace_input: String::new(),
+            workspace_selected_index: 0,
         }
+    }
+
+    /// Load semua workspace dari database global ke `self.workspaces`.
+    pub async fn load_workspaces(&mut self) {
+        if let Ok(items) = self.state.kv_store.scan_prefix::<Workspace>("workspace:").await {
+            let mut workspaces: Vec<Workspace> = items.into_iter().map(|(_, ws)| ws).collect();
+            // Urutkan dari yang paling terakhir digunakan
+            workspaces.sort_by(|a, b| b.last_used_at.cmp(&a.last_used_at));
+            self.workspaces = workspaces;
+        }
+    }
+
+    /// Buat workspace baru dan langsung pilih (masuk ke chat).
+    pub async fn create_workspace(&mut self, name: &str) {
+        let name = name.trim();
+        if name.is_empty() {
+            return;
+        }
+
+        let ws = Workspace::new(name, None);
+        let key = ws.store_key();
+
+        // Simpan metadata workspace ke global store (tanpa namespace)
+        let _ = self.state.kv_store.set(&key, &ws).await;
+
+        // Buat namespaced store untuk workspace ini
+        let ns = NamespacedStore::new(Arc::clone(&self.state.kv_store), ws.namespace());
+        let ns_store: Arc<dyn Store> = Arc::new(ns);
+
+        // Ganti active store di AppState dengan namespaced store
+        self.state = clawhive_control_api::state::AppState::new_with_store(ns_store);
+
+        self.active_workspace = Some(ws.clone());
+        self.workspace_input.clear();
+        self.workspaces.insert(0, ws);
+
+        // Reset runtime untuk sesi baru di workspace ini
+        self.init_agent_runtime().await;
+        self.active_screen = Screen::Chat;
+    }
+
+    /// Pilih workspace yang sudah ada dan masuk ke chat.
+    pub async fn select_workspace(&mut self, ws: Workspace) {
+        // Perbarui last_used_at di global store (tanpa namespace)
+        let mut ws_updated = ws.clone();
+        ws_updated.last_used_at = chrono::Utc::now();
+        let _ = self.state.kv_store.set(&ws_updated.store_key(), &ws_updated).await;
+
+        // Buat namespaced store untuk workspace ini
+        let ns = NamespacedStore::new(Arc::clone(&self.state.kv_store), ws_updated.namespace());
+        let ns_store: Arc<dyn Store> = Arc::new(ns);
+
+        self.state = clawhive_control_api::state::AppState::new_with_store(ns_store);
+
+        self.active_workspace = Some(ws_updated);
+        self.init_agent_runtime().await;
+        self.active_screen = Screen::Chat;
     }
 
     pub async fn refresh(&mut self) {
@@ -264,6 +337,7 @@ impl TuiApp {
         });
 
         self.refresh().await;
+        self.load_workspaces().await;
         self.load_saved_api_key().await;
         
         // Load model aktif terakhir dari database

@@ -41,3 +41,5 @@ pub use task::*;
 pub use tenant::*;
 pub use tool::*;
 pub use worker::*;
+pub mod workspace;
+pub use workspace::*;

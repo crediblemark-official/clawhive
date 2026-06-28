@@ -197,6 +197,59 @@ impl TuiApp {
                             }
                             return;
                         }
+                        // ── Workspace Home Screen Handler ─────────────────────────────────────
+                        if self.active_screen == Screen::Home {
+                            match key.code {
+                                KeyCode::Up => {
+                                    if self.workspace_selected_index > 0 {
+                                        self.workspace_selected_index -= 1;
+                                    }
+                                    return;
+                                }
+                                KeyCode::Down => {
+                                    if self.workspace_selected_index < self.workspaces.len().saturating_sub(1) {
+                                        self.workspace_selected_index += 1;
+                                    }
+                                    return;
+                                }
+                                KeyCode::Enter => {
+                                    // Jika ada teks di workspace_input → buat workspace baru
+                                    if !self.workspace_input.is_empty() {
+                                        let name = self.workspace_input.clone();
+                                        self.create_workspace(&name).await;
+                                        return;
+                                    }
+                                    // Jika tidak ada input tapi ada workspace terpilih → select
+                                    if !self.workspaces.is_empty() {
+                                        let ws = self.workspaces[self.workspace_selected_index].clone();
+                                        self.select_workspace(ws).await;
+                                        return;
+                                    }
+                                }
+                                KeyCode::Tab => {
+                                    // Tab: pilih workspace yang di-highlight langsung
+                                    if !self.workspaces.is_empty() {
+                                        let ws = self.workspaces[self.workspace_selected_index].clone();
+                                        self.select_workspace(ws).await;
+                                        return;
+                                    }
+                                }
+                                KeyCode::Backspace => {
+                                    self.workspace_input.pop();
+                                    return;
+                                }
+                                KeyCode::Char(c) => {
+                                    self.workspace_input.push(c);
+                                    return;
+                                }
+                                KeyCode::Esc => {
+                                    self.workspace_input.clear();
+                                    return;
+                                }
+                                _ => {}
+                            }
+                            return;
+                        }
 
                         // Standard Input / Navigation handling
                         match key.code {

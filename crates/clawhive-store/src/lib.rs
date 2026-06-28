@@ -6,6 +6,9 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use tokio::sync::RwLock;
 
+pub mod namespaced;
+pub use namespaced::NamespacedStore;
+
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
     #[error("Serialization error: {0}")]

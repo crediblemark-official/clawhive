@@ -408,6 +408,7 @@ dependencies = [
  "clawhive-domain",
  "clawhive-lifecycle",
  "clawhive-model-router",
+ "clawhive-prompt",
  "clawhive-store",
  "clawhive-tool",
  "clawhive-worker",

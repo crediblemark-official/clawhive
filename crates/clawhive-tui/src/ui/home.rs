@@ -2,34 +2,23 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph},
+    widgets::{Block, Borders, List, ListItem, Paragraph},
     Frame,
 };
 
 use crate::app::TuiApp;
 
-
 pub fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
     let banner_content = include_str!("../../../../assets/clawhive.txt");
     let banner_lines_count = banner_content.lines().count();
-    
-    // Hitung tinggi input box secara dinamis berdasarkan wrap_text dari input_buffer
-    let input_inner_width = (((area.width as usize * 60) / 100).saturating_sub(1)).max(1);
-    let raw_input_lines = if app.input_buffer.is_empty() {
-        vec!["Ask anything... \"Spawn a new research agent\"".to_string()]
-    } else {
-        crate::ui::wrap_text(&app.input_buffer, input_inner_width.saturating_sub(2).max(1))
-    };
-    let input_lines: Vec<String> = raw_input_lines
-        .into_iter()
-        .map(|line| format!("  {}", line))
-        .collect();
-    let input_height = (input_lines.len() + 2) as u16; // input lines + 1 spacer + 1 status bar
 
-    // Hitung tinggi konten utama (logo + spacer + input + spacer + tip) secara dinamis
-    let content_height = banner_lines_count as u16 + 5 + input_height;
+    // Tinggi komponen
+    let form_height: u16 = 4;
+    let ws_list_height: u16 = (app.workspaces.len().min(8) as u16) + 2; // max 8 + border
+    let tip_height: u16 = 1;
+    let content_height = banner_lines_count as u16 + 2 + form_height + 1 + ws_list_height + 2 + tip_height;
 
-    // 1. Pisahkan Area Footer terlebih dahulu di bagian paling bawah
+    // Layout utama
     let main_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -40,31 +29,32 @@ pub fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
     let main_area = main_chunks[0];
     let footer_area = main_chunks[1];
 
-    // 2. Bagi Area Utama secara vertikal: Spacer Atas (elastis), Konten Tengah, Spacer Bawah (elastis)
+    // Vertikal centering
     let center_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Min(0),                  // Spacer atas
-            Constraint::Length(content_height),  // Konten tengah
-            Constraint::Min(0),                  // Spacer bawah
+            Constraint::Min(0),
+            Constraint::Length(content_height),
+            Constraint::Min(0),
         ])
         .split(main_area);
     let content_area = center_chunks[1];
 
-    // 3. Bagi Area Konten Tengah menjadi komponen-komponennya
+    // Inner layout: logo | spacer | form | spacer | list | spacer | tip
     let inner_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(banner_lines_count as u16), // Logo
-            Constraint::Length(2),                         // Spacer logo-input
-            Constraint::Length(input_height),              // Input Box dinamis
-            Constraint::Length(2),                         // Spacer input-tip
-            Constraint::Length(1),                         // Tip
+            Constraint::Length(banner_lines_count as u16), // 0: Logo
+            Constraint::Length(2),                          // 1: Spacer
+            Constraint::Length(form_height),                // 2: Create Workspace form
+            Constraint::Length(1),                          // 3: Spacer
+            Constraint::Length(ws_list_height),             // 4: Workspace list
+            Constraint::Length(2),                          // 5: Spacer
+            Constraint::Length(tip_height),                 // 6: Tip
         ])
         .split(content_area);
 
-    let mut logo_lines = Vec::new();
-
+    // ── 0. Logo ─────────────────────────────────────────────────────────────
     let gradient_colors = [
         Color::Rgb(255, 225, 120),
         Color::Rgb(245, 205, 90),
@@ -73,20 +63,19 @@ pub fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
         Color::Rgb(205, 165, 40),
         Color::Rgb(184, 134, 11),
     ];
-
-    for (i, line) in banner_content.lines().enumerate() {
-        let color = gradient_colors.get(i).copied().unwrap_or(Color::Rgb(184, 134, 11));
-        logo_lines.push(Line::from(Span::styled(
-            line,
-            Style::default().fg(color),
-        )));
-    }
-
+    let logo_lines: Vec<Line> = banner_content
+        .lines()
+        .enumerate()
+        .map(|(i, line)| {
+            let color = gradient_colors.get(i).copied().unwrap_or(Color::Rgb(184, 134, 11));
+            Line::from(Span::styled(line, Style::default().fg(color)))
+        })
+        .collect();
     let logo = Paragraph::new(logo_lines).alignment(ratatui::layout::Alignment::Center);
     frame.render_widget(logo, inner_chunks[0]);
 
-    // Pembagian horizontal di tengah (lebar 60%) agar input box tidak full-width
-    let horizontal_input_layout = Layout::default()
+    // ── 2. Form Create Workspace (lebar 60%, tengah) ─────────────────────────
+    let horiz = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
             Constraint::Percentage(20),
@@ -94,104 +83,129 @@ pub fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
             Constraint::Percentage(20),
         ])
         .split(inner_chunks[2]);
-    let input_box_area = horizontal_input_layout[1];
+    let form_area = horiz[1];
 
-    // 2. Input Box (dengan border kiri Cyan/Blue dan background gelap)
-    let input_block = Block::default().borders(Borders::LEFT).border_style(
-        Style::default()
-            .fg(Color::Rgb(218, 165, 32))
-            .add_modifier(Modifier::BOLD),
-    );
-
-    let input_inner = input_block.inner(input_box_area);
-
-    let (active_model_name, provider_name) = if let Some(router) = &app.state.model_router {
-        let registry = router.registry();
-        let profiles = registry.list_profiles();
-        if profiles.is_empty() {
-            ("Belum Dikonfigurasi".to_string(), "None".to_string())
-        } else {
-            let matched = profiles.iter().find(|p| p.model_name == app.active_model || p.id == app.active_model);
-            if let Some(profile) = matched {
-                (profile.model_name.clone(), profile.provider.clone())
-            } else {
-                (profiles[0].model_name.clone(), profiles[0].provider.clone())
-            }
-        }
+    let form_border_style = if app.workspace_input.is_empty() {
+        Style::default().fg(Color::Rgb(218, 165, 32))
     } else {
-        ("Belum Dikonfigurasi".to_string(), "None".to_string())
+        Style::default().fg(Color::Rgb(255, 200, 80)).add_modifier(Modifier::BOLD)
     };
 
-    let left_len = 2 + 3 + 3 + active_model_name.len() + 1 + provider_name.len();
-    let right_len = 40; // panjang visual dari: "/ commands  : terminal  ctrl+p palette  "
-    
-    let spacer_len = (input_inner.width as usize)
-        .saturating_sub(left_len)
-        .saturating_sub(right_len)
-        .max(1);
-    let middle_spacer = " ".repeat(spacer_len);
+    let form_block = Block::default()
+        .title(" Create New Workspace ")
+        .title_style(Style::default().fg(Color::Rgb(218, 165, 32)).add_modifier(Modifier::BOLD))
+        .borders(Borders::ALL)
+        .border_style(form_border_style);
 
-    let mut input_widget_lines = Vec::new();
-    let text_style = if app.input_buffer.is_empty() {
-        Style::default().fg(Color::DarkGray)
+    let form_inner = form_block.inner(form_area);
+
+    let input_display = if app.workspace_input.is_empty() {
+        Span::styled("  Nama workspace baru...", Style::default().fg(Color::DarkGray))
     } else {
-        Style::default()
+        Span::styled(format!("  {}", app.workspace_input), Style::default().fg(Color::White))
     };
-    for line in &input_lines {
-        input_widget_lines.push(Line::from(Span::styled(line.clone(), text_style)));
+
+    let form_widget = Paragraph::new(Line::from(input_display)).block(form_block);
+    frame.render_widget(form_widget, form_area);
+
+    // Posisi kursor di dalam form
+    let cursor_x = form_inner.x + 2 + app.workspace_input.len() as u16;
+    let cursor_y = form_inner.y;
+    frame.set_cursor_position((cursor_x, cursor_y));
+
+    // ── 4. Workspace List ─────────────────────────────────────────────────────
+    let list_horiz = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage(20),
+            Constraint::Percentage(60),
+            Constraint::Percentage(20),
+        ])
+        .split(inner_chunks[4]);
+    let list_area = list_horiz[1];
+
+    if app.workspaces.is_empty() {
+        let empty_msg = Paragraph::new(Line::from(vec![
+            Span::styled("  Belum ada workspace. Buat workspace pertama di atas.", Style::default().fg(Color::DarkGray)),
+        ]))
+        .block(Block::default()
+            .title(" Workspaces ")
+            .title_style(Style::default().fg(Color::DarkGray))
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Rgb(50, 50, 50))));
+        frame.render_widget(empty_msg, list_area);
+    } else {
+        let items: Vec<ListItem> = app
+            .workspaces
+            .iter()
+            .enumerate()
+            .map(|(i, ws)| {
+                let is_selected = i == app.workspace_selected_index;
+                let (prefix_style, bg) = if is_selected {
+                    (
+                        Style::default().fg(Color::Black).bg(Color::Rgb(218, 165, 32)).add_modifier(Modifier::BOLD),
+                        Color::Rgb(218, 165, 32),
+                    )
+                } else {
+                    (Style::default().fg(Color::White), Color::Reset)
+                };
+
+                // Format tanggal terakhir digunakan
+                let last_used = ws.last_used_at
+                    .format("%Y-%m-%d %H:%M")
+                    .to_string();
+
+                let prefix = if is_selected { "▶ " } else { "  " };
+                let name_span = Span::styled(
+                    format!("{}{:<30}", prefix, ws.name.chars().take(28).collect::<String>()),
+                    prefix_style,
+                );
+                let time_span = Span::styled(
+                    format!("  {}", last_used),
+                    if is_selected {
+                        Style::default().fg(Color::Black).bg(bg)
+                    } else {
+                        Style::default().fg(Color::DarkGray)
+                    },
+                );
+                let id_span = Span::styled(
+                    format!("  [{}]", ws.id),
+                    if is_selected {
+                        Style::default().fg(Color::Rgb(80, 60, 0)).bg(bg)
+                    } else {
+                        Style::default().fg(Color::Rgb(50, 50, 50))
+                    },
+                );
+
+                ListItem::new(Line::from(vec![name_span, time_span, id_span]))
+            })
+            .collect();
+
+        let ws_list = List::new(items)
+            .block(Block::default()
+                .title(format!(" Workspaces ({}) ", app.workspaces.len()))
+                .title_style(Style::default().fg(Color::Rgb(218, 165, 32)))
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Rgb(80, 70, 30))));
+        frame.render_widget(ws_list, list_area);
     }
-    input_widget_lines.push(Line::from("")); // Spacer
-    input_widget_lines.push(Line::from(vec![
-        Span::raw("  "),
-        Span::styled(
-            "TUI",
-            Style::default()
-                .fg(Color::Rgb(218, 165, 32))
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(format!(" · {} ", active_model_name), Style::default()),
-        Span::styled(provider_name, Style::default().fg(Color::DarkGray)),
-        Span::raw(middle_spacer),
-        Span::styled("/", Style::default()),
-        Span::styled(" commands  ", Style::default().fg(Color::DarkGray)),
-        Span::styled(":", Style::default()),
-        Span::styled(" terminal  ", Style::default().fg(Color::DarkGray)),
-        Span::styled("ctrl+p", Style::default()),
-        Span::styled(" palette  ", Style::default().fg(Color::DarkGray)),
-    ]));
 
-    let input_widget = Paragraph::new(input_widget_lines)
-        .block(input_block);
-    frame.render_widget(input_widget, input_box_area);
-
-    let cursor_pos = if app.input_buffer.is_empty() {
-        (input_inner.x + 2, input_inner.y)
-    } else {
-        let last_line = input_lines.last().cloned().unwrap_or_default();
-        (
-            input_inner.x + last_line.len() as u16,
-            input_inner.y + (input_lines.len() - 1) as u16,
-        )
-    };
-    frame.set_cursor_position(cursor_pos);
-
-    // 4. Tip
+    // ── 6. Tip ────────────────────────────────────────────────────────────────
     let tip_line = Line::from(vec![
-        Span::styled("●", Style::default().fg(Color::Yellow)),
-        Span::styled(
-            " Tip",
-            Style::default()
-                .fg(Color::Yellow)
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::raw(" Ketik prompt dan tekan Enter untuk menjalankan agen. Gunakan "),
-        Span::styled(":help", Style::default().fg(Color::Rgb(218, 165, 32))),
-        Span::raw(" untuk perintah terminal."),
+        Span::styled("● ", Style::default().fg(Color::Yellow)),
+        Span::styled("Tip  ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::raw("Ketik nama workspace baru dan "),
+        Span::styled("Enter", Style::default().fg(Color::Rgb(218, 165, 32))),
+        Span::raw(" untuk membuat, atau pilih dengan "),
+        Span::styled("↑↓", Style::default().fg(Color::Rgb(218, 165, 32))),
+        Span::raw(" + "),
+        Span::styled("Enter / Tab", Style::default().fg(Color::Rgb(218, 165, 32))),
+        Span::raw(" untuk membuka."),
     ]);
     let tip = Paragraph::new(tip_line).alignment(ratatui::layout::Alignment::Center);
-    frame.render_widget(tip, inner_chunks[4]);
+    frame.render_widget(tip, inner_chunks[6]);
 
-    // 5. Footer
+    // ── Footer ────────────────────────────────────────────────────────────────
     let footer_chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
@@ -199,11 +213,9 @@ pub fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
 
     let current_dir = std::env::current_dir()
         .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_else(|_| "~/PROJECT/clawhive".to_string());
-
-    let repo_info = format!("{}:master", current_dir);
+        .unwrap_or_else(|_| "~".to_string());
     frame.render_widget(
-        Paragraph::new(repo_info).style(Style::default().fg(Color::DarkGray)),
+        Paragraph::new(current_dir).style(Style::default().fg(Color::DarkGray)),
         footer_chunks[0],
     );
 
@@ -214,5 +226,4 @@ pub fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
             .alignment(ratatui::layout::Alignment::Right),
         footer_chunks[1],
     );
-
 }
