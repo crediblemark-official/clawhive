@@ -42,6 +42,7 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
         .constraints([
             Constraint::Length(1), // Spacer kosong di paling atas
             Constraint::Min(0),    // Area utama chat history
+            Constraint::Length(1), // Spacer kosong di paling bawah (padding atas form input)
         ])
         .split(left_chunks[0]);
 
