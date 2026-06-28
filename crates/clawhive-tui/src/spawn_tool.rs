@@ -26,7 +26,7 @@ impl Tool for SpawnTool {
     }
 
     fn description(&self) -> &str {
-        "Meminta pembuatan (spawn) child agent baru untuk mengerjakan sub-tugas/objective spesifik. Menerima parameter 'role', 'objective', 'budget_usd', dan 'model_profile'."
+        "Request spawning a new child agent to perform a specific sub-task/objective. Useful for dividing work and recursive delegation."
     }
 
     fn input_schema(&self) -> serde_json::Value {
@@ -35,24 +35,25 @@ impl Tool for SpawnTool {
             "properties": {
                 "role": {
                     "type": "string",
-                    "description": "Nama peran child agent spesialis (misal: Security Engineer, DB Designer)"
+                    "description": "The specific role/specialty of the child agent (e.g., 'Security Engineer', 'DB Designer')"
                 },
                 "objective": {
                     "type": "string",
-                    "description": "Tugas atau tujuan spesifik yang harus diselesaikan oleh child agent"
+                    "description": "The detailed objective or task the child agent must accomplish"
                 },
                 "budget_usd": {
                     "type": "number",
-                    "description": "Anggaran biaya maksimal untuk child agent (dalam USD). Default: 1.0"
+                    "description": "Max budget in USD allowed for this child agent. Default: 1.0"
                 },
                 "model_profile": {
                     "type": "string",
-                    "description": "Profile model yang digunakan. Default: default"
+                    "description": "Model profile name to run the child agent. Default: default"
                 }
             },
             "required": ["role", "objective"]
         })
     }
+
 
     fn categories(&self) -> Vec<&str> {
         vec!["swarm", "orchestration"]

@@ -52,8 +52,10 @@ impl ContextBuilder {
             2. After each tool result, analyze and decide next steps.\n\
             3. When the objective is complete, respond with a summary and evidence.\n\
             4. Stay within your budget and turn limits.\n\
-            5. Do not share credentials or sensitive information.\n",
+            5. Do not share credentials or sensitive information.\n\
+            6. If you need to delegate a task to a specialist or create a child agent, you MUST invoke the 'spawn' tool with the child's role and objective. Do not just write a list of child agents in text; execute the 'spawn' tool to create them.\n",
         );
+
 
         prompt
     }
