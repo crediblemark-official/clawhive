@@ -99,8 +99,39 @@ impl TuiApp {
         if let Some(router) = &router_arc {
             if let Ok(provider) = router.registry().get_provider(&provider_name) {
                 match provider.fetch_models().await {
-                    Ok(models) => {
-                        // Inject semua model yang di-fetch ke registry agar bisa di-route
+                    Ok(mut models) => {
+                        // Muat priority models dari berkas JSON
+                        let priority_names = {
+                            let path = format!("models/{}.json", provider_name.to_lowercase());
+                            if let Ok(content) = std::fs::read_to_string(&path) {
+                                serde_json::from_str::<Vec<String>>(&content).unwrap_or_default()
+                            } else {
+                                Vec::new()
+                            }
+                        };
+
+                        // Gabungkan model statis dari JSON jika belum ada di list hasil fetch
+                        for name in priority_names {
+                            let name_lower = name.to_lowercase();
+                            let exists = models.iter().any(|m| {
+                                m.id.to_lowercase().contains(&name_lower) 
+                                    || name_lower.contains(&m.id.to_lowercase())
+                            });
+                            if !exists {
+                                models.push(clawhive_model_router::types::ModelProfile {
+                                    id: name.clone(),
+                                    provider: provider_name.clone(),
+                                    model_name: name,
+                                    context_window: 128_000,
+                                    max_output_tokens: 8_192,
+                                    cost_per_1m_input: 0.0,
+                                    cost_per_1m_output: 0.0,
+                                    suitable_for: vec!["general".to_string()],
+                                });
+                            }
+                        }
+
+                        // Inject semua model yang di-fetch & dari JSON ke registry agar bisa di-route
                         router.inject_profiles(models.clone());
                         let families = group_models_by_family(models);
                         self.model_sel_families = families;
@@ -108,22 +139,56 @@ impl TuiApp {
                     }
                     Err(_) => {
                         // Fallback: gunakan profile yang sudah diregistrasi untuk provider ini
-                        let profiles: Vec<_> = router
+                        let mut profiles: Vec<_> = router
                             .registry()
                             .list_profiles()
                             .into_iter()
                             .filter(|p| p.provider == provider_name)
                             .collect();
+                        
+                        // Juga muat dari JSON jika fallback
+                        let priority_names = {
+                            let path = format!("models/{}.json", provider_name.to_lowercase());
+                            if let Ok(content) = std::fs::read_to_string(&path) {
+                                serde_json::from_str::<Vec<String>>(&content).unwrap_or_default()
+                            } else {
+                                Vec::new()
+                            }
+                        };
+
+                        for name in priority_names {
+                            let name_lower = name.to_lowercase();
+                            let exists = profiles.iter().any(|p| {
+                                p.id.to_lowercase().contains(&name_lower)
+                                    || name_lower.contains(&p.id.to_lowercase())
+                            });
+                            if !exists {
+                                profiles.push(clawhive_model_router::types::ModelProfile {
+                                    id: name.clone(),
+                                    provider: provider_name.clone(),
+                                    model_name: name,
+                                    context_window: 128_000,
+                                    max_output_tokens: 8_192,
+                                    cost_per_1m_input: 0.0,
+                                    cost_per_1m_output: 0.0,
+                                    suitable_for: vec!["general".to_string()],
+                                });
+                            }
+                        }
+
                         if profiles.is_empty() {
                             self.status_message =
                                 format!("No models available for {provider_name}");
                             self.reset_model_selection();
                             self.command_mode = CommandMode::None;
-                        } else {
-                            let families = group_models_by_family(profiles);
-                            self.model_sel_families = families;
-                            self.model_sel_step = ModelSelectionStep::SelectFamily;
+                            return;
                         }
+
+                        // Inject profiles fallback
+                        router.inject_profiles(profiles.clone());
+                        let families = group_models_by_family(profiles);
+                        self.model_sel_families = families;
+                        self.model_sel_step = ModelSelectionStep::SelectFamily;
                     }
                 }
             }

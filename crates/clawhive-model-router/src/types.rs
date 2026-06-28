@@ -146,6 +146,16 @@ pub struct ModelFamily {
     pub variants: Vec<ModelProfile>,
 }
 
+fn load_priority_models(provider: &str) -> Vec<String> {
+    let path = format!("models/{}.json", provider.to_lowercase());
+    if let Ok(content) = std::fs::read_to_string(&path) {
+        if let Ok(list) = serde_json::from_str::<Vec<String>>(&content) {
+            return list.into_iter().map(|s| s.to_lowercase()).collect();
+        }
+    }
+    Vec::new()
+}
+
 /// Group models into families using a heuristic that strips trailing variant/version
 /// segments from model IDs. Models that share a common stem are grouped together.
 ///
@@ -153,6 +163,9 @@ pub struct ModelFamily {
 /// version numbers, date stamps, etc.) and checking what remains.
 pub fn group_models_by_family(models: Vec<ModelProfile>) -> Vec<ModelFamily> {
     use std::collections::HashMap;
+
+    let provider_name = models.first().map(|m| m.provider.clone()).unwrap_or_else(|| "nvidia".to_string());
+    let priority_list = load_priority_models(&provider_name);
 
     let mut families: HashMap<String, Vec<ModelProfile>> = HashMap::new();
 
@@ -179,15 +192,12 @@ pub fn group_models_by_family(models: Vec<ModelProfile>) -> Vec<ModelFamily> {
         .map(|(name, variants)| ModelFamily { name, variants })
         .collect();
 
-    // Sort: Berdasarkan skor prioritas NVIDIA (descending), lalu alfabetis jika skor sama
+    // Sort: Berdasarkan skor prioritas dari berkas JSON (descending), lalu alfabetis jika skor sama
     let get_priority_score = |name: &str| -> i32 {
         let name_lower = name.to_lowercase();
         
-        // Cari posisi model dari array prioritas eksternal
-        if let Some(pos) = crate::nvidia_priority::NVIDIA_PRIORITY_MODELS
-            .iter()
-            .position(|&m| name_lower.contains(m))
-        {
+        // Cari posisi model dari priority list dinamis
+        if let Some(pos) = priority_list.iter().position(|m| name_lower.contains(m)) {
             // Score tertinggi didapatkan oleh index terawal:
             // 1000 untuk index 0, dan berkurang 10 di setiap index berikutnya
             return 1000 - (pos as i32 * 10);

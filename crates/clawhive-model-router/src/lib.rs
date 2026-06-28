@@ -7,7 +7,6 @@ pub mod provider;
 pub mod providers;
 pub mod router;
 pub mod types;
-pub mod nvidia_priority;
 
 pub use error::*;
 pub use openai_compat::*;
