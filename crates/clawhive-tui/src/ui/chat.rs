@@ -32,12 +32,7 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
         // Sediakan ruang tinggi 4 baris untuk dialog approval
         vec![String::new(), String::new(), String::new(), String::new()]
     } else if app.input_buffer.is_empty() {
-        let placeholder = if let Some(ref ws) = app.active_workspace {
-            format!("[{}] Ketik pesan di sini...", ws.name)
-        } else {
-            "Ketik pesan di sini...".to_string()
-        };
-        vec![placeholder]
+        vec!["Ketik pesan di sini...".to_string()]
     } else {
         crate::ui::wrap_text(&app.input_buffer, input_inner_width.saturating_sub(2).max(1))
     };
