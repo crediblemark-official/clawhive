@@ -14,15 +14,18 @@ impl TuiApp {
 
         let mut registry = ModelRegistry::new();
 
-        // Pre-load KV store entries for all provider API keys
+        // Pre-load KV store entries for all provider API keys dari global_store
         let builtin = clawhive_model_router::providers::provider_configs();
         let mut kv_map: std::collections::HashMap<String, String> =
             std::collections::HashMap::new();
         for slot in &builtin {
             let store_key = format!("config:{}_api_key", slot.name);
-            if let Ok(Some(val)) = self.state.kv_store.get::<String>(&store_key).await {
+            if let Ok(Some(val)) = self.global_store.get::<String>(&store_key).await {
                 let trimmed = val.trim().to_string();
                 if !trimmed.is_empty() {
+                    // Sinkronisasi dengan environment variable
+                    let env_var = crate::app::palette::provider_api_key_env(&slot.name);
+                    unsafe { std::env::set_var(&env_var, &trimmed) };
                     kv_map.insert(store_key, trimmed);
                 }
             }
@@ -38,20 +41,26 @@ impl TuiApp {
             }
             registry.register_resolved_providers(resolved);
         } else {
-            // No config file — fallback: env var → KV store for each built-in provider
+            // No config file — fallback: env var → KV store (global_store) for each built-in provider
             for config in clawhive_model_router::providers::provider_configs() {
                 let key = match std::env::var(config.api_key_env) {
                     Ok(k) if !k.is_empty() => Some(k),
                     _ => {
                         let store_key = format!("config:{}_api_key", config.name);
-                        self.state
-                            .kv_store
+                        if let Some(k) = self.global_store
                             .get::<String>(&store_key)
                             .await
                             .ok()
                             .flatten()
                             .filter(|k| !k.trim().is_empty())
                             .map(|k| k.trim().to_string())
+                        {
+                            // Sinkronisasi dengan environment variable
+                            unsafe { std::env::set_var(config.api_key_env, &k) };
+                            Some(k)
+                        } else {
+                            None
+                        }
                     }
                 };
                 if let Some(key) = key {
@@ -334,8 +343,7 @@ impl TuiApp {
     pub(crate) async fn persist_api_key(&self, provider: &str, api_key: &str) {
         let key = format!("config:{}_api_key", provider);
         let _ = self
-            .state
-            .kv_store
+            .global_store
             .set::<String>(&key, &api_key.to_string())
             .await;
     }

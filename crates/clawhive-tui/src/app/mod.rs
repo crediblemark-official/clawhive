@@ -196,8 +196,14 @@ impl TuiApp {
         let ns = NamespacedStore::new(Arc::clone(&self.global_store), ws.namespace());
         let ns_store: Arc<dyn Store> = Arc::new(ns);
 
+        // Pertahankan model_router dan tool_registry agar konfigurasi model tidak hilang
+        let old_model_router = self.state.model_router.clone();
+        let old_tool_registry = self.state.tool_registry.clone();
+
         // Ganti active store di AppState dengan namespaced store
         self.state = clawhive_control_api::state::AppState::new_with_store(ns_store);
+        self.state.model_router = old_model_router;
+        self.state.tool_registry = old_tool_registry;
 
         self.active_workspace = Some(ws.clone());
         self.workspace_input.clear();
@@ -219,7 +225,13 @@ impl TuiApp {
         let ns = NamespacedStore::new(Arc::clone(&self.global_store), ws_updated.namespace());
         let ns_store: Arc<dyn Store> = Arc::new(ns);
 
+        // Pertahankan model_router dan tool_registry agar konfigurasi model tidak hilang
+        let old_model_router = self.state.model_router.clone();
+        let old_tool_registry = self.state.tool_registry.clone();
+
         self.state = clawhive_control_api::state::AppState::new_with_store(ns_store);
+        self.state.model_router = old_model_router;
+        self.state.tool_registry = old_tool_registry;
 
         self.active_workspace = Some(ws_updated);
         self.init_agent_runtime().await;
@@ -347,7 +359,7 @@ impl TuiApp {
         self.load_saved_api_key().await;
         
         // Load model aktif terakhir dari database
-        if let Ok(Some(last_model)) = self.state.kv_store.get::<String>("last_active_model").await {
+        if let Ok(Some(last_model)) = self.global_store.get::<String>("last_active_model").await {
             self.active_model = last_model;
         } else {
             // Fallback ke model pertama jika ada
@@ -425,7 +437,7 @@ impl TuiApp {
 
     pub(crate) fn set_active_model(&mut self, model_id: String) {
         self.active_model = model_id.clone();
-        let store = std::sync::Arc::clone(&self.state.kv_store);
+        let store = std::sync::Arc::clone(&self.global_store);
         tokio::spawn(async move {
             let _ = store.set("last_active_model", &model_id).await;
         });
