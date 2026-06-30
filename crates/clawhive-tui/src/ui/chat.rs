@@ -28,10 +28,7 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
 
     // Hitung tinggi input box secara dinamis berdasarkan wrap_text dari input_buffer
     let input_inner_width = (main_chunks[0].width as usize).saturating_sub(5).max(1);
-    let raw_input_lines = if app.pending_tool_approval.is_some() {
-        // Sediakan ruang tinggi 4 baris untuk dialog approval
-        vec![String::new(), String::new(), String::new(), String::new()]
-    } else if app.input_buffer.is_empty() {
+    let raw_input_lines = if app.input_buffer.is_empty() {
         let placeholder = if let Some(ref ws) = app.active_workspace {
             format!("[{}] Ketik pesan di sini...", ws.name)
         } else {
@@ -409,12 +406,12 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
         ]));
         chat_input_lines.push(Line::from(""));
         chat_input_lines.push(Line::from(vec![
-            Span::styled("     Pilihan: ", Style::default().fg(Color::White)),
-            Span::styled("[a] Allow (Sekali)", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
-            Span::styled("   ", Style::default()),
-            Span::styled("[w] Always Allow", Style::default().fg(Color::LightGreen).add_modifier(Modifier::BOLD)),
-            Span::styled("   ", Style::default()),
-            Span::styled("[d] Deny (Tolak)", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+            Span::styled("     Ketik di form input: ", Style::default().fg(Color::White)),
+            Span::styled(":approve", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+            Span::styled(" / ", Style::default()),
+            Span::styled(":approve always", Style::default().fg(Color::LightGreen).add_modifier(Modifier::BOLD)),
+            Span::styled(" / ", Style::default()),
+            Span::styled(":deny", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
         ]));
     } else {
         // Tambahkan suggestions jika input diawali dengan '/'
@@ -584,10 +581,7 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
         .block(input_block);
     frame.render_widget(input_widget, active_input_area);
 
-    let cursor_pos = if app.pending_tool_approval.is_some() {
-        // Sembunyikan cursor dengan menaruhnya di pojok kanan bawah terminal
-        (frame.area().width.saturating_sub(1), frame.area().height.saturating_sub(1))
-    } else if app.input_buffer.is_empty() {
+    let cursor_pos = if app.input_buffer.is_empty() {
         (input_inner.x + 2, input_inner.y + suggestion_height as u16)
     } else {
         let last_line = input_lines.last().cloned().unwrap_or_default();
@@ -630,165 +624,16 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
         frame.render_widget(black_block.clone(), horizontal_sidebar_layout[0]);
         frame.render_widget(black_block.clone(), horizontal_sidebar_layout[2]);
 
-        // Bagi sidebar menjadi: Spacer Atas, Header (Titel tab), Spacer Tengah, List, dan Footer info
+        // Pisahkan area sidebar: accordion di atas, footer 2 baris di bawah
         let sidebar_chunks = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Length(1), // Spacer atas agar tidak mepet ke layar atas
-                Constraint::Length(2), // Header (Tabs)
-                Constraint::Length(1), // Spacer tengah agar bawah tab tidak mepet
-                Constraint::Min(0),    // Content list
-                Constraint::Length(2), // Footer
-            ])
+            .constraints([Constraint::Min(0), Constraint::Length(2)])
             .split(active_sidebar_area);
 
-        // Isi spacer atas dan tengah dengan background hitam pekat
-        frame.render_widget(black_block.clone(), sidebar_chunks[0]);
-        frame.render_widget(black_block.clone(), sidebar_chunks[2]);
-
-        // Sidebar Header (Titel tab aktif dengan indikator navigasi)
-        crate::ui::screens::draw_sidebar_tab_bar(frame, sidebar_chunks[1], app);
-
-        // Render data list sidebar sesuai tab aktif
-        match app.selected_tab {
-            Tab::Session => {
-                let items = vec![ListItem::new(Span::styled(
-                    "  Sesi default (Aktif)",
-                    Style::default().fg(Color::Rgb(218, 165, 32)).bg(Color::Rgb(0, 0, 0)),
-                ))];
-                let list = List::new(items)
-                    .block(Block::default())
-                    .style(Style::default().bg(Color::Rgb(0, 0, 0)));
-                frame.render_widget(list, sidebar_chunks[3]);
-            }
-            Tab::Agents => {
-                if app.agents.is_empty() {
-                    let p = Paragraph::new(Span::styled(
-                        "  No active agents.",
-                        Style::default().fg(Color::Rgb(150, 150, 150)).bg(Color::Rgb(0, 0, 0)),
-                    ))
-                    .style(Style::default().fg(Color::Rgb(255, 255, 255)).bg(Color::Rgb(0, 0, 0)));
-                    frame.render_widget(p, sidebar_chunks[3]);
-                } else {
-                    let items: Vec<ListItem> = app
-                        .agents
-                        .iter()
-                        .enumerate()
-                        .map(|(i, a)| {
-                            let is_selected = i == app.selected_index;
-                            let style = if is_selected {
-                                Style::default()
-                                    .fg(Color::Rgb(0, 0, 0))
-                                    .bg(Color::Rgb(254, 192, 126))
-                                    .add_modifier(Modifier::BOLD)
-                            } else {
-                                Style::default().fg(Color::White).bg(Color::Rgb(0, 0, 0))
-                            };
-
-                            let status_indicator = match a.state {
-                                AgentState::Active => Span::styled("● ", Style::default().fg(Color::Green).bg(Color::Rgb(0, 0, 0))),
-                                AgentState::Paused => {
-                                    Span::styled("● ", Style::default().fg(Color::Yellow).bg(Color::Rgb(0, 0, 0)))
-                                }
-                                AgentState::Terminated => {
-                                    Span::styled("● ", Style::default().fg(Color::Red).bg(Color::Rgb(0, 0, 0)))
-                                }
-                                _ => Span::styled("● ", Style::default().fg(Color::Rgb(200, 200, 200)).bg(Color::Rgb(0, 0, 0))),
-                            };
-
-                            ListItem::new(Line::from(vec![
-                                Span::styled("  ", Style::default().fg(Color::Rgb(255, 255, 255)).bg(Color::Rgb(0, 0, 0))),
-                                status_indicator,
-                                Span::styled(format!("{:<15}", a.name), style),
-                            ]))
-                        })
-                        .collect();
-                    let list = List::new(items)
-                        .block(Block::default())
-                        .style(Style::default().bg(Color::Rgb(0, 0, 0)));
-                    frame.render_widget(list, sidebar_chunks[3]);
-                }
-            }
-            Tab::Workers => {
-                if app.workers.is_empty() {
-                    let p = Paragraph::new(Span::styled(
-                        "  No registered workers.",
-                        Style::default().fg(Color::Rgb(150, 150, 150)).bg(Color::Rgb(0, 0, 0)),
-                    ))
-                    .style(Style::default().fg(Color::Rgb(255, 255, 255)).bg(Color::Rgb(0, 0, 0)));
-                    frame.render_widget(p, sidebar_chunks[3]);
-                } else {
-                    let items: Vec<ListItem> = app
-                        .workers
-                        .iter()
-                        .map(|w| {
-                            let name = format!("  {:<15}", w.id.0.to_string().chars().take(8).collect::<String>());
-                            ListItem::new(Line::from(vec![
-                                Span::styled(name, Style::default().fg(Color::White).bg(Color::Rgb(0, 0, 0))),
-                                Span::styled(format!(" {:?}", w.state), Style::default().fg(Color::Rgb(200, 200, 200)).bg(Color::Rgb(0, 0, 0))),
-                            ]))
-                        })
-                        .collect();
-                    let list = List::new(items)
-                        .block(Block::default())
-                        .style(Style::default().bg(Color::Rgb(0, 0, 0)));
-                    frame.render_widget(list, sidebar_chunks[3]);
-                }
-            }
-            Tab::SpawnRequests => {
-                if app.spawn_requests.is_empty() {
-                    let p = Paragraph::new(Span::styled(
-                        "  No spawn requests.",
-                        Style::default().fg(Color::Rgb(150, 150, 150)).bg(Color::Rgb(0, 0, 0)),
-                    ))
-                    .style(Style::default().fg(Color::Rgb(255, 255, 255)).bg(Color::Rgb(0, 0, 0)));
-                    frame.render_widget(p, sidebar_chunks[3]);
-                } else {
-                    let items: Vec<ListItem> = app
-                        .spawn_requests
-                        .iter()
-                        .map(|r| {
-                            let req_id_prefix = &r.id.0.to_string()[..8];
-                            let display_name = r.team.name.replace("-team", "");
-                            let name = format!("  {:<12} ({})", display_name.chars().take(10).collect::<String>(), req_id_prefix);
-                            let (status_str, status_color) = match r.state {
-                                SpawnState::Pending => (" Pending", Color::Yellow),
-                                SpawnState::Approved => (" Approved", Color::Green),
-                                SpawnState::Denied => (" Denied", Color::Red),
-                                SpawnState::Validating => (" Validating", Color::Cyan),
-                                SpawnState::Provisioning => (" Provisioning", Color::Blue),
-                                SpawnState::Completed => (" Completed", Color::LightGreen),
-                                SpawnState::Failed => (" Failed", Color::LightRed),
-                            };
-                            ListItem::new(Line::from(vec![
-                                Span::styled(name, Style::default().fg(Color::White).bg(Color::Rgb(0, 0, 0))),
-                                Span::styled(status_str, Style::default().fg(status_color).bg(Color::Rgb(0, 0, 0))),
-                            ]))
-                        })
-                        .collect();
-                    let list = List::new(items)
-                        .block(Block::default())
-                        .style(Style::default().bg(Color::Rgb(0, 0, 0)));
-                    frame.render_widget(list, sidebar_chunks[3]);
-                }
-            }
-            Tab::Missions
-            | Tab::Tasks
-            | Tab::Memory
-            | Tab::Approvals
-            | Tab::Costs
-            | Tab::Policies
-            | Tab::Skills
-            | Tab::Artifacts
-            | Tab::Incidents => {
-                let p = Paragraph::new(Span::styled(
-                    "  Press Tab to open full screen.",
-                    Style::default().fg(Color::Rgb(150, 150, 150)).bg(Color::Rgb(0, 0, 0)),
-                ))
-                .style(Style::default().fg(Color::Rgb(255, 255, 255)).bg(Color::Rgb(0, 0, 0)));
-                frame.render_widget(p, sidebar_chunks[3]);
-            }
-        }
+        // Sidebar sebagai accordion vertikal: setiap tab jadi section,
+        // tab yang aktif di-expand, sisanya collapsed. Ini memanfaatkan
+        // tinggi layar sempit dengan tetap menampilkan semua tab.
+        draw_sidebar_accordion(frame, sidebar_chunks[0], app);
 
         // Sidebar Footer
         let current_dir = std::env::current_dir()
@@ -839,10 +684,440 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
             ]),
         ])
         .style(Style::default().fg(Color::Rgb(255, 255, 255)).bg(Color::Rgb(0, 0, 0))); // Background hitam pekat
-        frame.render_widget(footer_text, sidebar_chunks[4]);
+        frame.render_widget(footer_text, sidebar_chunks[1]);
     }
 }
 
+/// Render sidebar kanan sebagai accordion vertikal. Tab yang sedang aktif
+/// di-expand untuk menampilkan konten; tab lain tetap terlihat sebagai
+/// header collapsed sehingga memanfaatkan tinggi layar sempit.
+fn draw_sidebar_accordion(frame: &mut Frame, area: Rect, app: &TuiApp) {
+    let bg = Style::default().bg(Color::Rgb(0, 0, 0));
+    frame.render_widget(Block::default().style(bg), area);
+
+    let tabs = [
+        Tab::Session,
+        Tab::Agents,
+        Tab::Workers,
+        Tab::SpawnRequests,
+        Tab::Missions,
+        Tab::Tasks,
+        Tab::Memory,
+        Tab::Approvals,
+        Tab::Costs,
+        Tab::Policies,
+        Tab::Skills,
+        Tab::Artifacts,
+        Tab::Incidents,
+    ];
+
+    // Bangun constraints: setiap tab collapsed = 1 baris header,
+    // tab aktif = Min(0) agar mengambil sisa ruang untuk konten.
+    let mut constraints: Vec<Constraint> = tabs
+        .iter()
+        .map(|t| {
+            if *t == app.selected_tab {
+                Constraint::Min(0)
+            } else {
+                Constraint::Length(1)
+            }
+        })
+        .collect();
+    // Pastikan accordion ga mepet footer
+    constraints.push(Constraint::Length(0));
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(constraints)
+        .split(area);
+
+    for (i, tab) in tabs.iter().enumerate() {
+        let section_area = chunks[i];
+        let is_expanded = *tab == app.selected_tab;
+
+        // Header
+        let count = accordion_item_count(app, *tab);
+        let count_text = if count > 0 {
+            format!(" [{count}]")
+        } else {
+            String::new()
+        };
+        let indicator = if is_expanded { "▼ " } else { "▶ " };
+        let header_style = if is_expanded {
+            Style::default()
+                .fg(Color::Rgb(254, 192, 126))
+                .bg(Color::Rgb(0, 0, 0))
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::Rgb(200, 200, 200)).bg(Color::Rgb(0, 0, 0))
+        };
+        let header = Paragraph::new(Line::from(vec![
+            Span::styled(indicator, header_style),
+            Span::styled(format!("{}{}", accordion_tab_name(*tab), count_text), header_style),
+        ]));
+        frame.render_widget(header, section_area);
+
+        if is_expanded {
+            let content_area = Rect {
+                x: section_area.x,
+                y: section_area.y + 1,
+                width: section_area.width,
+                height: section_area.height.saturating_sub(1),
+            };
+            if content_area.height > 0 {
+                draw_accordion_content(frame, content_area, app, *tab);
+            }
+        }
+    }
+}
+
+fn accordion_tab_name(tab: Tab) -> &'static str {
+    match tab {
+        Tab::Session => "Session",
+        Tab::Agents => "Agents",
+        Tab::Workers => "Workers",
+        Tab::SpawnRequests => "Broker",
+        Tab::Missions => "Missions",
+        Tab::Tasks => "Tasks",
+        Tab::Memory => "Memory",
+        Tab::Approvals => "Approvals",
+        Tab::Costs => "Costs",
+        Tab::Policies => "Policies",
+        Tab::Skills => "Skills",
+        Tab::Artifacts => "Artifacts",
+        Tab::Incidents => "Incidents",
+    }
+}
+
+fn accordion_item_count(app: &TuiApp, tab: Tab) -> usize {
+    match tab {
+        Tab::Session => 1,
+        Tab::Agents => app.agents.len(),
+        Tab::Workers => app.workers.len(),
+        Tab::SpawnRequests => app.spawn_requests.len(),
+        Tab::Missions => app.missions.len(),
+        Tab::Tasks => app.tasks.len(),
+        Tab::Memory => app.memories.len(),
+        Tab::Approvals => app.approvals.len(),
+        Tab::Costs => app.agents.len(),
+        Tab::Policies => app.policies.len(),
+        Tab::Skills => app.skills.len(),
+        Tab::Artifacts => app.artifacts.len(),
+        Tab::Incidents => app.incidents.len(),
+    }
+}
+
+fn draw_accordion_content(frame: &mut Frame, area: Rect, app: &TuiApp, tab: Tab) {
+    let bg = Style::default().bg(Color::Rgb(0, 0, 0));
+    frame.render_widget(Block::default().style(bg), area);
+
+    match tab {
+        Tab::Session => {
+            let p = Paragraph::new(Span::styled(
+                "  Default session active",
+                Style::default().fg(Color::Rgb(218, 165, 32)).bg(Color::Rgb(0, 0, 0)),
+            ));
+            frame.render_widget(p, area);
+        }
+        Tab::Agents => {
+            if app.agents.is_empty() {
+                let p = Paragraph::new(Span::styled(
+                    "  No active agents.",
+                    Style::default().fg(Color::Rgb(150, 150, 150)).bg(Color::Rgb(0, 0, 0)),
+                ));
+                frame.render_widget(p, area);
+            } else {
+                let items: Vec<ListItem> = app
+                    .agents
+                    .iter()
+                    .enumerate()
+                    .map(|(i, a)| {
+                        let is_selected = i == app.selected_index;
+                        let style = if is_selected {
+                            Style::default()
+                                .fg(Color::Rgb(0, 0, 0))
+                                .bg(Color::Rgb(254, 192, 126))
+                                .add_modifier(Modifier::BOLD)
+                        } else {
+                            Style::default().fg(Color::White).bg(Color::Rgb(0, 0, 0))
+                        };
+                        let status_indicator = match a.state {
+                            AgentState::Active => Span::styled("● ", Style::default().fg(Color::Green).bg(Color::Rgb(0, 0, 0))),
+                            AgentState::Paused => Span::styled("● ", Style::default().fg(Color::Yellow).bg(Color::Rgb(0, 0, 0))),
+                            AgentState::Terminated => Span::styled("● ", Style::default().fg(Color::Red).bg(Color::Rgb(0, 0, 0))),
+                            _ => Span::styled("● ", Style::default().fg(Color::Rgb(200, 200, 200)).bg(Color::Rgb(0, 0, 0))),
+                        };
+                        ListItem::new(Line::from(vec![
+                            Span::styled("  ", Style::default().bg(Color::Rgb(0, 0, 0))),
+                            status_indicator,
+                            Span::styled(format!("{}", a.name), style),
+                        ]))
+                    })
+                    .collect();
+                let list = List::new(items).style(Style::default().bg(Color::Rgb(0, 0, 0)));
+                frame.render_widget(list, area);
+            }
+        }
+        Tab::Workers => {
+            if app.workers.is_empty() {
+                let p = Paragraph::new(Span::styled(
+                    "  No registered workers.",
+                    Style::default().fg(Color::Rgb(150, 150, 150)).bg(Color::Rgb(0, 0, 0)),
+                ));
+                frame.render_widget(p, area);
+            } else {
+                let items: Vec<ListItem> = app
+                    .workers
+                    .iter()
+                    .map(|w| {
+                        let id_prefix = w.id.0.to_string().chars().take(8).collect::<String>();
+                        ListItem::new(Line::from(vec![
+                            Span::styled(format!("  {}", id_prefix), Style::default().fg(Color::White).bg(Color::Rgb(0, 0, 0))),
+                            Span::styled(format!(" {:?}", w.state), Style::default().fg(Color::Rgb(200, 200, 200)).bg(Color::Rgb(0, 0, 0))),
+                        ]))
+                    })
+                    .collect();
+                let list = List::new(items).style(Style::default().bg(Color::Rgb(0, 0, 0)));
+                frame.render_widget(list, area);
+            }
+        }
+        Tab::SpawnRequests => {
+            if app.spawn_requests.is_empty() {
+                let p = Paragraph::new(Span::styled(
+                    "  No spawn requests.",
+                    Style::default().fg(Color::Rgb(150, 150, 150)).bg(Color::Rgb(0, 0, 0)),
+                ));
+                frame.render_widget(p, area);
+            } else {
+                let items: Vec<ListItem> = app
+                    .spawn_requests
+                    .iter()
+                    .map(|r| {
+                        let req_id_prefix = &r.id.0.to_string()[..8];
+                        let display_name = r.team.name.replace("-team", "");
+                        let name = format!("  {} ({})", display_name.chars().take(10).collect::<String>(), req_id_prefix);
+                        let (status_str, status_color) = match r.state {
+                            SpawnState::Pending => (" Pending", Color::Yellow),
+                            SpawnState::Approved => (" Approved", Color::Green),
+                            SpawnState::Denied => (" Denied", Color::Red),
+                            SpawnState::Validating => (" Validating", Color::Cyan),
+                            SpawnState::Provisioning => (" Provisioning", Color::Blue),
+                            SpawnState::Completed => (" Completed", Color::LightGreen),
+                            SpawnState::Failed => (" Failed", Color::LightRed),
+                        };
+                        ListItem::new(Line::from(vec![
+                            Span::styled(name, Style::default().fg(Color::White).bg(Color::Rgb(0, 0, 0))),
+                            Span::styled(status_str, Style::default().fg(status_color).bg(Color::Rgb(0, 0, 0))),
+                        ]))
+                    })
+                    .collect();
+                let list = List::new(items).style(Style::default().bg(Color::Rgb(0, 0, 0)));
+                frame.render_widget(list, area);
+            }
+        }
+        Tab::Missions => {
+            if app.missions.is_empty() {
+                let p = Paragraph::new(Span::styled(
+                    "  No missions.",
+                    Style::default().fg(Color::Rgb(150, 150, 150)).bg(Color::Rgb(0, 0, 0)),
+                ));
+                frame.render_widget(p, area);
+            } else {
+                let items: Vec<ListItem> = app
+                    .missions
+                    .iter()
+                    .map(|m| {
+                        let objective = m.objective.chars().take(20).collect::<String>();
+                        ListItem::new(Span::styled(
+                            format!("  {} [{:?}]", objective, m.state),
+                            Style::default().fg(Color::White).bg(Color::Rgb(0, 0, 0)),
+                        ))
+                    })
+                    .collect();
+                let list = List::new(items).style(Style::default().bg(Color::Rgb(0, 0, 0)));
+                frame.render_widget(list, area);
+            }
+        }
+        Tab::Tasks => {
+            if app.tasks.is_empty() {
+                let p = Paragraph::new(Span::styled(
+                    "  No tasks.",
+                    Style::default().fg(Color::Rgb(150, 150, 150)).bg(Color::Rgb(0, 0, 0)),
+                ));
+                frame.render_widget(p, area);
+            } else {
+                let items: Vec<ListItem> = app
+                    .tasks
+                    .iter()
+                    .map(|t| {
+                        let objective = t.objective.chars().take(20).collect::<String>();
+                        ListItem::new(Span::styled(
+                            format!("  {} [{:?}]", objective, t.state),
+                            Style::default().fg(Color::White).bg(Color::Rgb(0, 0, 0)),
+                        ))
+                    })
+                    .collect();
+                let list = List::new(items).style(Style::default().bg(Color::Rgb(0, 0, 0)));
+                frame.render_widget(list, area);
+            }
+        }
+        Tab::Memory => {
+            if app.memories.is_empty() {
+                let p = Paragraph::new(Span::styled(
+                    "  No memories.",
+                    Style::default().fg(Color::Rgb(150, 150, 150)).bg(Color::Rgb(0, 0, 0)),
+                ));
+                frame.render_widget(p, area);
+            } else {
+                let items: Vec<ListItem> = app
+                    .memories
+                    .iter()
+                    .map(|m| {
+                        let scope = m.scope.chars().take(20).collect::<String>();
+                        ListItem::new(Span::styled(
+                            format!("  {}", scope),
+                            Style::default().fg(Color::White).bg(Color::Rgb(0, 0, 0)),
+                        ))
+                    })
+                    .collect();
+                let list = List::new(items).style(Style::default().bg(Color::Rgb(0, 0, 0)));
+                frame.render_widget(list, area);
+            }
+        }
+        Tab::Approvals => {
+            if app.approvals.is_empty() {
+                let p = Paragraph::new(Span::styled(
+                    "  No tool approvals.",
+                    Style::default().fg(Color::Rgb(150, 150, 150)).bg(Color::Rgb(0, 0, 0)),
+                ));
+                frame.render_widget(p, area);
+            } else {
+                let items: Vec<ListItem> = app
+                    .approvals
+                    .iter()
+                    .map(|a| {
+                        let (status_str, status_color) = match a.state {
+                            clawhive_domain::approval::ToolApprovalState::Pending => (" Pending", Color::Yellow),
+                            clawhive_domain::approval::ToolApprovalState::Approved => (" Approved", Color::Green),
+                            clawhive_domain::approval::ToolApprovalState::Denied => (" Denied", Color::Red),
+                            clawhive_domain::approval::ToolApprovalState::AlwaysApproved => (" Always", Color::LightGreen),
+                        };
+                        ListItem::new(Line::from(vec![
+                            Span::styled(format!("  {}", a.tool_name), Style::default().fg(Color::White).bg(Color::Rgb(0, 0, 0))),
+                            Span::styled(status_str, Style::default().fg(status_color).bg(Color::Rgb(0, 0, 0))),
+                        ]))
+                    })
+                    .collect();
+                let list = List::new(items).style(Style::default().bg(Color::Rgb(0, 0, 0)));
+                frame.render_widget(list, area);
+            }
+        }
+        Tab::Costs => {
+            let total: f64 = app.agents.iter().map(|a| a.total_cost_usd).sum();
+            let p = Paragraph::new(vec![
+                Line::from(Span::styled(
+                    format!("  Total spent: ${total:.4}"),
+                    Style::default().fg(Color::Rgb(218, 165, 32)).bg(Color::Rgb(0, 0, 0)),
+                )),
+                Line::from(Span::styled(
+                    format!("  Agents: {}", app.agents.len()),
+                    Style::default().fg(Color::Rgb(200, 200, 200)).bg(Color::Rgb(0, 0, 0)),
+                )),
+            ]);
+            frame.render_widget(p, area);
+        }
+        Tab::Policies => {
+            if app.policies.is_empty() {
+                let p = Paragraph::new(Span::styled(
+                    "  No policies.",
+                    Style::default().fg(Color::Rgb(150, 150, 150)).bg(Color::Rgb(0, 0, 0)),
+                ));
+                frame.render_widget(p, area);
+            } else {
+                let items: Vec<ListItem> = app
+                    .policies
+                    .iter()
+                    .map(|p| {
+                        ListItem::new(Span::styled(
+                            format!("  {} ({} rules)", p.name, p.rules.len()),
+                            Style::default().fg(Color::White).bg(Color::Rgb(0, 0, 0)),
+                        ))
+                    })
+                    .collect();
+                let list = List::new(items).style(Style::default().bg(Color::Rgb(0, 0, 0)));
+                frame.render_widget(list, area);
+            }
+        }
+        Tab::Skills => {
+            if app.skills.is_empty() {
+                let p = Paragraph::new(Span::styled(
+                    "  No skills.",
+                    Style::default().fg(Color::Rgb(150, 150, 150)).bg(Color::Rgb(0, 0, 0)),
+                ));
+                frame.render_widget(p, area);
+            } else {
+                let items: Vec<ListItem> = app
+                    .skills
+                    .iter()
+                    .map(|s| {
+                        ListItem::new(Span::styled(
+                            format!("  {} [{:?}]", s.name, s.state),
+                            Style::default().fg(Color::White).bg(Color::Rgb(0, 0, 0)),
+                        ))
+                    })
+                    .collect();
+                let list = List::new(items).style(Style::default().bg(Color::Rgb(0, 0, 0)));
+                frame.render_widget(list, area);
+            }
+        }
+        Tab::Artifacts => {
+            if app.artifacts.is_empty() {
+                let p = Paragraph::new(Span::styled(
+                    "  No artifacts.",
+                    Style::default().fg(Color::Rgb(150, 150, 150)).bg(Color::Rgb(0, 0, 0)),
+                ));
+                frame.render_widget(p, area);
+            } else {
+                let items: Vec<ListItem> = app
+                    .artifacts
+                    .iter()
+                    .map(|a| {
+                        let id_prefix = a.id.0.to_string().chars().take(8).collect::<String>();
+                        ListItem::new(Span::styled(
+                            format!("  {} ({})", a.name, id_prefix),
+                            Style::default().fg(Color::White).bg(Color::Rgb(0, 0, 0)),
+                        ))
+                    })
+                    .collect();
+                let list = List::new(items).style(Style::default().bg(Color::Rgb(0, 0, 0)));
+                frame.render_widget(list, area);
+            }
+        }
+        Tab::Incidents => {
+            if app.incidents.is_empty() {
+                let p = Paragraph::new(Span::styled(
+                    "  No incidents.",
+                    Style::default().fg(Color::Rgb(150, 150, 150)).bg(Color::Rgb(0, 0, 0)),
+                ));
+                frame.render_widget(p, area);
+            } else {
+                let items: Vec<ListItem> = app
+                    .incidents
+                    .iter()
+                    .map(|inc| {
+                        let desc = inc.description.chars().take(20).collect::<String>();
+                        ListItem::new(Span::styled(
+                            format!("  {} [{:?}]", desc, inc.state),
+                            Style::default().fg(Color::White).bg(Color::Rgb(0, 0, 0)),
+                        ))
+                    })
+                    .collect();
+                let list = List::new(items).style(Style::default().bg(Color::Rgb(0, 0, 0)));
+                frame.render_widget(list, area);
+            }
+        }
+    }
+}
 
 /// Melakukan parsing markdown bold sederhana (**text**) menjadi kumpulan Span.
 /// Karakter asterisk (**) tidak ikut ditampilkan, melainkan diganti dengan Modifier::BOLD.

@@ -74,52 +74,6 @@ pub fn draw_tab_bar(frame: &mut Frame, area: Rect, app: &TuiApp) {
     frame.render_widget(tabs, area);
 }
 
-/// Render tab bar khusus sidebar dengan 14 tab; dibagi dua baris
-/// agar muat di area sempit (tinggi 2).
-pub fn draw_sidebar_tab_bar(frame: &mut Frame, area: Rect, app: &TuiApp) {
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Length(1), Constraint::Length(1)])
-        .split(area);
-
-    let all_titles = vec![
-        ("Sess", Tab::Session),
-        ("Agents", Tab::Agents),
-        ("Pool", Tab::Workers),
-        ("Broker", Tab::SpawnRequests),
-        ("Msn", Tab::Missions),
-        ("Tasks", Tab::Tasks),
-        ("Mem", Tab::Memory),
-        ("Aprv", Tab::Approvals),
-        ("Cost", Tab::Costs),
-        ("Pol", Tab::Policies),
-        ("Skl", Tab::Skills),
-        ("Art", Tab::Artifacts),
-        ("Inc", Tab::Incidents),
-    ];
-
-    let half = all_titles.len() / 2;
-    let first_row = &all_titles[..half];
-    let second_row = &all_titles[half..];
-
-    for (idx, row) in [first_row, second_row].iter().enumerate() {
-        let selected_in_row = row.iter().position(|(_, tab)| *tab == app.selected_tab);
-        let titles: Vec<String> = row.iter().map(|(title, _)| (*title).to_string()).collect();
-        let tabs = ratatui::widgets::Tabs::new(titles)
-            .select(selected_in_row.unwrap_or(0))
-            .block(Block::default().borders(Borders::NONE))
-            .style(Style::default().fg(Color::Rgb(200, 200, 200)).bg(Color::Rgb(0, 0, 0)))
-            .highlight_style(
-                Style::default()
-                    .fg(Color::Rgb(218, 165, 32))
-                    .bg(Color::Rgb(0, 0, 0))
-                    .add_modifier(Modifier::BOLD),
-            )
-            .divider(" ");
-        frame.render_widget(tabs, chunks[idx]);
-    }
-}
-
 fn draw_footer(frame: &mut Frame, area: Rect, app: &TuiApp, title: &str) {
     let hint = format!(
         " {} | Tab: next | ↑↓: scroll | Esc/q: home | {}",

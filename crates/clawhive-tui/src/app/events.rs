@@ -239,21 +239,6 @@ impl TuiApp {
                         }
                     }
                     CommandMode::None => {
-                        if self.pending_tool_approval.is_some() {
-                            match key.code {
-                                KeyCode::Char('a') | KeyCode::Char('A') => {
-                                    self.handle_tool_approval(clawhive_domain::approval::ToolApprovalState::Approved).await;
-                                }
-                                KeyCode::Char('w') | KeyCode::Char('W') => {
-                                    self.handle_tool_approval(clawhive_domain::approval::ToolApprovalState::AlwaysApproved).await;
-                                }
-                                KeyCode::Char('d') | KeyCode::Char('D') => {
-                                    self.handle_tool_approval(clawhive_domain::approval::ToolApprovalState::Denied).await;
-                                }
-                                _ => {}
-                            }
-                            return;
-                        }
                         // ── Workspace Home Screen Handler ─────────────────────────────────────
                         if self.active_screen == Screen::Home {
                             match key.code {
@@ -534,12 +519,6 @@ impl TuiApp {
                             KeyCode::Char(c) => {
                                 if self.active_screen == Screen::Home {
                                     match c {
-                                        'a' | 'A' if self.selected_tab == Tab::SpawnRequests => {
-                                            self.approve_selected_spawn_request().await;
-                                        }
-                                        'd' | 'D' if self.selected_tab == Tab::SpawnRequests => {
-                                            self.deny_selected_spawn_request().await;
-                                        }
                                         'c' | 'C' | 'i' | 'I' => {
                                             self.active_screen = Screen::Chat;
                                         }
@@ -904,56 +883,6 @@ impl TuiApp {
         // Kembalikan receiver jika agent masih berjalan
         if self.is_streaming {
             self.agent_rx = Some(rx);
-        }
-    }
-
-    pub(crate) async fn approve_selected_spawn_request(&mut self) {
-        use clawhive_domain::SpawnState;
-        use clawhive_control_api::store::SPAWNREQ_PREFIX;
-        use clawhive_store::StoreExt;
-
-        if self.selected_index >= self.spawn_requests.len() {
-            return;
-        }
-        let req = &self.spawn_requests[self.selected_index];
-        if req.state == SpawnState::Pending {
-            let key = format!("{SPAWNREQ_PREFIX}{}", req.id.0);
-            let mut updated_req = req.clone();
-            updated_req.state = SpawnState::Approved;
-            updated_req.updated_at = chrono::Utc::now();
-            if self.state.kv_store.set(&key, &updated_req).await.is_ok() {
-                self.chat_history.push((
-                    "System".to_string(),
-                    "".to_string(),
-                    format!("Approved spawn request {} via Broker tab selection", &req.id.0.to_string()[..8]),
-                ));
-                self.refresh().await;
-            }
-        }
-    }
-
-    pub(crate) async fn deny_selected_spawn_request(&mut self) {
-        use clawhive_domain::SpawnState;
-        use clawhive_control_api::store::SPAWNREQ_PREFIX;
-        use clawhive_store::StoreExt;
-
-        if self.selected_index >= self.spawn_requests.len() {
-            return;
-        }
-        let req = &self.spawn_requests[self.selected_index];
-        if req.state == SpawnState::Pending {
-            let key = format!("{SPAWNREQ_PREFIX}{}", req.id.0);
-            let mut updated_req = req.clone();
-            updated_req.state = SpawnState::Denied;
-            updated_req.updated_at = chrono::Utc::now();
-            if self.state.kv_store.set(&key, &updated_req).await.is_ok() {
-                self.chat_history.push((
-                    "System".to_string(),
-                    "".to_string(),
-                    format!("Denied spawn request {} via Broker tab selection", &req.id.0.to_string()[..8]),
-                ));
-                self.refresh().await;
-            }
         }
     }
 

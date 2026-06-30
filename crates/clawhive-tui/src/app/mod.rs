@@ -175,7 +175,7 @@ impl TuiApp {
             selected_index: 0,
             selected_tab: Tab::Session,
             should_quit: false,
-            status_message: "ClawHive OS — Esc: Toggle Nav/Chat | Tab: Pindah Tab | Broker: 'a' approve, 'd' deny".into(),
+            status_message: "ClawHive OS — Esc: Toggle Nav/Chat | Tab: Pindah Tab | Semua konfirmasi via form input (:help)".into(),
             input_mode: InputMode::Normal,
             input_buffer: String::new(),
             active_screen: Screen::Home,

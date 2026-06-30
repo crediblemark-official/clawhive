@@ -1,7 +1,7 @@
 use clawhive_control_api::store::{AGENT_PREFIX, MISSION_PREFIX, SPAWNREQ_PREFIX};
 use clawhive_domain::{
     Agent, AgentId, AgentState, ChildSpawnPolicy, ChildSpec, Mission, SpawnRequest, SpawnRequestId,
-    SpawnState, SwarmTeamSpec, TerminationPolicy,
+    SpawnState, SwarmTeamSpec, TerminationPolicy, ToolApprovalRequest, ToolApprovalState,
 };
 use clawhive_store::StoreExt;
 
@@ -31,7 +31,12 @@ Commands:
   :pause <agent_id|name>             Pause agent
   :terminate <agent_id|name>         Terminate agent
   :approve <spawn_id>                Approve spawn request
+  :approve tool <id>                 Approve tool execution request
+  :approve always [tool] [id]        Always approve tool request
+  :approve                           Approve the currently pending tool request
   :deny <spawn_id>                   Deny spawn request
+  :deny tool <id>                    Deny tool execution request
+  :deny                              Deny the currently pending tool request
   :spawn <mission> <role> <objective> <budget>  Create spawn request
   :goto <agents|workers|spawn>       Switch tab
   :save <filename.md>                Save last assistant response to a markdown file
@@ -163,60 +168,8 @@ Type any message to start a chat with the active model.",
                     }
                 }
             }
-            "approve" => {
-                if parts.len() < 2 {
-                    "Usage: :approve <spawn_id>".into()
-                } else {
-                    let id_str = parts[1];
-                    let requests = self
-                        .state
-                        .kv_store
-                        .scan_prefix::<SpawnRequest>(SPAWNREQ_PREFIX)
-                        .await
-                        .unwrap_or_default();
-                    match requests.into_iter().find(|(_, r)| {
-                        r.id.0.to_string().starts_with(id_str)
-                    }) {
-                        Some((key, mut req)) if req.state == SpawnState::Pending => {
-                            req.state = SpawnState::Approved;
-                            req.updated_at = chrono::Utc::now();
-                            let _ = self.state.kv_store.set(&key, &req).await;
-                            format!("Approved spawn request {}", req.id.0)
-                        }
-                        Some((_, req)) => {
-                            format!("Spawn request is {:?} (not pending)", req.state)
-                        }
-                        None => format!("Spawn request not found: {id_str}"),
-                    }
-                }
-            }
-            "deny" => {
-                if parts.len() < 2 {
-                    "Usage: :deny <spawn_id>".into()
-                } else {
-                    let id_str = parts[1];
-                    let requests = self
-                        .state
-                        .kv_store
-                        .scan_prefix::<SpawnRequest>(SPAWNREQ_PREFIX)
-                        .await
-                        .unwrap_or_default();
-                    match requests.into_iter().find(|(_, r)| {
-                        r.id.0.to_string().starts_with(id_str)
-                    }) {
-                        Some((key, mut req)) if req.state == SpawnState::Pending => {
-                            req.state = SpawnState::Denied;
-                            req.updated_at = chrono::Utc::now();
-                            let _ = self.state.kv_store.set(&key, &req).await;
-                            format!("Denied spawn request {}", req.id.0)
-                        }
-                        Some((_, req)) => {
-                            format!("Spawn request is {:?} (not pending)", req.state)
-                        }
-                        None => format!("Spawn request not found: {id_str}"),
-                    }
-                }
-            }
+            "approve" => self.handle_approve_command(&parts).await,
+            "deny" => self.handle_deny_command(&parts).await,
             "spawn" => {
                 if parts.len() < 4 {
                     "Usage: :spawn <mission_id> <role> <objective> <budget>".into()
@@ -373,6 +326,135 @@ Type any message to start a chat with the active model.",
                 "Agent diinterupsi oleh user (proses dibatalkan).".to_string(),
             ));
             self.status_message = "Agent execution interrupted.".into();
+        }
+    }
+
+    async fn handle_approve_command(&mut self, parts: &[&str]) -> String {
+        if parts.len() == 1 {
+            // Bare :approve → act on the currently pending tool approval.
+            if let Some(req) = self.pending_tool_approval.clone() {
+                self.handle_tool_approval(ToolApprovalState::Approved).await;
+                return format!("Approved tool request {}", req.id);
+            }
+            return "Usage: :approve <spawn_id> | :approve tool <id> | :approve always [tool] [id]".into();
+        }
+
+        if parts[1].eq_ignore_ascii_case("tool") {
+            if parts.len() < 3 {
+                return "Usage: :approve tool <tool_approval_id>".into();
+            }
+            let id_str = parts[2];
+            return self
+                .update_tool_approval_state(id_str, ToolApprovalState::Approved)
+                .await;
+        }
+
+        if parts[1].eq_ignore_ascii_case("always") {
+            if parts.len() >= 3 && parts[2].eq_ignore_ascii_case("tool") {
+                if parts.len() < 4 {
+                    return "Usage: :approve always tool <tool_approval_id>".into();
+                }
+                let id_str = parts[3];
+                return self
+                    .update_tool_approval_state(id_str, ToolApprovalState::AlwaysApproved)
+                    .await;
+            }
+            // :approve always → act on pending tool approval
+            if let Some(req) = self.pending_tool_approval.clone() {
+                self.handle_tool_approval(ToolApprovalState::AlwaysApproved).await;
+                return format!("Always approved tool request {}", req.id);
+            }
+            return "Usage: :approve always [tool] [id]".into();
+        }
+
+        // Default: treat as spawn request id
+        let id_str = parts[1];
+        let requests = self
+            .state
+            .kv_store
+            .scan_prefix::<SpawnRequest>(SPAWNREQ_PREFIX)
+            .await
+            .unwrap_or_default();
+        match requests.into_iter().find(|(_, r)| r.id.0.to_string().starts_with(id_str)) {
+            Some((key, mut req)) if req.state == SpawnState::Pending => {
+                req.state = SpawnState::Approved;
+                req.updated_at = chrono::Utc::now();
+                let _ = self.state.kv_store.set(&key, &req).await;
+                format!("Approved spawn request {}", req.id.0)
+            }
+            Some((_, req)) => format!("Spawn request is {:?} (not pending)", req.state),
+            None => format!("Spawn request not found: {id_str}"),
+        }
+    }
+
+    async fn handle_deny_command(&mut self, parts: &[&str]) -> String {
+        if parts.len() == 1 {
+            // Bare :deny → act on the currently pending tool approval.
+            if let Some(req) = self.pending_tool_approval.clone() {
+                self.handle_tool_approval(ToolApprovalState::Denied).await;
+                return format!("Denied tool request {}", req.id);
+            }
+            return "Usage: :deny <spawn_id> | :deny tool <id>".into();
+        }
+
+        if parts[1].eq_ignore_ascii_case("tool") {
+            if parts.len() < 3 {
+                return "Usage: :deny tool <tool_approval_id>".into();
+            }
+            let id_str = parts[2];
+            return self
+                .update_tool_approval_state(id_str, ToolApprovalState::Denied)
+                .await;
+        }
+
+        // Default: treat as spawn request id
+        let id_str = parts[1];
+        let requests = self
+            .state
+            .kv_store
+            .scan_prefix::<SpawnRequest>(SPAWNREQ_PREFIX)
+            .await
+            .unwrap_or_default();
+        match requests.into_iter().find(|(_, r)| r.id.0.to_string().starts_with(id_str)) {
+            Some((key, mut req)) if req.state == SpawnState::Pending => {
+                req.state = SpawnState::Denied;
+                req.updated_at = chrono::Utc::now();
+                let _ = self.state.kv_store.set(&key, &req).await;
+                format!("Denied spawn request {}", req.id.0)
+            }
+            Some((_, req)) => format!("Spawn request is {:?} (not pending)", req.state),
+            None => format!("Spawn request not found: {id_str}"),
+        }
+    }
+
+    async fn update_tool_approval_state(&mut self, id_str: &str, state: ToolApprovalState) -> String {
+        use clawhive_store::StoreExt;
+        let requests = self
+            .state
+            .kv_store
+            .scan_prefix::<ToolApprovalRequest>("tool_approval:")
+            .await
+            .unwrap_or_default();
+        match requests.into_iter().find(|(_, r)| r.id.starts_with(id_str)) {
+            Some((key, mut req)) if req.state == ToolApprovalState::Pending => {
+                req.state = state.clone();
+                if self.state.kv_store.set(&key, &req).await.is_ok() {
+                    // If the acted request is the pending one, clear it.
+                    if self
+                        .pending_tool_approval
+                        .as_ref()
+                        .map(|p| p.id == req.id)
+                        .unwrap_or(false)
+                    {
+                        self.pending_tool_approval = None;
+                    }
+                    format!("Tool request {} is now {:?}", req.id, state)
+                } else {
+                    "Failed to save tool approval state".into()
+                }
+            }
+            Some((_, req)) => format!("Tool request is {:?} (not pending)", req.state),
+            None => format!("Tool approval not found: {id_str}"),
         }
     }
 }

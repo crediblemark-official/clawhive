@@ -60,6 +60,38 @@ cd clawhive
 cargo install --path crates/clawhive-cli
 ```
 
+### Update
+
+**Linux / macOS / WSL / VPS:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/crediblemark-official/clawhive/master/update.sh | sh
+```
+
+**Windows PowerShell:**
+
+```powershell
+irm https://raw.githubusercontent.com/crediblemark-official/clawhive/master/update.ps1 | iex
+```
+
+Updater akan menimpa binary dengan versi terbaru dari GitHub release tanpa menghapus konfigurasi dan data di `~/.clawhive`.
+
+### Uninstall
+
+**Linux / macOS / WSL / VPS:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/crediblemark-official/clawhive/master/uninstall.sh | sh
+```
+
+**Windows PowerShell:**
+
+```powershell
+irm https://raw.githubusercontent.com/crediblemark-official/clawhive/master/uninstall.ps1 | iex
+```
+
+Uninstaller akan menghapus binary, direktori `~/.clawhive`, dan entri PATH yang ditambahkan oleh installer.
+
 ---
 
 ## Quickstart
@@ -70,7 +102,7 @@ cargo install --path crates/clawhive-cli
 clawhive setup
 ```
 
-Wizard akan membuat file konfigurasi di `~/.config/clawhive/config.toml` (atau `./clawhive.toml`) dan meminta API key provider LLM pilihanmu.
+Wizard akan membuat file konfigurasi di `~/.clawhive/config.toml` (atau `./clawhive.toml`) dan meminta API key provider LLM pilihanmu.
 
 ### 2. Jalankan server + TUI
 
@@ -103,7 +135,7 @@ NATS_URL=nats://localhost:4222 clawhive serve --features nats -- serve
 
 ## Konfigurasi Provider LLM
 
-File konfigurasi menggunakan format TOML. Contoh `~/.config/clawhive/config.toml`:
+File konfigurasi menggunakan format TOML. Contoh `~/.clawhive/config.toml`:
 
 ```toml
 [alias.default]
