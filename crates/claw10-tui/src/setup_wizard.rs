@@ -626,18 +626,10 @@ impl SetupWizard {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(2), // Judul
-                Constraint::Length(1), // Spacer
+                Constraint::Length(1), // Spacer atas
                 Constraint::Min(0),    // List area
             ])
             .split(area);
-
-        let title = Paragraph::new(Line::from(vec![
-            Span::styled("Pilih Provider LLM", Style::default().fg(Color::Rgb(254, 192, 126)).add_modifier(Modifier::BOLD)),
-        ]))
-        .alignment(ratatui::layout::Alignment::Center)
-        .style(Style::default().bg(Color::Rgb(15, 15, 15)));
-        frame.render_widget(title, chunks[0]);
 
         // Padding horizontal (4 kolom di kiri dan kanan)
         let horizontal_chunks = Layout::default()
@@ -647,7 +639,7 @@ impl SetupWizard {
                 Constraint::Min(0),
                 Constraint::Length(4),
             ])
-            .split(chunks[2]);
+            .split(chunks[1]);
 
         let list_area = horizontal_chunks[1];
 
@@ -692,18 +684,7 @@ impl SetupWizard {
     }
 
     fn draw_api_key_input(&self, frame: &mut Frame, area: Rect) {
-        let vertical_layout = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Length(2), Constraint::Min(0)])
-            .split(area);
-
         let provider = self.current_provider();
-        let title = Paragraph::new(Line::from(vec![
-            Span::styled(format!("API Key untuk {}", provider.name), Style::default().fg(Color::Rgb(254, 192, 126)).add_modifier(Modifier::BOLD)),
-        ]))
-        .alignment(ratatui::layout::Alignment::Center)
-        .style(Style::default().bg(Color::Rgb(15, 15, 15)));
-        frame.render_widget(title, vertical_layout[0]);
 
         // Menengahkan input box secara horizontal dengan lebar tetap 60
         let card_width = 60u16;
@@ -715,19 +696,25 @@ impl SetupWizard {
                 Constraint::Length(card_width),
                 Constraint::Min(0),
             ])
-            .split(vertical_layout[1]);
+            .split(area);
 
         let input_area = horizontal_chunks[1];
         let chunks = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Length(3), Constraint::Length(1), Constraint::Min(0)])
+            .constraints([
+                Constraint::Length(1), // Spacer atas
+                Constraint::Length(3), // Input box
+                Constraint::Length(1), // Error msg
+                Constraint::Min(0),
+            ])
             .split(input_area);
 
         let input_block = Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Rgb(218, 165, 32)))
-            .title(format!(" {} ", provider.env_var));
-        let input_inner = input_block.inner(chunks[0]);
+            .title(format!(" {} ", provider.env_var))
+            .title_alignment(ratatui::layout::Alignment::Center);
+        let input_inner = input_block.inner(chunks[1]);
 
         let display = if self.api_key.is_empty() {
             " (input hidden — ketik API key Anda)"
@@ -740,8 +727,8 @@ impl SetupWizard {
         .alignment(ratatui::layout::Alignment::Center)
         .style(Style::default().bg(Color::Rgb(25, 25, 25)));
 
-        frame.render_widget(ratatui::widgets::Clear, chunks[0]);
-        frame.render_widget(input_block, chunks[0]);
+        frame.render_widget(ratatui::widgets::Clear, chunks[1]);
+        frame.render_widget(input_block, chunks[1]);
         frame.render_widget(input_para, input_inner);
 
         if !self.error_msg.is_empty() {
@@ -750,7 +737,7 @@ impl SetupWizard {
             ]))
             .alignment(ratatui::layout::Alignment::Center)
             .style(Style::default().bg(Color::Rgb(15, 15, 15)));
-            frame.render_widget(err, chunks[1]);
+            frame.render_widget(err, chunks[2]);
         }
 
         if !self.api_key.is_empty() {
@@ -761,18 +748,6 @@ impl SetupWizard {
     }
 
     fn draw_base_url_input(&self, frame: &mut Frame, area: Rect) {
-        let vertical_layout = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Length(2), Constraint::Min(0)])
-            .split(area);
-
-        let title = Paragraph::new(Line::from(vec![
-            Span::styled("Base URL untuk Custom Provider", Style::default().fg(Color::Rgb(254, 192, 126)).add_modifier(Modifier::BOLD)),
-        ]))
-        .alignment(ratatui::layout::Alignment::Center)
-        .style(Style::default().bg(Color::Rgb(15, 15, 15)));
-        frame.render_widget(title, vertical_layout[0]);
-
         // Menengahkan input box secara horizontal dengan lebar tetap 60
         let card_width = 60u16;
         let left_padding = area.width.saturating_sub(card_width) / 2;
@@ -783,19 +758,25 @@ impl SetupWizard {
                 Constraint::Length(card_width),
                 Constraint::Min(0),
             ])
-            .split(vertical_layout[1]);
+            .split(area);
 
         let input_area = horizontal_chunks[1];
         let chunks = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Length(3), Constraint::Length(1), Constraint::Min(0)])
+            .constraints([
+                Constraint::Length(1), // Spacer atas
+                Constraint::Length(3), // Input box
+                Constraint::Length(1), // Error msg
+                Constraint::Min(0),
+            ])
             .split(input_area);
 
         let input_block = Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Rgb(218, 165, 32)))
-            .title(" Base URL (OpenAI-compatible) ");
-        let input_inner = input_block.inner(chunks[0]);
+            .title(" Base URL (OpenAI-compatible) ")
+            .title_alignment(ratatui::layout::Alignment::Center);
+        let input_inner = input_block.inner(chunks[1]);
 
         let display = if self.custom_url.is_empty() {
             " https://api.example.com/v1"
@@ -808,8 +789,8 @@ impl SetupWizard {
         .alignment(ratatui::layout::Alignment::Center)
         .style(Style::default().bg(Color::Rgb(25, 25, 25)));
 
-        frame.render_widget(ratatui::widgets::Clear, chunks[0]);
-        frame.render_widget(input_block, chunks[0]);
+        frame.render_widget(ratatui::widgets::Clear, chunks[1]);
+        frame.render_widget(input_block, chunks[1]);
         frame.render_widget(input_para, input_inner);
 
         if !self.error_msg.is_empty() {
@@ -818,7 +799,7 @@ impl SetupWizard {
             ]))
             .alignment(ratatui::layout::Alignment::Center)
             .style(Style::default().bg(Color::Rgb(15, 15, 15)));
-            frame.render_widget(err, chunks[1]);
+            frame.render_widget(err, chunks[2]);
         }
 
         if !self.custom_url.is_empty() {
@@ -875,7 +856,8 @@ impl SetupWizard {
         let search_block = Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Rgb(218, 165, 32)))
-            .title(" Cari Model ");
+            .title(" Cari Model ")
+            .title_alignment(ratatui::layout::Alignment::Center);
         let search_inner = search_block.inner(chunks[0]);
 
         let search_display = if self.model_search.is_empty() {
@@ -918,7 +900,8 @@ impl SetupWizard {
                 Block::default()
                     .borders(Borders::ALL)
                     .border_style(Style::default().fg(Color::Rgb(60, 60, 60)))
-                    .title(format!(" {} model ", filtered.len())),
+                    .title(format!(" {} model ", filtered.len()))
+                    .title_alignment(ratatui::layout::Alignment::Center),
             );
 
         let mut list_state = ratatui::widgets::ListState::default();
@@ -979,7 +962,8 @@ impl SetupWizard {
         let input_block = Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Rgb(218, 165, 32)))
-            .title(" Nama Model ");
+            .title(" Nama Model ")
+            .title_alignment(ratatui::layout::Alignment::Center);
         let input_inner = input_block.inner(chunks[0]);
 
         let display = if self.custom_model.is_empty() {
