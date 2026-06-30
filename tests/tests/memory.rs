@@ -61,7 +61,7 @@ async fn test_store_and_get_memory() {
 
     let retrieved = svc.get(&mem.id).await.unwrap().unwrap();
     assert_eq!(retrieved.content, "agent observed something");
-    assert_eq!(retrieved.status, MemoryStatus::Candidate);
+    assert_eq!(retrieved.status, MemoryStatus::Active);
     assert_eq!(retrieved.source.agent_id, agent);
     assert_eq!(retrieved.source.task_id, task);
 }
@@ -87,28 +87,15 @@ async fn test_transition_status_valid() {
         .store(make_input("t", "s", MemoryType::Semantic, "data", 0.9))
         .await;
 
-    svc.transition_status(&mem.id, MemoryStatus::Scanning)
-        .await
-        .unwrap();
-    assert_eq!(
-        svc.get(&mem.id).await.unwrap().unwrap().status,
-        MemoryStatus::Scanning
-    );
+    // Admission pipeline activates high-confidence memories directly.
+    assert_eq!(mem.status, MemoryStatus::Active);
 
-    svc.transition_status(&mem.id, MemoryStatus::Verified)
+    svc.transition_status(&mem.id, MemoryStatus::Rejected)
         .await
         .unwrap();
     assert_eq!(
         svc.get(&mem.id).await.unwrap().unwrap().status,
-        MemoryStatus::Verified
-    );
-
-    svc.transition_status(&mem.id, MemoryStatus::Active)
-        .await
-        .unwrap();
-    assert_eq!(
-        svc.get(&mem.id).await.unwrap().unwrap().status,
-        MemoryStatus::Active
+        MemoryStatus::Rejected
     );
 }
 
@@ -221,20 +208,17 @@ async fn test_delete_memory() {
 #[tokio::test]
 async fn test_count_by_status() {
     let svc = make_svc();
-    let m1 = svc
+    let _m1 = svc
         .store(make_input("t", "s", MemoryType::Working, "a", 0.5))
         .await;
     let _m2 = svc
-        .store(make_input("t", "s", MemoryType::Working, "b", 0.5))
+        .store(make_input("t", "s", MemoryType::Working, "b", 0.9))
         .await;
 
-    svc.transition_status(&m1.id, MemoryStatus::Scanning)
-        .await
-        .unwrap();
-
+    // Low-confidence memory is rejected; high-confidence memory is activated.
     let counts = svc.count_by_status().await.unwrap();
-    assert_eq!(*counts.get("Candidate").unwrap_or(&0), 1);
-    assert_eq!(*counts.get("Scanning").unwrap_or(&0), 1);
+    assert_eq!(*counts.get("Rejected").unwrap_or(&0), 1);
+    assert_eq!(*counts.get("Active").unwrap_or(&0), 1);
 }
 
 #[tokio::test]

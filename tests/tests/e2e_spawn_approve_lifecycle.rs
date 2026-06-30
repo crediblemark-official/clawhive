@@ -3,7 +3,7 @@ use uuid::Uuid;
 use clawhive_domain::{
     Agent, AgentGenome, AgentId, AgentState, AutonomyConfig, Budget, ChildSpec, IdentityId,
     LifecycleMode, MemoryConfig, Mission, MissionId, MissionState, ModelPolicy, NetworkPolicy,
-    OrganizationId, PolicyBundle, PolicyBundleId, RuntimeConfig,
+    PolicyBundle, PolicyBundleId, RuntimeConfig,
 };
 use clawhive_spawn::broker::SpawnBroker;
 
@@ -19,7 +19,6 @@ const MISSION_PREFIX: &str = "mission:";
 fn make_mission() -> Mission {
     Mission {
         id: MissionId(Uuid::now_v7()),
-        organization_id: OrganizationId(Uuid::now_v7()),
         owner_id: IdentityId(Uuid::now_v7()),
         objective: "e2e-test-mission".into(),
         scope: None,
@@ -47,7 +46,6 @@ fn make_root_agent(mission: &Mission) -> Agent {
     Agent {
         id: AgentId(Uuid::now_v7()),
         identity_id: IdentityId(Uuid::now_v7()),
-        organization_id: mission.organization_id.clone(),
         mission_id: mission.id.clone(),
         parent_agent_id: None,
         lineage_id: clawhive_domain::LineageId(Uuid::now_v7()),

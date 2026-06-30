@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use clawhive_domain::{
     Agent, AgentGenome, AgentId, AgentState, AutonomyConfig, Budget, CheckpointReason, IdentityId,
-    LifecycleMode, MemoryConfig, ModelPolicy, NetworkPolicy, OrganizationId, PolicyBundle,
+    LifecycleMode, MemoryConfig, ModelPolicy, NetworkPolicy, PolicyBundle,
     PolicyBundleId, RuntimeConfig,
 };
 use clawhive_lifecycle::{LifecycleError, LifecycleService};
@@ -13,7 +13,6 @@ fn make_test_agent() -> Agent {
     Agent {
         id: AgentId(Uuid::now_v7()),
         identity_id: IdentityId(Uuid::now_v7()),
-        organization_id: OrganizationId(Uuid::now_v7()),
         mission_id: clawhive_domain::MissionId(Uuid::now_v7()),
         parent_agent_id: None,
         lineage_id: clawhive_domain::LineageId(Uuid::now_v7()),

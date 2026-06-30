@@ -26,7 +26,6 @@ fn make_mission() -> clawhive_domain::Mission {
     use clawhive_domain::*;
     Mission {
         id: MissionId(uuid::Uuid::now_v7()),
-        organization_id: OrganizationId(uuid::Uuid::now_v7()),
         owner_id: IdentityId(uuid::Uuid::now_v7()),
         objective: "http-e2e-mission".into(),
         scope: None,
@@ -55,7 +54,6 @@ fn make_root_agent(mission: &clawhive_domain::Mission) -> clawhive_domain::Agent
     Agent {
         id: AgentId(uuid::Uuid::now_v7()),
         identity_id: IdentityId(uuid::Uuid::now_v7()),
-        organization_id: mission.organization_id.clone(),
         mission_id: mission.id.clone(),
         parent_agent_id: None,
         lineage_id: LineageId(uuid::Uuid::now_v7()),
@@ -412,7 +410,7 @@ async fn test_http_gateway_memory_scheduler() {
     assert_eq!(resp.status(), 201);
     let memory: serde_json::Value = resp.json().await.unwrap();
     let memory_id = memory["id"].as_str().unwrap().to_string();
-    assert_eq!(memory["status"], "Candidate");
+    assert_eq!(memory["status"], "Active");
 
     // 4. Get memory by ID
     let resp = client
@@ -830,7 +828,7 @@ async fn test_http_lifecycle_and_gateway() {
     assert_eq!(resp.status(), 201);
     let mem: serde_json::Value = resp.json().await.unwrap();
     let memory_id = mem["id"].as_str().unwrap().to_string();
-    assert_eq!(mem["status"], "Candidate");
+    assert_eq!(mem["status"], "Active");
 
     // PUT /v1/memories/{id} — update content
     let update_req = serde_json::json!({ "content": "updated content" });
@@ -856,8 +854,8 @@ async fn test_http_lifecycle_and_gateway() {
     let ver: serde_json::Value = resp.json().await.unwrap();
     assert_eq!(ver["status"], "verified");
 
-    // POST /v1/memories/{id}/transition — Candidate → Scanning
-    let trans_req = serde_json::json!({ "status": "Scanning" });
+    // POST /v1/memories/{id}/transition — Active → Expired
+    let trans_req = serde_json::json!({ "status": "Expired" });
     let resp = client
         .post(format!("{base}/v1/memories/{memory_id}/transition"))
         .json(&trans_req)
@@ -876,7 +874,7 @@ async fn test_http_lifecycle_and_gateway() {
         .unwrap();
     assert_eq!(resp.status(), 200);
     let counts: serde_json::Value = resp.json().await.unwrap();
-    assert!(counts.as_object().unwrap().contains_key("Scanning"));
+    assert!(counts.as_object().unwrap().contains_key("Expired"));
 
     // DELETE /v1/memories/{id} — cleanup
     let resp = client

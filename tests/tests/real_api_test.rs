@@ -24,6 +24,15 @@ async fn test_real_llm_api_call() {
 
     // Registrasi provider dari env vars
     for config in clawhive_model_router::providers::provider_configs() {
+        // Native providers (e.g. Bedrock) are registered via their factory.
+        if let Some(factory) = config.factory {
+            let name = config.name.to_string();
+            if !registry.list_providers().contains(&name) {
+                registry.register(factory());
+            }
+            continue;
+        }
+
         if let Ok(key) = std::env::var(config.api_key_env) {
             if !key.trim().is_empty() {
                 registry.register(Box::new(
@@ -52,7 +61,6 @@ async fn test_real_llm_api_call() {
     let agent = Agent {
         id: AgentId(uuid::Uuid::now_v7()),
         identity_id: clawhive_domain::IdentityId(uuid::Uuid::now_v7()),
-        organization_id: clawhive_domain::OrganizationId(uuid::Uuid::now_v7()),
         mission_id: clawhive_domain::MissionId(uuid::Uuid::now_v7()),
         parent_agent_id: None,
         lineage_id: clawhive_domain::LineageId(uuid::Uuid::now_v7()),

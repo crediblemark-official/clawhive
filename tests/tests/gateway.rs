@@ -45,7 +45,7 @@ async fn test_list_channels_filter() {
     let svc = make_svc();
     svc.register_channel(ChannelType::Webhook, serde_json::json!({}))
         .await;
-    svc.register_channel(ChannelType::Email, serde_json::json!({}))
+    svc.register_channel(ChannelType::Telegram, serde_json::json!({}))
         .await;
 
     let webhooks = svc.list_channels(Some(&ChannelType::Webhook)).await.unwrap();
@@ -117,7 +117,26 @@ async fn test_terminate_session() {
 }
 
 #[tokio::test]
-async fn test_dispatch_webhook() {
+async fn test_dispatch_internal_bus() {
+    let svc = make_svc();
+    let channel = svc
+        .register_channel(ChannelType::InternalBus, serde_json::json!({}))
+        .await;
+
+    let msg = Message {
+        recipient: "user-1".into(),
+        subject: Some("alert".into()),
+        body: "something happened".into(),
+        metadata: None,
+    };
+
+    let result = svc.dispatch(&channel.id, &msg).await.unwrap();
+    assert!(result.success);
+    assert_eq!(result.response.as_deref(), Some("internal bus echo"));
+}
+
+#[tokio::test]
+async fn test_dispatch_webhook_missing_url_fails() {
     let svc = make_svc();
     let channel = svc
         .register_channel(ChannelType::Webhook, serde_json::json!({}))
@@ -130,15 +149,15 @@ async fn test_dispatch_webhook() {
         metadata: None,
     };
 
-    let result = svc.dispatch(&channel.id, &msg).await.unwrap();
-    assert!(result.success);
+    let result = svc.dispatch(&channel.id, &msg).await;
+    assert!(result.is_err());
 }
 
 #[tokio::test]
 async fn test_dispatch_inactive_channel_fails() {
     let svc = make_svc();
     let channel = svc
-        .register_channel(ChannelType::Email, serde_json::json!({}))
+        .register_channel(ChannelType::Webhook, serde_json::json!({}))
         .await;
     svc.deactivate_channel(&channel.id).await.unwrap();
 

@@ -6,7 +6,7 @@ use clawhive_auth::identity::IdentityService;
 use clawhive_domain::{
     Agent, AgentGenome, AgentId, AgentState, AutonomyConfig, Budget, ChildSpec, Credential,
     CredentialKind, IdentityId, LifecycleMode, Lineage, MemoryConfig, Mission, MissionId,
-    MissionState, ModelPolicy, NetworkPolicy, OrganizationId, Permission, PolicyBundle,
+    MissionState, ModelPolicy, NetworkPolicy, Permission, PolicyBundle,
     PolicyBundleId, RiskLevel, RuntimeConfig, SwarmLimitsConfig,
 };
 use clawhive_event::InMemoryEventBus;
@@ -25,7 +25,6 @@ fn make_broker() -> SpawnBroker {
 fn make_test_mission() -> Mission {
     Mission {
         id: MissionId(uuid::Uuid::now_v7()),
-        organization_id: OrganizationId(uuid::Uuid::now_v7()),
         owner_id: IdentityId(uuid::Uuid::now_v7()),
         objective: "test mission".into(),
         scope: None,
@@ -50,17 +49,11 @@ fn make_test_mission() -> Mission {
 
 fn make_root_agent(mission: &Mission) -> Agent {
     let now = chrono::Utc::now();
-    let identity = IdentityService::create_agent_identity(
-        &mission.organization_id,
-        &AgentId(uuid::Uuid::now_v7()),
-        vec![],
-        vec![],
-    );
+    let identity = IdentityService::create_agent_identity(&AgentId(uuid::Uuid::now_v7()));
 
     Agent {
         id: AgentId(uuid::Uuid::now_v7()),
         identity_id: identity.id,
-        organization_id: mission.organization_id.clone(),
         mission_id: mission.id.clone(),
         parent_agent_id: None,
         lineage_id: clawhive_domain::LineageId(uuid::Uuid::now_v7()),
