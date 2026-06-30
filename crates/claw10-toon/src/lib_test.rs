@@ -48,7 +48,7 @@ fn test_encode_task() {
 #[test]
 fn test_encode_memories_empty() {
     let encoded = ToonEncoder::encode_memories(&[]);
-    assert_eq!(encoded, "");
+    assert_eq!(encoded, "memories: []");
 }
 
 #[test]
@@ -73,7 +73,7 @@ fn test_encode_memories() {
     }];
     let encoded = ToonEncoder::encode_memories(&memories);
     assert!(encoded.contains("Use transactions"));
-    assert!(encoded.contains("confidence: 0.95"));
+    assert!(encoded.contains("0.95"));
 }
 
 #[test]

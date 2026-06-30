@@ -14,6 +14,25 @@ fn fmt_id<T: std::fmt::Debug>(id: &T) -> String {
     format!("{:?}", id)
 }
 
+// Helper untuk melakukan escaping dan quoting pada string agar sesuai standar TOON
+fn encode_string(val: &str) -> String {
+    if val.contains(',') || val.contains('"') || val.contains('\n') || val.trim() != val {
+        format!("\"{}\"", val.replace('"', "\\\"").replace('\n', "\\n"))
+    } else {
+        val.to_string()
+    }
+}
+
+// Helper untuk merepresentasikan primitive array ke format TOON (inline terpisah koma)
+fn encode_primitive_array(name: &str, items: &[String]) -> String {
+    if items.is_empty() {
+        format!("{}: []", name)
+    } else {
+        let formatted_items: Vec<String> = items.iter().map(|item| encode_string(item)).collect();
+        format!("{}[{}]: {}", name, items.len(), formatted_items.join(","))
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum ToonError {
     #[error("Encoding error: {0}")]
@@ -54,148 +73,186 @@ impl Default for ToonContext {
 pub struct ToonEncoder;
 
 impl ToonEncoder {
+    // Mengkodekan objek tunggal Task
     pub fn encode_task(task: &Task) -> String {
         let deadline = task
             .deadline
             .map(|d| d.format("%Y-%m-%dT%H:%M:%SZ").to_string())
-            .unwrap_or_default();
+            .unwrap_or_else(|| "none".to_string());
 
         vec![
             format!("id: {}", fmt_id(&task.id)),
-            format!("objective: \"{}\"", task.objective.replace('"', "\\\"")),
+            format!("objective: {}", encode_string(&task.objective)),
             format!("state: {:?}", task.state),
             format!("risk: {:?}", task.risk),
             format!("deadline: {}", deadline),
         ].join("\n")
     }
 
+    // Mengkodekan objek tunggal Mission
     pub fn encode_mission(mission: &Mission) -> String {
         vec![
             format!("id: {}", fmt_id(&mission.id)),
-            format!(
-                "objective: \"{}\"",
-                mission.objective.replace('"', "\\\"")
-            ),
+            format!("objective: {}", encode_string(&mission.objective)),
             format!("mode: {:?}", mission.lifecycle_mode),
         ].join("\n")
     }
 
+    // Mengkodekan list Memory menjadi format Tabular Array TOON
     pub fn encode_memories(memories: &[Memory]) -> String {
-        let mut lines = Vec::new();
+        if memories.is_empty() {
+            return "memories: []".to_string();
+        }
+        let mut output = format!("memories[{}]{{content,type,confidence}}:", memories.len());
         for m in memories {
-            lines.push(format!(
-                "- \"{}\" (type: {:?}, confidence: {})",
-                m.content.replace('"', "\\\""),
+            write!(
+                output,
+                "\n  {},{:?},{:.2}",
+                encode_string(&m.content),
                 m.memory_type,
                 m.confidence
-            ));
+            ).unwrap();
         }
-        lines.join("\n")
+        output
     }
 
+    // Mengkodekan summary Policy menjadi format Tabular Array TOON
     pub fn encode_policy_summary(bundles: &[PolicyBundle]) -> String {
-        let mut lines = Vec::new();
+        let mut active_rules = Vec::new();
         for bundle in bundles {
             if bundle.is_active {
-                lines.push(format!(
-                    "- {} ({} rules)",
-                    fmt_id(&bundle.id),
-                    bundle.rules.len()
-                ));
                 for rule in &bundle.rules {
-                    let effect = if matches!(rule.effect, claw10_domain::policy::PolicyEffect::Allow) {
-                        "ALLOW"
-                    } else {
-                        "DENY"
-                    };
-                    lines.push(format!("  {} {} on {}", effect, rule.action, rule.resource));
+                    active_rules.push((bundle.id.clone(), rule.effect.clone(), rule.action.clone(), rule.resource.clone()));
                 }
             }
         }
-        lines.join("\n")
+
+        if active_rules.is_empty() {
+            return "policies: []".to_string();
+        }
+
+        let mut output = format!("policies[{}]{{bundle_id,effect,action,resource}}:", active_rules.len());
+        for (bundle_id, effect, action, resource) in active_rules {
+            let effect_str = if matches!(effect, claw10_domain::policy::PolicyEffect::Allow) {
+                "ALLOW"
+            } else {
+                "DENY"
+            };
+            write!(
+                output,
+                "\n  {},{},{},{}",
+                fmt_id(&bundle_id),
+                effect_str,
+                encode_string(&action),
+                encode_string(&resource)
+            ).unwrap();
+        }
+        output
     }
 
+    // Mengkodekan daftar agen menjadi format Tabular Array TOON
     pub fn encode_agent_roster(agents: &[Agent]) -> String {
-        let mut lines = Vec::new();
+        if agents.is_empty() {
+            return "agents: []".to_string();
+        }
+        let mut output = format!("agents[{}]{{id,role,state}}:", agents.len());
         for agent in agents {
-            lines.push(format!(
-                "{} role: {} state: {:?}",
+            write!(
+                output,
+                "\n  {},{},{:?}",
                 fmt_id(&agent.id),
-                agent.role,
-                agent.state,
-            ));
+                encode_string(&agent.role),
+                agent.state
+            ).unwrap();
         }
-        lines.join("\n")
+        output
     }
 
+    // Mengkodekan data silsilah keturunan Lineage beserta entri hierarkinya
     pub fn encode_lineage(lineage: &Lineage) -> String {
-        let mut lines = vec![
-            format!("root: {}", fmt_id(&lineage.root_agent_id)),
-            format!("entries: {} total", lineage.entries.len()),
-        ];
-        for entry in &lineage.entries {
-            lines.push(format!(
-                "  - {} (parent: {}, state: {})",
-                fmt_id(&entry.agent_id),
-                entry.parent_agent_id.as_ref().map_or("none".to_string(), fmt_id),
-                entry.state,
-            ));
-        }
-        lines.join("\n")
+        let root = format!("root_agent_id: {}", fmt_id(&lineage.root_agent_id));
+        let entries_str = if lineage.entries.is_empty() {
+            "entries: []".to_string()
+        } else {
+            let mut output = format!("entries[{}]{{agent_id,parent_agent_id,state}}:", lineage.entries.len());
+            for entry in &lineage.entries {
+                let parent = entry.parent_agent_id.as_ref().map_or("none".to_string(), fmt_id);
+                write!(
+                    output,
+                    "\n  {},{},{:?}",
+                    fmt_id(&entry.agent_id),
+                    parent,
+                    entry.state
+                ).unwrap();
+            }
+            output
+        };
+        format!("{}\n{}", root, entries_str)
     }
 
+    // Mengkodekan bukti hasil kerja menjadi format Tabular Array TOON
     pub fn encode_evidence(evidence: &[Evidence]) -> String {
-        let mut lines = Vec::new();
+        if evidence.is_empty() {
+            return "evidence: []".to_string();
+        }
+        let mut output = format!("evidence[{}]{{id,type,accepted}}:", evidence.len());
         for ev in evidence {
-            lines.push(format!(
-                "- {} ({:?}, accepted: {})",
+            write!(
+                output,
+                "\n  {},{:?},{}",
                 fmt_id(&ev.id),
                 ev.evidence_type,
                 ev.accepted
-            ));
+            ).unwrap();
         }
-        lines.join("\n")
+        output
     }
 
+    // Mengkodekan skill terdaftar menjadi format Tabular Array TOON
     pub fn encode_skills(skills: &[Skill]) -> String {
-        let mut lines = Vec::new();
+        if skills.is_empty() {
+            return "skills: []".to_string();
+        }
+        let mut output = format!("skills[{}]{{name,version,state,cost}}:", skills.len());
         for skill in skills {
-            lines.push(format!(
-                "- {} v{} (state: {:?}, cost: ${})",
-                skill.name,
-                skill.version,
+            write!(
+                output,
+                "\n  {},{},{:?},{:.2}",
+                encode_string(&skill.name),
+                encode_string(&skill.version),
                 skill.state,
-                skill.cost_profile.estimated_cost_usd,
-            ));
+                skill.cost_profile.estimated_cost_usd
+            ).unwrap();
         }
-        lines.join("\n")
+        output
     }
 
+    // Mengkodekan riwayat pesan obrolan (Primitive Array)
     pub fn encode_history(history: &[String]) -> String {
-        let mut lines = Vec::new();
-        for (i, msg) in history.iter().enumerate() {
-            lines.push(format!("[{}] {}", i, msg));
-        }
-        lines.join("\n")
+        encode_primitive_array("history", history)
     }
 
+    // Mengkodekan daftar worker terdaftar menjadi format Tabular Array TOON
     pub fn encode_workers(workers: &[Worker]) -> String {
-        let mut lines = Vec::new();
-        for worker in workers {
-            lines.push(format!(
-                "- {} (type: {:?}, state: {:?})",
-                worker.name, worker.worker_type, worker.state,
-            ));
+        if workers.is_empty() {
+            return "workers: []".to_string();
         }
-        lines.join("\n")
+        let mut output = format!("workers[{}]{{name,type,state}}:", workers.len());
+        for w in workers {
+            write!(
+                output,
+                "\n  {},{:?},{:?}",
+                encode_string(&w.name),
+                w.worker_type,
+                w.state
+            ).unwrap();
+        }
+        output
     }
 
+    // Mengkodekan daftar tool terdaftar (Primitive Array)
     pub fn encode_tools(tools: &[String]) -> String {
-        let mut lines = Vec::new();
-        for tool in tools {
-            lines.push(format!("- {}", tool));
-        }
-        lines.join("\n")
+        encode_primitive_array("tools", tools)
     }
 
     pub fn build_context(
@@ -244,4 +301,3 @@ impl ToonEncoder {
 #[cfg(test)]
 #[path = "lib_test.rs"]
 mod tests;
-
