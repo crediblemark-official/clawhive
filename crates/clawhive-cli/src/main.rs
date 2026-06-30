@@ -35,7 +35,7 @@ fn load_clawhive_env() {
 )]
 struct Cli {
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 }
 
 #[derive(Subcommand)]
@@ -83,7 +83,15 @@ enum Commands {
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
-    let is_tui = match &cli.command {
+    // When no subcommand is provided, start the API server in the background
+    // and launch the TUI. This keeps the HTTP API and webhook endpoints
+    // reachable while the user interacts with the terminal UI.
+    let command = cli.command.unwrap_or(Commands::Serve {
+        bind: "0.0.0.0:3000".into(),
+        db: None,
+        tui: true,
+    });
+    let is_tui = match &command {
         Commands::Tui { .. } => true,
         Commands::Serve { tui, .. } => *tui,
         Commands::RunAgent { .. } => false,
@@ -137,7 +145,7 @@ async fn main() {
     }
 
     // Auto-detect first-run: if no config exists and not setup/version, redirect to setup
-    let needs_setup = match &cli.command {
+    let needs_setup = match &command {
         Commands::Setup { .. } | Commands::Version => false,
         _ => {
             let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
@@ -158,7 +166,7 @@ async fn main() {
         }
     }
 
-    match cli.command {
+    match command {
         Commands::Serve { bind, db, tui } => {
             let addr: SocketAddr = bind.parse().expect("invalid bind address");
 
