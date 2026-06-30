@@ -31,7 +31,7 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &TuiApp, title: &str) {
         title,
         app.status_message
     );
-    let footer = Paragraph::new(hint).style(Style::default().fg(Color::DarkGray));
+    let footer = Paragraph::new(hint).style(Style::default().fg(Color::Rgb(140, 140, 140)));
     frame.render_widget(footer, area);
 }
 

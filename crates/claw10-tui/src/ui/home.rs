@@ -100,7 +100,7 @@ pub fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
     let form_inner = form_block.inner(form_area);
 
     let input_display = if app.workspace_input.is_empty() {
-        Span::styled("  Nama workspace baru...", Style::default().fg(Color::DarkGray))
+        Span::styled("  Nama workspace baru...", Style::default().fg(Color::Rgb(120, 120, 120)))
     } else {
         Span::styled(format!("  {}", app.workspace_input), Style::default().fg(Color::White))
     };
@@ -126,11 +126,11 @@ pub fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
 
     if app.workspaces.is_empty() {
         let empty_msg = Paragraph::new(Line::from(vec![
-            Span::styled("  Belum ada workspace. Buat workspace pertama di atas.", Style::default().fg(Color::DarkGray)),
+            Span::styled("  Belum ada workspace. Buat workspace pertama di atas.", Style::default().fg(Color::Rgb(150, 150, 150))),
         ]))
         .block(Block::default()
             .title(" Workspaces ")
-            .title_style(Style::default().fg(Color::DarkGray))
+            .title_style(Style::default().fg(Color::Rgb(100, 100, 100)))
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Rgb(50, 50, 50))));
         frame.render_widget(empty_msg, list_area);
@@ -165,7 +165,7 @@ pub fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
                     if is_selected {
                         Style::default().fg(Color::Black).bg(bg)
                     } else {
-                        Style::default().fg(Color::DarkGray)
+                        Style::default().fg(Color::Rgb(140, 140, 140))
                     },
                 );
                 let id_span = Span::styled(
@@ -173,7 +173,7 @@ pub fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
                     if is_selected {
                         Style::default().fg(Color::Rgb(80, 60, 0)).bg(bg)
                     } else {
-                        Style::default().fg(Color::Rgb(50, 50, 50))
+                        Style::default().fg(Color::Rgb(100, 100, 100))
                     },
                 );
 
@@ -215,14 +215,14 @@ pub fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_else(|_| "~".to_string());
     frame.render_widget(
-        Paragraph::new(current_dir).style(Style::default().fg(Color::DarkGray)),
+        Paragraph::new(current_dir).style(Style::default().fg(Color::Rgb(140, 140, 140))),
         footer_chunks[0],
     );
 
     let version = format!("v{}", env!("CARGO_PKG_VERSION"));
     frame.render_widget(
         Paragraph::new(version)
-            .style(Style::default().fg(Color::DarkGray))
+            .style(Style::default().fg(Color::Rgb(140, 140, 140)))
             .alignment(ratatui::layout::Alignment::Right),
         footer_chunks[1],
     );

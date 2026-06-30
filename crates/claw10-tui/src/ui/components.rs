@@ -140,7 +140,7 @@ pub fn draw_command_palette(frame: &mut Frame, area: Rect, app: &TuiApp) {
                 .add_modifier(Modifier::BOLD),
         );
         let header_right = Paragraph::new("esc")
-            .style(Style::default().fg(Color::DarkGray))
+            .style(Style::default().fg(Color::Rgb(140, 140, 140)))
             .alignment(ratatui::layout::Alignment::Right);
 
         frame.render_widget(header_left, header_chunks[0]);
@@ -148,7 +148,7 @@ pub fn draw_command_palette(frame: &mut Frame, area: Rect, app: &TuiApp) {
 
         // --- 2. Render Search Box ---
         let search_text = if search_query.is_empty() {
-            Span::styled("Search", Style::default().fg(Color::DarkGray))
+            Span::styled("Search", Style::default().fg(Color::Rgb(120, 120, 120)))
         } else {
             Span::styled(search_query.as_str(), Style::default())
         };
@@ -210,7 +210,7 @@ pub fn draw_command_palette(frame: &mut Frame, area: Rect, app: &TuiApp) {
                     Span::raw(padding),
                     Span::styled(
                         format!("{}  ", shortcut),
-                        Style::default().fg(Color::DarkGray),
+                        Style::default().fg(Color::Rgb(140, 140, 140)),
                     ),
                 ])
             };
@@ -307,7 +307,7 @@ pub fn draw_model_selection(frame: &mut Frame, area: Rect, app: &TuiApp) {
 
     // Search box
     let search_text = if app.model_sel_search.is_empty() {
-        Span::styled("Search...", Style::default().fg(Color::DarkGray))
+        Span::styled("Search...", Style::default().fg(Color::Rgb(120, 120, 120)))
     } else {
         Span::styled(app.model_sel_search.as_str(), Style::default())
     };
