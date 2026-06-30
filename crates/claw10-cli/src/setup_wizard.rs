@@ -516,13 +516,13 @@ impl SetupWizard {
 
         let lines = vec![
             Line::from(vec![
-                Span::styled("  ╔═╗╦  ╔═╗╦ ╦╦ ╔═╗╗ ╦╔═╗  ╔═╗╔═╗", Style::default().fg(Color::Rgb(254, 192, 126)).add_modifier(Modifier::BOLD)),
+                Span::styled("  ╔═╗╦  ╔═╗╦ ╦╔╦╗╔═╗  ╔═╗╔═╗", Style::default().fg(Color::Rgb(254, 192, 126)).add_modifier(Modifier::BOLD)),
             ]),
             Line::from(vec![
-                Span::styled("  ║  ║  ║ ║║║║║ ║║║╚╗║║    ╚═╗╚═╗", Style::default().fg(Color::Rgb(254, 192, 126)).add_modifier(Modifier::BOLD)),
+                Span::styled("  ║  ║  ╠═╣║║║ ║ ║ ║  ║ ║╚═╗", Style::default().fg(Color::Rgb(254, 192, 126)).add_modifier(Modifier::BOLD)),
             ]),
             Line::from(vec![
-                Span::styled("  ╚═╝╩  ╚═╝╚╩╝╩╚╝╚╩ ╚╝╚═╝  ╚═╝╚═╝", Style::default().fg(Color::Rgb(254, 192, 126)).add_modifier(Modifier::BOLD)),
+                Span::styled("  ╚═╝╩  ╩ ╩╚╩╝╚╩╝╚═╝  ╚═╝╚═╝", Style::default().fg(Color::Rgb(254, 192, 126)).add_modifier(Modifier::BOLD)),
             ]),
             Line::from(""),
             Line::from(vec![
