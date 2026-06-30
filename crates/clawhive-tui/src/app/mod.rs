@@ -28,7 +28,6 @@ pub enum Tab {
     Policies,
     Skills,
     Artifacts,
-    Logs,
     Incidents,
 }
 
@@ -45,7 +44,6 @@ pub enum Screen {
     Policies,
     Skills,
     Artifacts,
-    Logs,
     Incidents,
 }
 
@@ -92,7 +90,6 @@ pub struct TuiApp {
     pub policies: Vec<clawhive_domain::PolicyBundle>,
     pub skills: Vec<clawhive_domain::Skill>,
     pub artifacts: Vec<clawhive_domain::Artifact>,
-    pub audit_events: Vec<clawhive_domain::AuditEvent>,
     pub incidents: Vec<clawhive_domain::Incident>,
     pub selected_index: usize,
     pub selected_tab: Tab,
@@ -174,7 +171,6 @@ impl TuiApp {
             policies: Vec::new(),
             skills: Vec::new(),
             artifacts: Vec::new(),
-            audit_events: Vec::new(),
             incidents: Vec::new(),
             selected_index: 0,
             selected_tab: Tab::Session,
@@ -441,16 +437,6 @@ impl TuiApp {
             .map(|(_, a)| a)
             .collect();
 
-        self.audit_events = self
-            .state
-            .kv_store
-            .scan_prefix::<clawhive_domain::AuditEvent>("audit:")
-            .await
-            .unwrap_or_default()
-            .into_iter()
-            .map(|(_, e)| e)
-            .collect();
-
         // Incident tidak selalu disimpan dengan prefix di store saat ini.
         // Jika ada, gunakan prefix "incident:"; jika tidak, tampilkan list kosong.
         self.incidents = self
@@ -489,7 +475,6 @@ impl TuiApp {
             Tab::Policies => self.policies.len(),
             Tab::Skills => self.skills.len(),
             Tab::Artifacts => self.artifacts.len(),
-            Tab::Logs => self.audit_events.len(),
             Tab::Incidents => self.incidents.len(),
         }
     }
@@ -507,7 +492,6 @@ impl TuiApp {
             Tab::Policies => Screen::Policies,
             Tab::Skills => Screen::Skills,
             Tab::Artifacts => Screen::Artifacts,
-            Tab::Logs => Screen::Logs,
             Tab::Incidents => Screen::Incidents,
         }
     }

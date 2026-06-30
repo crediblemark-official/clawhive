@@ -91,9 +91,3 @@ impl From<clawhive_artifact::ArtifactError> for ApiError {
     }
 }
 
-impl From<clawhive_audit::AuditError> for ApiError {
-    fn from(e: clawhive_audit::AuditError) -> Self {
-        ApiError::Internal(e.to_string())
-    }
-}
-

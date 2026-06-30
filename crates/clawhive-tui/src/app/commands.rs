@@ -302,7 +302,6 @@ Type any message to start a chat with the active model.",
                         "policies" => Some((Tab::Policies, "Policies")),
                         "skills" => Some((Tab::Skills, "Skills")),
                         "artifacts" => Some((Tab::Artifacts, "Artifacts")),
-                        "logs" => Some((Tab::Logs, "Logs")),
                         "incidents" => Some((Tab::Incidents, "Incidents")),
                         _ => None,
                     };

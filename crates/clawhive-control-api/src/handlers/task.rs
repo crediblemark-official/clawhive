@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use axum::{
     Json,
     extract::{Path, State},
@@ -13,7 +11,6 @@ use clawhive_task::TaskService;
 use clawhive_store::StoreExt;
 
 use crate::error::ApiError;
-use crate::handlers::audit::{self, build_audit_event};
 use crate::state::AppState;
 use crate::store::TASK_PREFIX;
 
@@ -129,17 +126,6 @@ pub async fn create_task(
             .with_mission_id(task.mission_id.0.to_string())
     });
 
-    audit::emit_event(
-        Arc::clone(&state.audit_service),
-        build_audit_event(
-            "task_created",
-            Some(owner_id.0.to_string()),
-            Some(task.mission_id.0.to_string()),
-            Some(task.id.0.to_string()),
-            serde_json::json!({"objective": task.objective}),
-        ),
-    );
-
     Ok((
         StatusCode::CREATED,
         Json(TaskResponse {
@@ -172,17 +158,6 @@ pub async fn transition_task(
         .map_err(|e| ApiError::Validation(e.to_string()))?;
 
     state.kv_store.set(&key, &task).await?;
-
-    audit::emit_event(
-        Arc::clone(&state.audit_service),
-        build_audit_event(
-            "task_transitioned",
-            None,
-            Some(task.mission_id.0.to_string()),
-            Some(task.id.0.to_string()),
-            serde_json::json!({"state": format!("{:?}", task.state)}),
-        ),
-    );
 
     Ok(Json(TaskResponse {
         id: task.id.0.to_string(),

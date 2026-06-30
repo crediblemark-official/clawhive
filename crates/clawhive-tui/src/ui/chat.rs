@@ -780,7 +780,6 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
             | Tab::Policies
             | Tab::Skills
             | Tab::Artifacts
-            | Tab::Logs
             | Tab::Incidents => {
                 let p = Paragraph::new(Span::styled(
                     "  Press Tab to open full screen.",

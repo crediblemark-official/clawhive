@@ -34,8 +34,7 @@ fn tab_index(tab: Tab) -> usize {
         Tab::Policies => 9,
         Tab::Skills => 10,
         Tab::Artifacts => 11,
-        Tab::Logs => 12,
-        Tab::Incidents => 13,
+        Tab::Incidents => 12,
     }
 }
 
@@ -96,7 +95,6 @@ pub fn draw_sidebar_tab_bar(frame: &mut Frame, area: Rect, app: &TuiApp) {
         ("Pol", Tab::Policies),
         ("Skl", Tab::Skills),
         ("Art", Tab::Artifacts),
-        ("Logs", Tab::Logs),
         ("Inc", Tab::Incidents),
     ];
 
@@ -605,65 +603,6 @@ pub fn draw_artifacts(frame: &mut Frame, area: Rect, app: &TuiApp) {
     );
     frame.render_widget(table, chunks[1]);
     draw_footer(frame, chunks[2], app, "Artifacts");
-}
-
-pub fn draw_logs(frame: &mut Frame, area: Rect, app: &TuiApp) {
-    let chunks = default_layout(area);
-    draw_tab_bar(frame, chunks[0], app);
-
-    let header = Row::new(vec!["Event Type", "Agent", "Timestamp"])
-        .style(Style::default().add_modifier(Modifier::BOLD))
-        .height(1);
-
-    let rows: Vec<Row> = if app.audit_events.is_empty() {
-        empty_rows("No audit events found.")
-    } else {
-        app.audit_events
-            .iter()
-            .enumerate()
-            .map(|(i, e)| {
-                let style = if i == app.selected_index {
-                    Style::default()
-                        .fg(Color::Rgb(0, 0, 0))
-                        .bg(Color::Rgb(254, 192, 126))
-                        .add_modifier(Modifier::BOLD)
-                } else {
-                    Style::default().fg(Color::White)
-                };
-                let agent = e
-                    .agent_id
-                    .as_deref()
-                    .map(|id| id.chars().take(16).collect::<String>())
-                    .unwrap_or_else(|| "-".to_string());
-                let ts = e.timestamp.format("%Y-%m-%d %H:%M:%S").to_string();
-                Row::new(vec![
-                    Cell::from(e.event_type.clone()),
-                    Cell::from(agent),
-                    Cell::from(ts),
-                ])
-                .style(style)
-            })
-            .collect()
-    };
-
-    let table = Table::new(
-        rows,
-        [
-            Constraint::Percentage(40),
-            Constraint::Percentage(30),
-            Constraint::Percentage(30),
-        ],
-    )
-    .header(header)
-    .block(
-        Block::default()
-            .title(" Audit Logs ")
-            .title_style(Style::default().fg(Color::Rgb(218, 165, 32)))
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Rgb(80, 70, 30))),
-    );
-    frame.render_widget(table, chunks[1]);
-    draw_footer(frame, chunks[2], app, "Logs");
 }
 
 pub fn draw_incidents(frame: &mut Frame, area: Rect, app: &TuiApp) {

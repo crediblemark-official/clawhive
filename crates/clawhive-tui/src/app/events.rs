@@ -326,7 +326,6 @@ impl TuiApp {
                                 | Screen::Policies
                                 | Screen::Skills
                                 | Screen::Artifacts
-                                | Screen::Logs
                                 | Screen::Incidents
                         ) {
                             match key.code {
@@ -357,8 +356,7 @@ impl TuiApp {
                                         Tab::Costs => Tab::Policies,
                                         Tab::Policies => Tab::Skills,
                                         Tab::Skills => Tab::Artifacts,
-                                        Tab::Artifacts => Tab::Logs,
-                                        Tab::Logs => Tab::Incidents,
+                                        Tab::Artifacts => Tab::Incidents,
                                         Tab::Incidents => Tab::Session,
                                     };
                                     self.selected_index = 0;
@@ -569,8 +567,7 @@ impl TuiApp {
                                     Tab::Costs => Tab::Policies,
                                     Tab::Policies => Tab::Skills,
                                     Tab::Skills => Tab::Artifacts,
-                                    Tab::Artifacts => Tab::Logs,
-                                    Tab::Logs => Tab::Incidents,
+                                    Tab::Artifacts => Tab::Incidents,
                                     Tab::Incidents => Tab::Session,
                                 };
                                 self.selected_index = 0;

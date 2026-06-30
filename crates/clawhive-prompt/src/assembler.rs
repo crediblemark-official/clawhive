@@ -1,7 +1,6 @@
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::audit::PromptTracer;
 use crate::bundle::{
     ContextFormat, OutputContractInput, PromptBuildRequest, PromptBundle, PromptMetadata,
 };
@@ -110,32 +109,6 @@ impl PromptAssembler {
             policy_hash: request.policy_ir.hash.clone(),
             context_format,
         };
-
-        let estimated_tokens = {
-            let mut total = 0u32;
-            for msg in &system_messages {
-                total += (msg.len() as f64 * 0.4) as u32;
-            }
-            total += (context_message.len() as f64 * 0.4) as u32;
-            total
-        };
-
-        // Audit trace
-        let _trace = PromptTracer::record(
-            &prompt_bundle_id,
-            &request.agent.id,
-            &request.agent.role,
-            &request.agent.lifecycle_mode,
-            &request.mission.id,
-            &request.task.id,
-            &self.prompt_version,
-            system_messages.len(),
-            &format!("{:?}", context_format),
-            &request.policy_ir.id,
-            &request.policy_ir.hash,
-            estimated_tokens,
-            &request.output_contract.output_type,
-        );
 
         let bundle = PromptBundle {
             system_messages,

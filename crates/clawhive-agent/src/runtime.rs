@@ -52,8 +52,7 @@ const DEFAULT_TURNS_MULTIPLIER: u32 = 10;
 pub struct AgentRuntime {
     agent_store: AgentStore,
     executor: AgentExecutor,
-    #[allow(dead_code)]
-    worker_service: Arc<WorkerService>,
+    _worker_service: Arc<WorkerService>,
     /// Fallback worker ID used when no worker is explicitly provided.
     default_worker_id: Option<WorkerId>,
 }
@@ -66,7 +65,7 @@ impl AgentRuntime {
         model_router: Arc<ModelRouter>,
         tool_registry: Arc<ToolRegistry>,
         budget_service: Arc<clawhive_budget::BudgetService>,
-        worker_service: Arc<WorkerService>,
+        _worker_service: Arc<WorkerService>,
         default_worker_id: Option<WorkerId>,
     ) -> Self {
         let store = Arc::clone(agent_store.store());
@@ -78,7 +77,7 @@ impl AgentRuntime {
                 budget_service,
                 store,
             ),
-            worker_service,
+            _worker_service,
             default_worker_id,
         }
     }
@@ -500,7 +499,15 @@ mod tests {
                 id: clawhive_domain::PolicyBundleId(uuid::Uuid::now_v7()),
                 name: "default".into(),
                 version: "1.0.0".into(),
-                rules: vec![],
+                rules: vec![clawhive_domain::PolicyRule {
+                    id: clawhive_domain::PolicyRuleId(uuid::Uuid::now_v7()),
+                    subject: clawhive_domain::PolicySubject::Role("*".into()),
+                    effect: clawhive_domain::PolicyEffect::Allow,
+                    action: "*".into(),
+                    resource: "*".into(),
+                    priority: 0,
+                    condition: None,
+                }],
                 is_active: true,
                 signed_by: None,
                 signature: None,

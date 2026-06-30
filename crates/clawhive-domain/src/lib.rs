@@ -1,7 +1,6 @@
 pub mod agent;
 pub mod approval;
 pub mod artifact;
-pub mod audit;
 pub mod budget;
 pub mod error;
 pub mod evidence;
@@ -23,7 +22,6 @@ pub mod worker;
 pub use agent::*;
 pub use approval::*;
 pub use artifact::*;
-pub use audit::*;
 pub use budget::*;
 pub use error::*;
 pub use evidence::*;

@@ -1,5 +1,4 @@
 mod assembler;
-mod audit;
 mod bundle;
 mod policy_digest;
 mod prompts;
@@ -7,7 +6,6 @@ mod registry;
 mod validation;
 
 pub use assembler::*;
-pub use audit::*;
 pub use bundle::*;
 pub use policy_digest::*;
 pub use prompts::*;

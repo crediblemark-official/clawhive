@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use axum::{
     Json,
     extract::{Path, State},
@@ -13,7 +11,6 @@ use clawhive_mission::MissionService;
 use clawhive_store::StoreExt;
 
 use crate::error::ApiError;
-use crate::handlers::audit::{self, build_audit_event};
 use crate::state::AppState;
 use crate::store::MISSION_PREFIX;
 
@@ -116,17 +113,6 @@ pub async fn create_mission(
         e.with_mission_id(mission.id.0.to_string())
     });
 
-    audit::emit_event(
-        Arc::clone(&state.audit_service),
-        build_audit_event(
-            "mission_created",
-            None,
-            Some(mission.id.0.to_string()),
-            None,
-            serde_json::json!({"objective": mission.objective}),
-        ),
-    );
-
     Ok((
         StatusCode::CREATED,
         Json(MissionResponse {
@@ -178,17 +164,6 @@ pub async fn complete_mission(
 
     state.kv_store.set(&key, &mission).await?;
 
-    audit::emit_event(
-        Arc::clone(&state.audit_service),
-        build_audit_event(
-            "mission_completed",
-            None,
-            Some(mission.id.0.to_string()),
-            None,
-            serde_json::Value::Null,
-        ),
-    );
-
     Ok(Json(MissionResponse {
         id: mission.id.0.to_string(),
         objective: mission.objective,
@@ -212,17 +187,6 @@ pub async fn cancel_mission(
         .map_err(|e| ApiError::Validation(e.to_string()))?;
 
     state.kv_store.set(&key, &mission).await?;
-
-    audit::emit_event(
-        Arc::clone(&state.audit_service),
-        build_audit_event(
-            "mission_cancelled",
-            None,
-            Some(mission.id.0.to_string()),
-            None,
-            serde_json::Value::Null,
-        ),
-    );
 
     Ok(Json(MissionResponse {
         id: mission.id.0.to_string(),

@@ -22,7 +22,6 @@ members = [
     "crates/clawhive-worker",
     "crates/clawhive-artifact",
     "crates/clawhive-budget",
-    "crates/clawhive-audit",
     "crates/clawhive-telemetry",
     "crates/clawhive-gateway",
     "crates/clawhive-cli",
@@ -69,7 +68,6 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 tracing-appender = "0.2"
 toml = "0.8"
 dirs = "6.0"
-rpassword = "7.3"
 
 [profile.release]
 opt-level = 3

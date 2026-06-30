@@ -6,7 +6,7 @@ use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 
 use crate::handlers::{
-    agent, approval, artifact, audit, gateway, health, lifecycle, lineage, memory, mission, policy,
+    agent, approval, artifact, gateway, health, lifecycle, lineage, memory, mission, policy,
     scheduler, skill, spawn, task, worker,
 };
 use crate::state::AppState;
@@ -155,7 +155,6 @@ pub fn build_router(state: AppState) -> Router {
             get(artifact::get_artifact).delete(artifact::delete_artifact),
         )
         .route("/v1/artifacts/{id}/content", get(artifact::get_artifact_content))
-        // Audit endpoints
-        .route("/v1/audit", get(audit::list_audit_events))
+        .route("/v1/artifacts/{id}/verify", get(artifact::verify_artifact))
         .with_state(state)
 }

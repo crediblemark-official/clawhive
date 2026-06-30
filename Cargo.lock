@@ -381,8 +381,10 @@ dependencies = [
  "clawhive-tool",
  "clawhive-tui",
  "clawhive-worker",
+ "crossterm",
  "dirs",
- "rpassword",
+ "ratatui",
+ "reqwest",
  "serde",
  "serde_json",
  "tokio",
@@ -403,6 +405,7 @@ dependencies = [
  "clawhive-domain",
  "clawhive-lifecycle",
  "clawhive-model-router",
+ "clawhive-policy",
  "clawhive-prompt",
  "clawhive-store",
  "clawhive-tool",
@@ -426,21 +429,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
- "thiserror 2.0.18",
- "tokio",
- "uuid",
-]
-
-[[package]]
-name = "clawhive-audit"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "chrono",
- "clawhive-domain",
- "clawhive-store",
- "serde",
- "serde_json",
  "thiserror 2.0.18",
  "tokio",
  "uuid",
@@ -493,7 +481,6 @@ dependencies = [
  "chrono",
  "clawhive-agent",
  "clawhive-artifact",
- "clawhive-audit",
  "clawhive-budget",
  "clawhive-domain",
  "clawhive-event",
@@ -2370,6 +2357,7 @@ checksum = "eddd3ca559203180a307f12d114c268abf583f59b03cb906fd0b3ff8646c1147"
 dependencies = [
  "base64 0.22.1",
  "bytes",
+ "futures-channel",
  "futures-core",
  "futures-util",
  "http",
@@ -2415,27 +2403,6 @@ dependencies = [
  "libc",
  "untrusted",
  "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "rpassword"
-version = "7.5.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2da316a15f47e3d053de9cb2c439650bd8fa4aaeb9365f2e5f27f492ff73c196"
-dependencies = [
- "libc",
- "rtoolbox",
- "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "rtoolbox"
-version = "0.0.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50a0e551c1e27e1731aba276dbeaeac73f53c7cd34d1bda485d02bd1e0f36844"
-dependencies = [
- "libc",
- "windows-sys 0.59.0",
 ]
 
 [[package]]

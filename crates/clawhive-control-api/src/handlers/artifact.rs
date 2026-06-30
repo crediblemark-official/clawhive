@@ -121,6 +121,25 @@ pub async fn get_artifact(
     Ok(Json(to_response(&artifact)))
 }
 
+/// GET /v1/artifacts/{id}/verify
+pub async fn verify_artifact(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let artifact_id = ArtifactId(
+        Uuid::parse_str(&id).map_err(|e| ApiError::Validation(format!("invalid artifact id: {e}")))?,
+    );
+    let valid = state
+        .artifact_service
+        .verify_content(&artifact_id)
+        .await?;
+
+    Ok(Json(serde_json::json!({
+        "artifact_id": id,
+        "valid": valid,
+    })))
+}
+
 /// GET /v1/artifacts/{id}/content
 pub async fn get_artifact_content(
     State(state): State<AppState>,

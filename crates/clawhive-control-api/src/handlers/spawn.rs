@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use axum::{
     Json,
     extract::{Path, State},
@@ -16,7 +14,6 @@ use clawhive_store::StoreExt;
 use clawhive_event::ClawHiveEvent;
 
 use crate::error::ApiError;
-use crate::handlers::audit::{self, build_audit_event};
 use crate::state::AppState;
 use crate::store::{AGENT_PREFIX, LINEAGE_PREFIX, MISSION_PREFIX, SPAWNREQ_PREFIX};
 
@@ -262,17 +259,6 @@ pub async fn approve_spawn(
         timestamp: chrono::Utc::now(),
     }).await;
 
-    audit::emit_event(
-        Arc::clone(&state.audit_service),
-        build_audit_event(
-            "spawn_approved",
-            Some(requested_by.0.to_string()),
-            Some(request.mission_id.0.to_string()),
-            None,
-            serde_json::json!({"spawn_request_id": request.id.0.to_string(), "child_count": children.len()}),
-        ),
-    );
-
     Ok(Json(ApproveSpawnResponse {
         request_id: request.id.0.to_string(),
         state: "approved".into(),
@@ -311,17 +297,6 @@ pub async fn deny_spawn(
         reason: "denied by user".into(),
         timestamp: chrono::Utc::now(),
     }).await;
-
-    audit::emit_event(
-        Arc::clone(&state.audit_service),
-        build_audit_event(
-            "spawn_denied",
-            Some(request.requested_by.0.to_string()),
-            Some(request.mission_id.0.to_string()),
-            None,
-            serde_json::json!({"spawn_request_id": request.id.0.to_string(), "reason": "denied by user"}),
-        ),
-    );
 
     Ok(Json(SpawnResponse {
         id: request.id.0.to_string(),

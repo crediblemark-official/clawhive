@@ -10,7 +10,7 @@ use crate::ui::chat::draw_chat;
 use crate::ui::components::{draw_apikey_input, draw_command_palette, draw_model_selection};
 use crate::ui::home::draw_home;
 use crate::ui::screens::{
-    draw_approvals, draw_artifacts, draw_costs, draw_incidents, draw_logs, draw_memory,
+    draw_approvals, draw_artifacts, draw_costs, draw_incidents, draw_memory,
     draw_missions, draw_policies, draw_skills, draw_tasks,
 };
 
@@ -27,7 +27,6 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &TuiApp) {
         Screen::Policies => draw_policies(frame, area, app),
         Screen::Skills => draw_skills(frame, area, app),
         Screen::Artifacts => draw_artifacts(frame, area, app),
-        Screen::Logs => draw_logs(frame, area, app),
         Screen::Incidents => draw_incidents(frame, area, app),
     }
 

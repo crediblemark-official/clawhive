@@ -4,8 +4,9 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 
 use clawhive_budget::BudgetService;
-use clawhive_domain::Agent;
+use clawhive_domain::{Agent, PolicySubject};
 use clawhive_model_router::router::ModelRouter;
+use clawhive_policy::PolicyService;
 use clawhive_model_router::types::{ChatRequest, FinishReason, MessageRole, ModelMessage};
 use clawhive_tool::context::ToolContext;
 use clawhive_tool::registry::ToolRegistry;
@@ -70,6 +71,31 @@ impl AgentExecutor {
         }
 
         let tool_defs = ContextBuilder::tool_definitions(&self.tool_registry);
+
+        // ── Policy pre-flight check ─────────────────────────────────
+        let policy_subject = PolicySubject::Agent(agent.id.0.to_string());
+        let policy_result = PolicyService::evaluate(
+            &agent.policy_bundle,
+            &policy_subject,
+            "agent:execute",
+            &format!("agent:{}", agent.id.0),
+            None,
+        );
+        match policy_result {
+            Ok(r) if !r.allowed => {
+                event_tx.send(AgentEvent::Error {
+                    message: r.reason.clone(),
+                }).ok();
+                return Err(AgentError::PolicyDenied(r.reason));
+            }
+            Err(e) => {
+                event_tx.send(AgentEvent::Error {
+                    message: e.to_string(),
+                }).ok();
+                return Err(AgentError::PolicyDenied(e.to_string()));
+            }
+            _ => {}
+        }
 
         for turn in 0..max_turns {
             if session.state != SessionState::Active {
@@ -141,6 +167,30 @@ impl AgentExecutor {
                     for tc in tool_calls {
                         let tool_name = &tc.name;
                         let args = &tc.arguments;
+
+                        // ── Policy per-tool check ──────────────────────────
+                        let tool_policy_result = PolicyService::evaluate(
+                            &agent.policy_bundle,
+                            &policy_subject,
+                            "tool:invoke",
+                            tool_name,
+                            None,
+                        );
+                        match tool_policy_result {
+                            Ok(r) if !r.allowed => {
+                                event_tx.send(AgentEvent::Error {
+                                    message: r.reason.clone(),
+                                }).ok();
+                                return Err(AgentError::PolicyDenied(r.reason));
+                            }
+                            Err(e) => {
+                                event_tx.send(AgentEvent::Error {
+                                    message: e.to_string(),
+                                }).ok();
+                                return Err(AgentError::PolicyDenied(e.to_string()));
+                            }
+                            _ => {}
+                        }
 
                         let tool_result = match self.tool_registry.get(tool_name) {
                             Ok(tool) => {

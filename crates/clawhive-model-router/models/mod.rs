@@ -1,5 +1,17 @@
 pub mod nvidia;
 pub mod openrouter;
+pub mod openai;
+pub mod anthropic;
+pub mod groq;
+pub mod deepseek;
+pub mod gemini;
+pub mod mistral;
+pub mod together;
+pub mod fireworks;
+pub mod perplexity;
+pub mod xai;
+pub mod cohere;
+pub mod ollama;
 
 pub fn resolve_static_model(name: &str, provider: &str) -> String {
     if name.contains('/') {

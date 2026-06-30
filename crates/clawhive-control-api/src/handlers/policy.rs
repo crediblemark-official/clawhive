@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use axum::{Json, extract::State};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -10,7 +8,6 @@ use clawhive_policy::PolicyService;
 use clawhive_store::StoreExt;
 
 use crate::error::ApiError;
-use crate::handlers::audit::{self, build_audit_event};
 use crate::state::AppState;
 use crate::store::AGENT_PREFIX;
 
@@ -54,7 +51,7 @@ pub async fn compile_policy(
         if let Ok(icvs_rules) = IcvsCompiler::compile_policy(&req.source) {
             icvs_rules
         } else {
-            // Fallback naive parser for simple "allow role:admin read *" style lines.
+            // Fallback parser for "allow|deny <subject> <action> <resource>" lines.
             req.source
                 .lines()
                 .filter_map(|l| {
@@ -62,20 +59,26 @@ pub async fn compile_policy(
                     if t.is_empty() || t.starts_with('#') {
                         return None;
                     }
-                    let effect = if t.starts_with("allow") {
-                        PolicyEffect::Allow
-                    } else if t.starts_with("deny") {
-                        PolicyEffect::ExplicitDeny
-                    } else {
+                    let parts: Vec<&str> = t.split_whitespace().collect();
+                    if parts.len() < 4 {
                         return None;
+                    }
+                    let effect = match parts[0] {
+                        "allow" => PolicyEffect::Allow,
+                        "deny" => PolicyEffect::ExplicitDeny,
+                        _ => return None,
                     };
+                    let subject = PolicySubject::Role(parts[1].to_string());
+                    let action = parts[2].to_string();
+                    let resource = parts[3].to_string();
+                    let priority = parts.get(4).and_then(|p| p.parse::<u32>().ok()).unwrap_or(0);
                     Some(PolicyRule {
                         id: clawhive_domain::PolicyRuleId(Uuid::now_v7()),
-                        subject: PolicySubject::Role("*".into()),
-                        action: "*".into(),
-                        resource: "*".into(),
+                        subject,
+                        action,
+                        resource,
                         effect,
-                        priority: 0,
+                        priority,
                         condition: None,
                     })
                 })
@@ -169,22 +172,6 @@ pub async fn evaluate_policy(
             .with_additional("resource".into(), req.resource.clone())
             .with_additional("subject".into(), format!("{:?}", req.subject))
     });
-
-    audit::emit_event(
-        Arc::clone(&state.audit_service),
-        build_audit_event(
-            "policy_evaluated",
-            None,
-            None,
-            None,
-            serde_json::json!({
-                "bundle_id": req.bundle_id,
-                "action": req.action,
-                "resource": req.resource,
-                "allowed": result.allowed,
-            }),
-        ),
-    );
 
     Ok(Json(EvaluatePolicyResponse {
         allowed: result.allowed,

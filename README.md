@@ -14,8 +14,8 @@ ClawHive OS adalah sistem operasi untuk kawanan agen AI yang dapat merekrut agen
 |---|---|---|
 | **CLI** | `serve`, `tui`, `run-agent`, `version`, `setup` | ✅ |
 | **Installer** | One-line bash/PowerShell installer | ✅ |
-| **TUI** | Workspace selector, chat streaming, model selection, command palette, tool approval, 14 management screens | ✅ |
-| **HTTP API** | Health, agents, missions, tasks, spawn, lineage, policy, approvals, workers, lifecycle, scheduler, memory, gateway, skills, artifacts, audit | ✅ |
+| **TUI** | Workspace selector, chat streaming, model selection, command palette, tool approval, 13 management screens | ✅ |
+| **HTTP API** | Health, agents, missions, tasks, spawn, lineage, policy, approvals, workers, lifecycle, scheduler, memory, gateway, skills, artifacts | ✅ |
 | **Agent Runtime** | Streaming events, tool execution, session management, context window limit, context pipeline | ✅ |
 | **Model Router** | Multi-provider OpenAI-compatible (OpenAI, Anthropic, OpenRouter, NVIDIA, Groq, Together, Ollama, dll.), auto-discovery, fallback | ✅ |
 | **Tool System** | Shell, ReadFile, WriteFile, Http | ✅ |
@@ -29,7 +29,6 @@ ClawHive OS adalah sistem operasi untuk kawanan agen AI yang dapat merekrut agen
 | **Policy Service** | Evaluate policy bundles, ICVS compiler | ✅ |
 | **Skill Service** | Create/list/get/transition/sign skill lifecycle | ✅ |
 | **Artifact Service** | Store/get/list/delete artifacts with SHA-256 content hash | ✅ |
-| **Audit Service** | Record and query audit events | ✅ |
 | **Gateway** | Webhook, Telegram Bot API, Discord webhook, WhatsApp bridge, Slack, InternalBus | ✅ |
 | **Telemetry** | Structured JSON log for Vector observability pipeline | ✅ |
 
@@ -162,7 +161,6 @@ crates/
 ├── clawhive-lineage          # Lineage tracking
 ├── clawhive-skill            # Skill lifecycle
 ├── clawhive-artifact         # Artifact storage
-├── clawhive-audit            # Audit service
 ├── clawhive-context          # Context pipeline
 ├── clawhive-budget           # Budget service
 └── clawhive-telemetry        # Telemetry events

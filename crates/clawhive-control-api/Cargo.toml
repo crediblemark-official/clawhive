@@ -19,7 +19,6 @@ clawhive-memory = { path = "../clawhive-memory" }
 clawhive-gateway = { path = "../clawhive-gateway" }
 clawhive-skill = { path = "../clawhive-skill" }
 clawhive-artifact = { path = "../clawhive-artifact" }
-clawhive-audit = { path = "../clawhive-audit" }
 clawhive-store = { path = "../clawhive-store" }
 clawhive-agent = { path = "../clawhive-agent" }
 clawhive-event = { path = "../clawhive-event" }

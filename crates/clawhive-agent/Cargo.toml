@@ -10,6 +10,7 @@ clawhive-model-router = { path = "../clawhive-model-router" }
 clawhive-budget = { path = "../clawhive-budget" }
 clawhive-lifecycle = { path = "../clawhive-lifecycle" }
 clawhive-store = { path = "../clawhive-store" }
+clawhive-policy = { path = "../clawhive-policy" }
 clawhive-worker = { path = "../clawhive-worker" }
 clawhive-prompt = { path = "../clawhive-prompt" }
 clawhive-context = { path = "../clawhive-context" }

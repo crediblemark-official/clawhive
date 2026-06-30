@@ -1,7 +1,6 @@
 pub mod agent;
 pub mod approval;
 pub mod artifact;
-pub mod audit;
 pub mod gateway;
 pub mod health;
 pub mod lifecycle;

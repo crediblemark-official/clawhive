@@ -16,7 +16,6 @@ use clawhive_lifecycle::LifecycleService;
 use clawhive_store::StoreExt;
 
 use crate::error::ApiError;
-use crate::handlers::audit::{self, build_audit_event};
 use crate::state::AppState;
 use crate::store::AGENT_PREFIX;
 
@@ -210,17 +209,6 @@ pub async fn execute_agent(
             .with_mission_id(format!("{}", uuid::Uuid::nil()))
     });
 
-    audit::emit_event(
-        Arc::clone(&state.audit_service),
-        build_audit_event(
-            "agent_executed",
-            Some(id.to_string()),
-            None,
-            None,
-            serde_json::json!({"session_id": session.id.0.to_string()}),
-        ),
-    );
-
     Ok(Json(ExecuteResponse {
         session_id: session.id.0.to_string(),
         turn_count: session.turn_count,
@@ -284,17 +272,6 @@ pub async fn terminate_agent(
         reason: TerminationReason::OperatorKill,
         timestamp: chrono::Utc::now(),
     }).await;
-
-    audit::emit_event(
-        Arc::clone(&state.audit_service),
-        build_audit_event(
-            "agent_terminated",
-            Some(agent.id.0.to_string()),
-            Some(agent.mission_id.0.to_string()),
-            None,
-            serde_json::Value::Null,
-        ),
-    );
 
     Ok(Json(AgentResponse {
         id: agent.id.0.to_string(),

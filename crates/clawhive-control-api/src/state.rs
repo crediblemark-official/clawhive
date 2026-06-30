@@ -23,7 +23,6 @@ pub struct AppState {
     pub gateway_service: Arc<GatewayService>,
     pub skill_service: Arc<clawhive_skill::SkillService>,
     pub artifact_service: Arc<clawhive_artifact::ArtifactService>,
-    pub audit_service: Arc<clawhive_audit::AuditService>,
     pub spawn_broker: Arc<SpawnBroker>,
     pub event_bus: Arc<dyn EventBus>,
     pub telemetry: TelemetryService,
@@ -65,7 +64,6 @@ impl AppState {
             gateway_service: Arc::new(GatewayService::new(Arc::clone(&kv_store))),
             skill_service: Arc::new(clawhive_skill::SkillService::new(Arc::clone(&kv_store))),
             artifact_service: Arc::new(clawhive_artifact::ArtifactService::new(Arc::clone(&kv_store))),
-            audit_service: Arc::new(clawhive_audit::AuditService::new(Arc::clone(&kv_store))),
             spawn_broker: Arc::new(SpawnBroker::new(limits, agent_store, Arc::clone(&event_bus))),
             event_bus,
             telemetry: TelemetryService::default(),
@@ -85,6 +83,7 @@ impl AppState {
         let mut state = Self::new_with_store(kv_store);
         state.model_router = Some(model_router);
         state.tool_registry = Some(tool_registry);
+        start_background_scheduler(Arc::clone(&state.scheduler_service));
         state
     }
 }
@@ -118,5 +117,32 @@ fn create_event_bus() -> Arc<dyn EventBus> {
         }
     }
     Arc::new(InMemoryEventBus::new())
+}
+
+/// Spawn a background task that polls for due schedules every 30 seconds
+/// and logs them.
+pub fn start_background_scheduler(scheduler_service: Arc<ScheduleService>) {
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
+        loop {
+            interval.tick().await;
+            let now = chrono::Utc::now();
+            match scheduler_service.get_due_schedules(&now).await {
+                Ok(due) => {
+                    for ds in &due {
+                        tracing::info!(
+                            "Scheduler triggering agent {} (action: {:?} cron: {})",
+                            ds.agent_id.0,
+                            ds.schedule.action,
+                            ds.schedule.cron,
+                        );
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("Scheduler poll error: {e}");
+                }
+            }
+        }
+    });
 }
 
