@@ -11,6 +11,23 @@ use tracing_subscriber::Registry;
 mod setup_wizard;
 mod telemetry_layer;
 
+/// Load environment variables from `~/.clawhive/.env` if the file exists.
+/// This makes API keys saved by the setup wizard available to the runtime
+/// without requiring the user to manually export them.
+fn load_clawhive_env() {
+    let env_path = dirs::home_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join(".clawhive")
+        .join(".env");
+
+    if env_path.exists() {
+        match dotenvy::from_path(&env_path) {
+            Ok(_) => tracing::debug!("loaded env from {}", env_path.display()),
+            Err(e) => tracing::warn!("failed to load {}: {e}", env_path.display()),
+        }
+    }
+}
+
 #[derive(Parser)]
 #[command(
     name = "clawhive",
@@ -73,6 +90,10 @@ async fn main() {
         Commands::Version => false,
         Commands::Setup { .. } => false,
     };
+
+    // Load local environment variables from ~/.clawhive/.env so that API keys
+    // written by the setup wizard are available to all subcommands.
+    load_clawhive_env();
 
     // Ensure logs directory exists
     let _ = std::fs::create_dir_all("logs");

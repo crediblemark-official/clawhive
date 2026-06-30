@@ -74,6 +74,16 @@ pub struct Channel {
     pub is_active: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IncomingMessage {
+    pub id: String,
+    pub channel_id: String,
+    pub sender_id: String,
+    pub text: String,
+    pub raw_payload: serde_json::Value,
+    pub received_at: chrono::DateTime<chrono::Utc>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ChannelType {
     Terminal,

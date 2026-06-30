@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use axum::{
     Json,
     extract::{Path, State},
@@ -5,7 +8,8 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 
-use clawhive_domain::{ChannelType, IdentityId};
+use clawhive_agent::{AgentError, AgentRuntime, AgentStore};
+use clawhive_domain::{AgentId, ChannelType, IdentityId, WorkerId};
 
 use crate::error::ApiError;
 use crate::state::AppState;
@@ -202,6 +206,178 @@ pub async fn dispatch_message(
         response: result.response,
         dispatched_at: result.dispatched_at.to_rfc3339(),
     }))
+}
+
+/// POST /v1/gateway/webhooks/{channel_id}
+///
+/// Receive an incoming webhook from an external service (Telegram, Discord, etc.).
+/// The body and query parameters are forwarded to the gateway service for parsing.
+pub async fn handle_webhook(
+    State(state): State<AppState>,
+    Path(channel_id): Path<String>,
+    headers: axum::http::HeaderMap,
+    query: axum::extract::Query<HashMap<String, String>>,
+    body: Option<axum::extract::Json<serde_json::Value>>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    // WhatsApp verification GET request
+    if let Some(mode) = query.0.get("hub.mode") {
+        if mode == "subscribe" {
+            let channel = state
+                .gateway_service
+                .get_channel(&channel_id)
+                .await
+                .map_err(|e| ApiError::Internal(e.to_string()))?
+                .ok_or_else(|| ApiError::NotFound(format!("channel {channel_id}")))?;
+
+            let expected_token = channel
+                .config
+                .get("verify_token")
+                .and_then(|v| v.as_str())
+                .unwrap_or("clawhive");
+            let challenge = query.0.get("hub.challenge").map(|s| s.as_str()).unwrap_or("0");
+
+            if query.0.get("hub.verify_token").map(|s| s.as_str()) == Some(expected_token) {
+                return Ok(Json(serde_json::json!({"challenge": challenge})));
+            }
+            return Err(ApiError::Validation("invalid verify_token".into()));
+        }
+    }
+
+    let payload = body.map(|j| j.0).unwrap_or(serde_json::Value::Null);
+
+    let header_map: std::collections::HashMap<String, String> = headers
+        .iter()
+        .map(|(k, v)| {
+            (
+                k.as_str().to_lowercase(),
+                v.to_str().unwrap_or_default().to_string(),
+            )
+        })
+        .collect();
+
+    let result = state
+        .gateway_service
+        .receive(&channel_id, &payload, &header_map)
+        .await
+        .map_err(|e| {
+            let msg = e.to_string();
+            if msg.contains("not found") {
+                ApiError::NotFound(msg)
+            } else {
+                ApiError::Validation(msg)
+            }
+        })?;
+
+    let _ = state.telemetry.record(
+        "gateway.webhook_received",
+        "success",
+        |e| {
+            e.with_additional("channel_id".into(), channel_id.clone())
+                .with_additional("sender_id".into(), result.message.sender_id.clone())
+        },
+    );
+
+    // Return the channel-specific response (e.g. Slack challenge) immediately.
+    if let Some(resp) = result.response {
+        return Ok(Json(resp));
+    }
+
+    // Route to an agent if the channel is configured with an `agent_id`.
+    let channel = state
+        .gateway_service
+        .get_channel(&channel_id)
+        .await
+        .map_err(|e| ApiError::Internal(e.to_string()))?
+        .ok_or_else(|| ApiError::NotFound(format!("channel {channel_id}")))?;
+
+    if let Some(agent_id_str) = channel.config.get("agent_id").and_then(|v| v.as_str()) {
+        if let Ok(agent_uuid) = agent_id_str.parse::<uuid::Uuid>() {
+            let agent_state = state.clone();
+            let sender_id = result.message.sender_id.clone();
+            let objective = result.message.text.clone();
+            let channel_id_for_reply = channel_id.clone();
+
+            tokio::spawn(async move {
+                if let Err(e) = run_agent_and_reply(
+                    agent_state,
+                    AgentId(agent_uuid),
+                    objective,
+                    sender_id,
+                    channel_id_for_reply,
+                )
+                .await
+                {
+                    tracing::warn!(
+                        "failed to run agent {agent_uuid} for channel {channel_id}: {e:?}"
+                    );
+                }
+            });
+        }
+    }
+
+    Ok(Json(serde_json::json!({"status": "ok"})))
+}
+
+async fn run_agent_and_reply(
+    state: AppState,
+    agent_id: AgentId,
+    objective: String,
+    recipient: String,
+    channel_id: String,
+) -> Result<(), ApiError> {
+    let model_router = state
+        .model_router
+        .clone()
+        .ok_or_else(|| ApiError::Internal("model router not configured".into()))?;
+    let tool_registry = state
+        .tool_registry
+        .clone()
+        .ok_or_else(|| ApiError::Internal("tool registry not configured".into()))?;
+
+    let agent_store = AgentStore::new(Arc::clone(&state.kv_store));
+    let budget_service = Arc::new(clawhive_budget::BudgetService);
+
+    let runtime = AgentRuntime::new(
+        agent_store,
+        model_router,
+        tool_registry,
+        budget_service,
+        Arc::clone(&state.worker_service),
+        Some(WorkerId(uuid::Uuid::now_v7())),
+    );
+
+    let (session, _events) = runtime
+        .execute_agent(&agent_id, objective, HashMap::new(), None)
+        .await
+        .map_err(|e| match &e {
+            AgentError::AgentNotFound(_) => ApiError::NotFound(format!("agent {}", agent_id.0)),
+            AgentError::BudgetExhausted => ApiError::Validation("budget exhausted".into()),
+            _ => ApiError::Internal(e.to_string()),
+        })?;
+
+    // Extract the last assistant message as the reply text.
+    let reply_text = session
+        .messages
+        .iter()
+        .rev()
+        .find(|m| matches!(m.role, clawhive_model_router::types::MessageRole::Assistant))
+        .map(|m| m.content.clone())
+        .unwrap_or_else(|| "(no response)".into());
+
+    let message = clawhive_gateway::Message {
+        recipient,
+        subject: None,
+        body: reply_text,
+        metadata: None,
+    };
+
+    state
+        .gateway_service
+        .dispatch(&channel_id, &message)
+        .await
+        .map_err(|e| ApiError::Internal(e.to_string()))?;
+
+    Ok(())
 }
 
 // ── Session Endpoints ──────────────────────────────────────────────

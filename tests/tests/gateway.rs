@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use uuid::Uuid;
@@ -176,7 +177,7 @@ async fn test_dispatch_inactive_channel_fails() {
 async fn test_dispatch_unsupported_channel_fails() {
     let svc = make_svc();
     let channel = svc
-        .register_channel(ChannelType::Terminal, serde_json::json!({}))
+        .register_channel(ChannelType::Mobile, serde_json::json!({}))
         .await;
 
     let msg = Message {
@@ -188,6 +189,25 @@ async fn test_dispatch_unsupported_channel_fails() {
 
     let result = svc.dispatch(&channel.id, &msg).await;
     assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn test_dispatch_terminal_succeeds() {
+    let svc = make_svc();
+    let channel = svc
+        .register_channel(ChannelType::Terminal, serde_json::json!({}))
+        .await;
+
+    let msg = Message {
+        recipient: "user".into(),
+        subject: None,
+        body: "test".into(),
+        metadata: None,
+    };
+
+    let result = svc.dispatch(&channel.id, &msg).await;
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap().response.unwrap(), "terminal echo");
 }
 
 #[tokio::test]
@@ -209,4 +229,230 @@ async fn test_expire_stale_sessions() {
 
     let expired_count = svc.expire_stale_sessions().await.unwrap();
     assert_eq!(expired_count, 1);
+}
+
+// ── Incoming Webhook Tests ────────────────────────────────────────
+
+#[tokio::test]
+async fn test_receive_telegram_message() {
+    let svc = make_svc();
+    let channel = svc
+        .register_channel(ChannelType::Telegram, serde_json::json!({}))
+        .await;
+
+    let payload = serde_json::json!({
+        "update_id": 12345,
+        "message": {
+            "message_id": 1,
+            "from": {"id": 98765, "is_bot": false, "first_name": "User"},
+            "chat": {"id": 98765, "type": "private"},
+            "text": "hello from telegram"
+        }
+    });
+
+    let headers = HashMap::new();
+    let result = svc.receive(&channel.id, &payload, &headers).await.unwrap();
+    assert_eq!(result.message.sender_id, "98765");
+    assert_eq!(result.message.text, "hello from telegram");
+    assert_eq!(result.message.channel_id, channel.id);
+}
+
+#[tokio::test]
+async fn test_receive_telegram_missing_fields_fails() {
+    let svc = make_svc();
+    let channel = svc
+        .register_channel(ChannelType::Telegram, serde_json::json!({}))
+        .await;
+
+    let payload = serde_json::json!({"update_id": 1});
+    let headers = HashMap::new();
+    let result = svc.receive(&channel.id, &payload, &headers).await;
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn test_receive_telegram_secret_token() {
+    let svc = make_svc();
+    let channel = svc
+        .register_channel(
+            ChannelType::Telegram,
+            serde_json::json!({"secret_token": "supersecret"}),
+        )
+        .await;
+
+    let payload = serde_json::json!({
+        "update_id": 1,
+        "message": {
+            "message_id": 1,
+            "from": {"id": 111, "is_bot": false, "first_name": "A"},
+            "chat": {"id": 111, "type": "private"},
+            "text": "hi"
+        }
+    });
+
+    // Wrong token should fail
+    let mut headers = HashMap::new();
+    headers.insert("x-telegram-bot-api-secret-token".into(), "wrong".into());
+    let result = svc.receive(&channel.id, &payload, &headers).await;
+    assert!(result.is_err());
+
+    // Correct token should succeed
+    headers.insert("x-telegram-bot-api-secret-token".into(), "supersecret".into());
+    let result = svc.receive(&channel.id, &payload, &headers).await;
+    assert!(result.is_ok());
+}
+
+#[tokio::test]
+async fn test_receive_whatsapp_message() {
+    let svc = make_svc();
+    let channel = svc
+        .register_channel(ChannelType::WhatsApp, serde_json::json!({}))
+        .await;
+
+    let payload = serde_json::json!({
+        "entry": [{
+            "changes": [{
+                "value": {
+                    "messages": [{
+                        "from": "628123456789",
+                        "text": {"body": "halo dari WA"}
+                    }]
+                }
+            }]
+        }]
+    });
+
+    let headers = HashMap::new();
+    let result = svc.receive(&channel.id, &payload, &headers).await.unwrap();
+    assert_eq!(result.message.sender_id, "628123456789");
+    assert_eq!(result.message.text, "halo dari WA");
+}
+
+#[tokio::test]
+async fn test_receive_slack_event() {
+    let svc = make_svc();
+    let channel = svc
+        .register_channel(ChannelType::Slack, serde_json::json!({}))
+        .await;
+
+    let payload = serde_json::json!({
+        "token": "dummy",
+        "challenge": "challenge-string-123",
+        "type": "url_verification"
+    });
+
+    let headers = HashMap::new();
+    let result = svc.receive(&channel.id, &payload, &headers).await.unwrap();
+    // Slack URL verification returns the challenge in response
+    assert!(result.response.is_some());
+    assert_eq!(
+        result.response.unwrap().get("challenge").unwrap(),
+        "challenge-string-123"
+    );
+}
+
+#[tokio::test]
+async fn test_receive_slack_message() {
+    let svc = make_svc();
+    let channel = svc
+        .register_channel(ChannelType::Slack, serde_json::json!({}))
+        .await;
+
+    let payload = serde_json::json!({
+        "token": "dummy",
+        "team_id": "T123",
+        "event": {
+            "type": "message",
+            "user": "U456",
+            "text": "hello dari slack",
+            "channel": "C789"
+        }
+    });
+
+    let headers = HashMap::new();
+    let result = svc.receive(&channel.id, &payload, &headers).await.unwrap();
+    assert_eq!(result.message.sender_id, "U456");
+    assert_eq!(result.message.text, "hello dari slack");
+}
+
+#[tokio::test]
+async fn test_receive_discord_interaction() {
+    let svc = make_svc();
+    let channel = svc
+        .register_channel(ChannelType::Discord, serde_json::json!({}))
+        .await;
+
+    let payload = serde_json::json!({
+        "type": 2,
+        "member": {"user": {"id": "123456"}},
+        "data": {"name": "ask", "options": [{"value": "hello dari discord"}]}
+    });
+
+    let headers = HashMap::new();
+    let result = svc.receive(&channel.id, &payload, &headers).await.unwrap();
+    assert_eq!(result.message.sender_id, "123456");
+    assert_eq!(result.message.text, "/ask");
+}
+
+#[tokio::test]
+async fn test_receive_generic_webhook() {
+    let svc = make_svc();
+    let channel = svc
+        .register_channel(ChannelType::Webhook, serde_json::json!({}))
+        .await;
+
+    let payload = serde_json::json!({
+        "sender": "user1",
+        "text": "hello from webhook"
+    });
+
+    let headers = HashMap::new();
+    let result = svc.receive(&channel.id, &payload, &headers).await.unwrap();
+    assert_eq!(result.message.sender_id, "user1");
+    assert_eq!(result.message.text, "hello from webhook");
+}
+
+#[tokio::test]
+async fn test_receive_rest_channel() {
+    let svc = make_svc();
+    let channel = svc
+        .register_channel(ChannelType::Rest, serde_json::json!({}))
+        .await;
+
+    let payload = serde_json::json!({
+        "sender": "api-user",
+        "text": "hello from rest"
+    });
+
+    let headers = HashMap::new();
+    let result = svc.receive(&channel.id, &payload, &headers).await.unwrap();
+    assert_eq!(result.message.sender_id, "api-user");
+    assert_eq!(result.message.text, "hello from rest");
+}
+
+#[tokio::test]
+async fn test_receive_unsupported_channel_fails() {
+    let svc = make_svc();
+    let channel = svc
+        .register_channel(ChannelType::Mobile, serde_json::json!({}))
+        .await;
+
+    let payload = serde_json::json!({"text": "test"});
+    let headers = HashMap::new();
+    let result = svc.receive(&channel.id, &payload, &headers).await;
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn test_receive_inactive_channel_fails() {
+    let svc = make_svc();
+    let channel = svc
+        .register_channel(ChannelType::Webhook, serde_json::json!({}))
+        .await;
+    svc.deactivate_channel(&channel.id).await.unwrap();
+
+    let payload = serde_json::json!({"text": "test"});
+    let headers = HashMap::new();
+    let result = svc.receive(&channel.id, &payload, &headers).await;
+    assert!(result.is_err());
 }

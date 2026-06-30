@@ -130,6 +130,10 @@ pub fn build_router(state: AppState) -> Router {
             "/v1/gateway/channels/{id}/dispatch",
             post(gateway::dispatch_message),
         )
+        .route(
+            "/v1/gateway/webhooks/{channel_id}",
+            get(gateway::handle_webhook).post(gateway::handle_webhook),
+        )
         .route("/v1/gateway/sessions", post(gateway::create_session))
         .route("/v1/gateway/sessions/{id}", get(gateway::get_session))
         .route(

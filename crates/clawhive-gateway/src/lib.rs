@@ -1,11 +1,12 @@
 #![allow(clippy::pedantic)]
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use clawhive_domain::{Channel, ChannelType, IdentityId, Session, SessionState};
+use clawhive_domain::{Channel, ChannelType, IdentityId, IncomingMessage, Session, SessionState};
 use clawhive_store::{Store, StoreError, StoreExt};
 
 #[derive(Debug, thiserror::Error)]
@@ -48,8 +49,16 @@ pub struct DispatchResult {
     pub dispatched_at: DateTime<Utc>,
 }
 
+/// Result of processing an incoming webhook.
+#[derive(Debug, Clone)]
+pub struct IncomingWebhookResult {
+    pub message: IncomingMessage,
+    pub response: Option<serde_json::Value>,
+}
+
 const CHANNEL_PREFIX: &str = "gateway:channel:";
 const SESSION_PREFIX: &str = "gateway:session:";
+const INCOMING_PREFIX: &str = "gateway:incoming:";
 
 pub struct GatewayService {
     store: Arc<dyn Store>,
@@ -301,13 +310,22 @@ impl GatewayService {
                     .ok_or_else(|| {
                         GatewayError::Other(format!("channel {} missing bot_token", channel_id))
                     })?;
-                let chat_id = channel
-                    .config
-                    .get("chat_id")
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| {
-                        GatewayError::Other(format!("channel {} missing chat_id", channel_id))
-                    })?;
+                // Prefer the recipient override (e.g. the sender/chat id from an incoming message)
+                // so replies go back to the correct user. Fallback to the configured chat_id.
+                let chat_id: String = if !message.recipient.is_empty()
+                    && message.recipient.parse::<i64>().is_ok()
+                {
+                    message.recipient.clone()
+                } else {
+                    channel
+                        .config
+                        .get("chat_id")
+                        .and_then(|v| v.as_str())
+                        .ok_or_else(|| {
+                            GatewayError::Other(format!("channel {} missing chat_id", channel_id))
+                        })?
+                        .into()
+                };
 
                 let tg_payload = serde_json::json!({
                     "chat_id": chat_id,
@@ -368,7 +386,33 @@ impl GatewayService {
                 tracing::debug!("internal bus dispatch: {payload}");
                 "internal bus echo".into()
             }
-            ChannelType::Mobile | ChannelType::Rest | ChannelType::Terminal => {
+            ChannelType::Rest => {
+                let url = channel
+                    .config
+                    .get("url")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| {
+                        GatewayError::Other(format!(
+                            "channel {} missing url config",
+                            channel_id
+                        ))
+                    })?;
+
+                self.http
+                    .post(url)
+                    .json(&payload)
+                    .send()
+                    .await
+                    .map_err(|e| GatewayError::Other(format!("rest request failed: {e}")))?
+                    .text()
+                    .await
+                    .map_err(|e| GatewayError::Other(format!("rest read body failed: {e}")))?
+            }
+            ChannelType::Terminal => {
+                tracing::info!("terminal dispatch: {payload}");
+                "terminal echo".into()
+            }
+            ChannelType::Mobile => {
                 return Err(GatewayError::UnsupportedDispatch(channel.channel_type));
             }
         };
@@ -380,4 +424,242 @@ impl GatewayService {
             dispatched_at: Utc::now(),
         })
     }
+
+    // ── Incoming Webhooks ───────────────────────────────────────
+
+    /// Process an incoming webhook payload from an external service.
+    ///
+    /// Supported sources:
+    /// - `Telegram`: [`Update`](https://core.telegram.org/bots/api#update)
+    /// - `Discord`: [`Interaction`](https://discord.com/developers/docs/interactions/receiving-and-responding)
+    /// - `WhatsApp`: [Meta Cloud API Webhook](https://developers.facebook.com/docs/whatsapp/cloud-api/guides/set-up-webhook)
+    /// - `Slack`: [Events API](https://api.slack.com/apis/connections/events-api)
+    /// - `Webhook` / `Rest`: generic `{"sender": ..., "text": ...}`
+    ///
+    /// # Errors
+    /// Returns `GatewayError::ChannelNotFound` if the channel does not exist.
+    /// Returns `GatewayError::ChannelInactive` if the channel is inactive.
+    /// Returns `GatewayError::UnsupportedDispatch` for non-webhook channel types.
+    pub async fn receive(
+        &self,
+        channel_id: &str,
+        body: &serde_json::Value,
+        headers: &HashMap<String, String>,
+    ) -> Result<IncomingWebhookResult, GatewayError> {
+        let key = format!("{CHANNEL_PREFIX}{channel_id}");
+        let channel = self
+            .store
+            .get::<Channel>(&key)
+            .await?
+            .ok_or_else(|| GatewayError::ChannelNotFound(channel_id.into()))?;
+
+        if !channel.is_active {
+            return Err(GatewayError::ChannelInactive(channel_id.into()));
+        }
+
+        let now = Utc::now();
+
+        match channel.channel_type {
+            ChannelType::Telegram => {
+                Self::verify_telegram_token(&channel, headers)?;
+                let (sender_id, text) = parse_telegram_update(body)?;
+                let msg = self.store_incoming(channel_id, &sender_id, &text, body, now).await;
+                Ok(IncomingWebhookResult {
+                    message: msg,
+                    response: None,
+                })
+            }
+            ChannelType::Discord => {
+                Self::verify_discord_signature(&channel, body, headers)?;
+                let (sender_id, text) = parse_discord_interaction(body)?;
+                let msg = self.store_incoming(channel_id, &sender_id, &text, body, now).await;
+                Ok(IncomingWebhookResult {
+                    message: msg,
+                    response: None,
+                })
+            }
+            ChannelType::WhatsApp => {
+                let (sender_id, text) = parse_whatsapp_webhook(body)?;
+                let msg = self.store_incoming(channel_id, &sender_id, &text, body, now).await;
+                Ok(IncomingWebhookResult {
+                    message: msg,
+                    response: None,
+                })
+            }
+            ChannelType::Slack => {
+                // Slack URL verification challenge
+                if let Some(challenge) = body.get("challenge").and_then(|v| v.as_str()) {
+                    return Ok(IncomingWebhookResult {
+                        message: IncomingMessage {
+                            id: Uuid::now_v7().to_string(),
+                            channel_id: channel_id.into(),
+                            sender_id: String::new(),
+                            text: String::new(),
+                            raw_payload: body.clone(),
+                            received_at: now,
+                        },
+                        response: Some(serde_json::json!({"challenge": challenge})),
+                    });
+                }
+                let (sender_id, text) = parse_slack_event(body)?;
+                let msg = self.store_incoming(channel_id, &sender_id, &text, body, now).await;
+                Ok(IncomingWebhookResult {
+                    message: msg,
+                    response: None,
+                })
+            }
+            ChannelType::Webhook | ChannelType::Rest => {
+                let sender_id = body
+                    .get("sender")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown");
+                let text = body
+                    .get("text")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let msg = self
+                    .store_incoming(channel_id, sender_id, text, body, now)
+                    .await;
+                Ok(IncomingWebhookResult {
+                    message: msg,
+                    response: None,
+                })
+            }
+            ChannelType::Terminal | ChannelType::InternalBus | ChannelType::Mobile => {
+                Err(GatewayError::UnsupportedDispatch(channel.channel_type))
+            }
+        }
+    }
+
+    async fn store_incoming(
+        &self,
+        channel_id: &str,
+        sender_id: &str,
+        text: &str,
+        raw_payload: &serde_json::Value,
+        received_at: DateTime<Utc>,
+    ) -> IncomingMessage {
+        let msg = IncomingMessage {
+            id: Uuid::now_v7().to_string(),
+            channel_id: channel_id.into(),
+            sender_id: sender_id.into(),
+            text: text.into(),
+            raw_payload: raw_payload.clone(),
+            received_at,
+        };
+        let store_key = format!("{INCOMING_PREFIX}{}", msg.id);
+        // best-effort store: parse failures are logged but not fatal
+        if let Err(e) = self.store.set(&store_key, &msg).await {
+            tracing::warn!("failed to store incoming message: {e}");
+        }
+        msg
+    }
+
+    fn verify_telegram_token(
+        channel: &Channel,
+        headers: &HashMap<String, String>,
+    ) -> Result<(), GatewayError> {
+        if let Some(expected) = channel.config.get("secret_token").and_then(|v| v.as_str()) {
+            let actual = headers
+                .get("x-telegram-bot-api-secret-token")
+                .map(|s| s.as_str())
+                .unwrap_or("");
+            if actual != expected {
+                return Err(GatewayError::Other("invalid telegram secret token".into()));
+            }
+        }
+        Ok(())
+    }
+
+    fn verify_discord_signature(
+        channel: &Channel,
+        _body: &serde_json::Value,
+        _headers: &HashMap<String, String>,
+    ) -> Result<(), GatewayError> {
+        // Discord uses Ed25519 signatures (X-Signature-Ed25519, X-Signature-Timestamp).
+        // Verification requires the `ed25519-dalek` crate; skip when not imported.
+        let _ = channel;
+        Ok(())
+    }
+}
+
+// ── Webhook Payload Parsers ─────────────────────────────────
+
+fn parse_telegram_update(body: &serde_json::Value) -> Result<(String, String), GatewayError> {
+    let sender_id = body
+        .pointer("/message/from/id")
+        .and_then(|v| v.as_i64())
+        .map(|n| n.to_string())
+        .or_else(|| {
+            body.pointer("/message/chat/id")
+                .and_then(|v| v.as_i64())
+                .map(|n| n.to_string())
+        })
+        .ok_or_else(|| GatewayError::Other("telegram: missing message.from.id".into()))?;
+
+    let text = body
+        .pointer("/message/text")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    Ok((sender_id, text.into()))
+}
+
+fn parse_discord_interaction(body: &serde_json::Value) -> Result<(String, String), GatewayError> {
+    // Discord sends a PING (type 1) on webhook setup
+    if body.get("type").and_then(|v| v.as_i64()) == Some(1) {
+        return Ok(("discord".into(), "ping".into()));
+    }
+
+    let sender_id = body
+        .pointer("/member/user/id")
+        .and_then(|v| v.as_str())
+        .or_else(|| body.get("user").and_then(|u| u.get("id")).and_then(|v| v.as_str()))
+        .ok_or_else(|| GatewayError::Other("discord: missing member.user.id".into()))?;
+
+    let text = body
+        .pointer("/data/name")
+        .and_then(|v| v.as_str())
+        .map(|s| format!("/{s}"))
+        .or_else(|| {
+            body.pointer("/data/options")
+                .and_then(|v| v.as_array())
+                .and_then(|arr| arr.first())
+                .and_then(|opt| opt.get("value"))
+                .and_then(|v| v.as_str())
+                .map(|s| s.into())
+        })
+        .unwrap_or_default();
+
+    Ok((sender_id.into(), text))
+}
+
+fn parse_whatsapp_webhook(body: &serde_json::Value) -> Result<(String, String), GatewayError> {
+    // WhatsApp verification challenge is handled at the HTTP handler level
+    let sender_id = body
+        .pointer("/entry/0/changes/0/value/messages/0/from")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| GatewayError::Other("whatsapp: missing messages[0].from".into()))?;
+
+    let text = body
+        .pointer("/entry/0/changes/0/value/messages/0/text/body")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    Ok((sender_id.into(), text.into()))
+}
+
+fn parse_slack_event(body: &serde_json::Value) -> Result<(String, String), GatewayError> {
+    // Slack URL verification challenge is handled in `receive`
+    let sender_id = body
+        .pointer("/event/user")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| GatewayError::Other("slack: missing event.user".into()))?;
+
+    let text = body
+        .pointer("/event/text")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    Ok((sender_id.into(), text.into()))
 }
