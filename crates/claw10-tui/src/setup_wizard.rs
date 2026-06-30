@@ -619,15 +619,24 @@ impl SetupWizard {
             .split(area);
 
         let title = Paragraph::new(Line::from(vec![
-            Span::styled(" Pilih Provider LLM", Style::default().fg(Color::Rgb(254, 192, 126)).add_modifier(Modifier::BOLD)),
+            Span::styled("    Pilih Provider LLM", Style::default().fg(Color::Rgb(254, 192, 126)).add_modifier(Modifier::BOLD)),
         ]))
         .style(Style::default().bg(Color::Rgb(15, 15, 15)));
         frame.render_widget(title, chunks[0]);
 
+        // Menambahkan padding kiri-kanan (4 kolom) untuk grid provider
+        let horizontal_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Length(4),
+                Constraint::Min(0),
+                Constraint::Length(4),
+            ])
+            .split(chunks[1]);
+
         let cols = 2u16;
-        let _rows = (self.providers.len() as u16 + cols - 1) / cols;
         let card_h = 5u16;
-        let list_area = chunks[1];
+        let list_area = horizontal_chunks[1];
 
         for (i, provider) in self.providers.iter().enumerate() {
             let col = i as u16 % cols;
@@ -661,10 +670,20 @@ impl SetupWizard {
             frame.render_widget(ratatui::widgets::Clear, card_rect);
             frame.render_widget(card, card_rect);
 
+            let desc = match provider.slot {
+                "openai" => "Official OpenAI API gateway",
+                "anthropic" => "Official Anthropic Claude API",
+                "groq" => "Groq LLaMA/Mixtral API gateway",
+                "openrouter" => "OpenRouter multi-provider API",
+                "custom" => "Custom OpenAI-compatible endpoint",
+                _ => "OpenAI-compatible LLM endpoint",
+            };
+
             let text = vec![
+                Line::from(""), // Vertical spacing padding
                 Line::from(vec![
                     Span::styled(
-                        format!(" {}", provider.name),
+                        format!("  {}", provider.name),
                         if is_selected {
                             Style::default().fg(Color::Rgb(254, 192, 126)).add_modifier(Modifier::BOLD)
                         } else {
@@ -672,17 +691,16 @@ impl SetupWizard {
                         },
                     ),
                 ]),
-                Line::from(""),
                 Line::from(vec![
                     Span::styled(
-                        "  OpenAI-compatible",
+                        format!("    {}", desc),
                         Style::default().fg(Color::Rgb(80, 80, 80)),
                     ),
                 ]),
             ];
 
             let para = Paragraph::new(text)
-                .style(Style::default().bg(Color::Rgb(15, 15, 15)));
+                .style(Style::default().bg(if is_selected { Color::Rgb(25, 25, 25) } else { Color::Rgb(15, 15, 15) }));
             frame.render_widget(para, inner);
         }
     }
