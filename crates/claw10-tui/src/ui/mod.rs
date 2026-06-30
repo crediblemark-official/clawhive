@@ -1,8 +1,7 @@
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Line, Span},
-    widgets::{Block, Borders, Paragraph},
+    widgets::{Block, Borders},
     Frame,
 };
 
@@ -90,46 +89,45 @@ pub fn draw(frame: &mut Frame, area: Rect, app: &TuiApp) {
 }
 
 fn draw_top_bar(frame: &mut Frame, area: Rect, app: &TuiApp) {
-    let active_tab = app.selected_tab;
-    
-    let is_chat_active = matches!(
-        active_tab,
-        Tab::Session | Tab::Agents | Tab::Workers | Tab::SpawnRequests
-    );
-
-    let create_tab_span = |name: &str, is_active: bool| -> Span {
-        if is_active {
-            Span::styled(
-                format!("  [{}]  ", name),
-                Style::default()
-                    .fg(Color::Rgb(254, 192, 126))
-                    .add_modifier(Modifier::BOLD),
-            )
-        } else {
-            Span::styled(
-                format!("   {}   ", name),
-                Style::default().fg(Color::DarkGray),
-            )
-        }
+    let active_idx = match app.selected_tab {
+        Tab::Session | Tab::Agents | Tab::Workers | Tab::SpawnRequests => 0,
+        Tab::Missions => 1,
+        Tab::Tasks => 2,
+        Tab::Memory => 3,
+        Tab::Approvals => 4,
+        Tab::Costs => 5,
+        Tab::Policies => 6,
+        Tab::Skills => 7,
+        Tab::Artifacts => 8,
+        Tab::Incidents => 9,
     };
 
-    let line = Line::from(vec![
-        Span::raw(" "),
-        create_tab_span("Chat", is_chat_active),
-        create_tab_span("Msn", active_tab == Tab::Missions),
-        create_tab_span("Tasks", active_tab == Tab::Tasks),
-        create_tab_span("Mem", active_tab == Tab::Memory),
-        create_tab_span("Aprv", active_tab == Tab::Approvals),
-        create_tab_span("Cost", active_tab == Tab::Costs),
-        create_tab_span("Pol", active_tab == Tab::Policies),
-        create_tab_span("Skl", active_tab == Tab::Skills),
-        create_tab_span("Art", active_tab == Tab::Artifacts),
-        create_tab_span("Inc", active_tab == Tab::Incidents),
-    ]);
+    let titles = vec![
+        "  Chat  ",
+        "  Msn  ",
+        "  Tasks  ",
+        "  Mem  ",
+        "  Aprv  ",
+        "  Cost  ",
+        "  Pol  ",
+        "  Skl  ",
+        "  Art  ",
+        "  Inc  ",
+    ];
 
-    let para = Paragraph::new(line)
-        .style(Style::default().bg(Color::Rgb(15, 15, 15)));
-    frame.render_widget(para, area);
+    let tabs = ratatui::widgets::Tabs::new(titles)
+        .select(active_idx)
+        .block(Block::default().style(Style::default().bg(Color::Rgb(15, 15, 15))))
+        .style(Style::default().fg(Color::DarkGray).bg(Color::Rgb(15, 15, 15)))
+        .highlight_style(
+            Style::default()
+                .fg(Color::Rgb(254, 192, 126))
+                .bg(Color::Rgb(15, 15, 15))
+                .add_modifier(Modifier::BOLD),
+        )
+        .divider("│");
+
+    frame.render_widget(tabs, area);
 }
 
 /// Melakukan word-wrap manual per baris teks ke lebar maksimal `max_width`.

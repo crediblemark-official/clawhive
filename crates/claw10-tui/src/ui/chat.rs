@@ -643,7 +643,7 @@ fn draw_sidebar_accordion(frame: &mut Frame, area: Rect, app: &TuiApp) {
         Tab::SpawnRequests,
     ];
 
-    // Bangun constraints: setiap tab collapsed = 1 baris header,
+    // Bangun constraints: setiap tab collapsed = 2 baris (teks + border bottom),
     // tab aktif = Min(0) agar mengambil sisa ruang untuk konten.
     let mut constraints: Vec<Constraint> = tabs
         .iter()
@@ -651,11 +651,10 @@ fn draw_sidebar_accordion(frame: &mut Frame, area: Rect, app: &TuiApp) {
             if *t == app.selected_tab {
                 Constraint::Min(0)
             } else {
-                Constraint::Length(1)
+                Constraint::Length(2)
             }
         })
         .collect();
-    // Pastikan accordion ga mepet footer
     constraints.push(Constraint::Length(0));
 
     let chunks = Layout::default()
@@ -683,22 +682,66 @@ fn draw_sidebar_accordion(frame: &mut Frame, area: Rect, app: &TuiApp) {
         } else {
             Style::default().fg(Color::Rgb(200, 200, 200)).bg(Color::Rgb(0, 0, 0))
         };
+
+        // Render header dengan border bottom jika collapsed
+        let header_block = Block::default()
+            .borders(Borders::BOTTOM)
+            .border_style(Style::default().fg(Color::Rgb(40, 40, 40)));
+
         let header = Paragraph::new(Line::from(vec![
             Span::styled(indicator, header_style),
             Span::styled(format!("{}{}", accordion_tab_name(*tab), count_text), header_style),
-        ]));
-        frame.render_widget(header, section_area);
+        ]))
+        .block(header_block);
 
         if is_expanded {
-            let content_area = Rect {
+            // Jika expanded, render header tanpa border bottom di baris 1 (tinggi 1)
+            let header_rect = Rect {
+                x: section_area.x,
+                y: section_area.y,
+                width: section_area.width,
+                height: 1,
+            };
+            let header_expanded = Paragraph::new(Line::from(vec![
+                Span::styled(indicator, header_style),
+                Span::styled(format!("{}{}", accordion_tab_name(*tab), count_text), header_style),
+            ]));
+            frame.render_widget(header_expanded, header_rect);
+
+            // Render top spacer 1 baris kosong di bawah header
+            let spacer_rect = Rect {
                 x: section_area.x,
                 y: section_area.y + 1,
                 width: section_area.width,
-                height: section_area.height.saturating_sub(1),
+                height: 1,
+            };
+            let spacer = Paragraph::new("").style(Style::default().bg(Color::Rgb(0, 0, 0)));
+            frame.render_widget(spacer, spacer_rect);
+
+            // Konten digambar di sisa area (disisakan 1 baris paling bawah untuk border bottom penutup, dan 1 spacer atas)
+            let content_area = Rect {
+                x: section_area.x,
+                y: section_area.y + 2,
+                width: section_area.width,
+                height: section_area.height.saturating_sub(3),
             };
             if content_area.height > 0 {
                 draw_accordion_content(frame, content_area, app, *tab);
             }
+
+            // Border bottom penutup tab expanded di baris paling bawah
+            let footer_rect = Rect {
+                x: section_area.x,
+                y: section_area.y + section_area.height.saturating_sub(1),
+                width: section_area.width,
+                height: 1,
+            };
+            let bottom_line = Paragraph::new(Line::from(""))
+                .block(Block::default().borders(Borders::BOTTOM).border_style(Style::default().fg(Color::Rgb(40, 40, 40))));
+            frame.render_widget(bottom_line, footer_rect);
+        } else {
+            // Jika collapsed, render block header (tinggi 2, memuat border bottom) di seluruh section_area
+            frame.render_widget(header, section_area);
         }
     }
 }
