@@ -1,7 +1,7 @@
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Line, Span},
+    text::Line,
     widgets::{Block, Borders, Cell, Paragraph, Row, Table},
     Frame,
 };
@@ -295,21 +295,6 @@ pub fn draw_costs(frame: &mut Frame, area: Rect, app: &TuiApp) {
 
     let total_spent: f64 = app.agents.iter().map(|a| a.total_cost_usd).sum();
 
-    let summary = Paragraph::new(vec![
-        Line::from(vec![
-            Span::styled("Total Spent: ", Style::default().add_modifier(Modifier::BOLD)),
-            Span::styled(format!("${:.4}", total_spent), Style::default().fg(Color::Rgb(218, 165, 32))),
-        ]),
-        Line::from(vec![
-            Span::styled("Agents: ", Style::default().add_modifier(Modifier::BOLD)),
-            Span::raw(app.agents.len().to_string()),
-        ]),
-    ])
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Rgb(150, 120, 50))),
-    );
 
     let header = Row::new(vec!["  Agent Name", "  State", "  Total Cost (USD)"])
         .style(Style::default().fg(Color::Rgb(218, 165, 32)).add_modifier(Modifier::BOLD))
@@ -356,15 +341,19 @@ pub fn draw_costs(frame: &mut Frame, area: Rect, app: &TuiApp) {
             .border_style(Style::default().fg(Color::Rgb(150, 120, 50))),
     );
 
-    let content_chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Length(5), Constraint::Min(0)])
-        .split(chunks[1]);
+    frame.render_widget(table, chunks[1]);
+    draw_table_columns(frame, chunks[1], &[45, 25, 30]);
 
-    frame.render_widget(summary, content_chunks[0]);
-    frame.render_widget(table, content_chunks[1]);
-    draw_table_columns(frame, content_chunks[1], &[45, 25, 30]);
-    draw_footer(frame, chunks[2], app, "Costs");
+    let footer_text = format!(
+        "Total Spent: ${:.4}  |  Agents: {}  |  {}",
+        total_spent,
+        app.agents.len(),
+        app.status_message
+    );
+    let footer = Paragraph::new(footer_text)
+        .style(Style::default().fg(Color::Rgb(140, 140, 140)))
+        .alignment(Alignment::Center);
+    frame.render_widget(footer, chunks[2]);
 }
 
 pub fn draw_policies(frame: &mut Frame, area: Rect, app: &TuiApp) {

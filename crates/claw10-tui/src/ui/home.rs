@@ -15,8 +15,7 @@ pub fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
     // Tinggi komponen
     let form_height: u16 = 4;
     let ws_list_height: u16 = (app.workspaces.len().min(8) as u16) + 2; // max 8 + border
-    let tip_height: u16 = 1;
-    let content_height = banner_lines_count as u16 + 2 + form_height + 1 + ws_list_height + 2 + tip_height;
+    let content_height = banner_lines_count as u16 + 2 + form_height + 1 + ws_list_height + 2;
 
     // Layout utama
     let main_chunks = Layout::default()
@@ -50,8 +49,7 @@ pub fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
             Constraint::Length(form_height),                // 2: Create Workspace form
             Constraint::Length(1),                          // 3: Spacer
             Constraint::Length(ws_list_height),             // 4: Workspace list
-            Constraint::Length(2),                          // 5: Spacer
-            Constraint::Length(tip_height),                 // 6: Tip
+            Constraint::Length(2),                          // 5: Spacer bawah
         ])
         .split(content_area);
 
@@ -194,25 +192,21 @@ pub fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
         frame.render_widget(ws_list, list_area);
     }
 
-    // ── 6. Tip ────────────────────────────────────────────────────────────────
-    let tip_line = Line::from(vec![
-        Span::styled("● ", Style::default().fg(Color::Yellow)),
-        Span::styled("Tip  ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-        Span::raw("Ketik nama workspace baru dan "),
-        Span::styled("Enter", Style::default().fg(Color::Rgb(218, 165, 32))),
-        Span::raw(" untuk membuat, atau pilih dengan "),
-        Span::styled("↑↓", Style::default().fg(Color::Rgb(218, 165, 32))),
-        Span::raw(" + "),
-        Span::styled("Enter / Tab", Style::default().fg(Color::Rgb(218, 165, 32))),
-        Span::raw(" untuk membuka."),
-    ]);
-    let tip = Paragraph::new(tip_line).alignment(ratatui::layout::Alignment::Center);
-    frame.render_widget(tip, inner_chunks[6]);
 
     // ── Footer ────────────────────────────────────────────────────────────────
     let version = format!("v{}", env!("CARGO_PKG_VERSION"));
+    let footer_line = Line::from(vec![
+        Span::styled("● ", Style::default().fg(Color::Yellow)),
+        Span::styled("Tip", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::raw("  Ketik nama workspace lalu "),
+        Span::styled("Enter", Style::default().fg(Color::Rgb(218, 165, 32))),
+        Span::raw("  |  pilih dengan "),
+        Span::styled("↑↓ + Enter", Style::default().fg(Color::Rgb(218, 165, 32))),
+        Span::raw("  |  "),
+        Span::styled(version, Style::default().fg(Color::Rgb(140, 140, 140))),
+    ]);
     frame.render_widget(
-        Paragraph::new(version)
+        Paragraph::new(footer_line)
             .style(Style::default().fg(Color::Rgb(140, 140, 140)))
             .alignment(ratatui::layout::Alignment::Center),
         footer_area,
