@@ -20,9 +20,19 @@ struct ProviderOption {
 const PROVIDERS: &[ProviderOption] = &[
     ProviderOption { name: "OpenAI", slot: "openai", env_var: "OPENAI_API_KEY", base_url: "https://api.openai.com/v1" },
     ProviderOption { name: "Anthropic", slot: "anthropic", env_var: "ANTHROPIC_API_KEY", base_url: "https://api.anthropic.com/v1" },
+    ProviderOption { name: "Google Gemini", slot: "google-gemini", env_var: "GEMINI_API_KEY", base_url: "https://generativelanguage.googleapis.com/v1beta/openai" },
+    ProviderOption { name: "DeepSeek", slot: "deepseek", env_var: "DEEPSEEK_API_KEY", base_url: "https://api.deepseek.com" },
+    ProviderOption { name: "Mistral AI", slot: "mistral", env_var: "MISTRAL_API_KEY", base_url: "https://api.mistral.ai/v1" },
+    ProviderOption { name: "Cohere", slot: "cohere", env_var: "COHERE_API_KEY", base_url: "https://api.cohere.com/v1" },
     ProviderOption { name: "Groq", slot: "groq", env_var: "GROQ_API_KEY", base_url: "https://api.groq.com/openai/v1" },
+    ProviderOption { name: "Perplexity", slot: "perplexity", env_var: "PERPLEXITY_API_KEY", base_url: "https://api.perplexity.ai" },
+    ProviderOption { name: "xAI", slot: "xai", env_var: "XAI_API_KEY", base_url: "https://api.x.ai/v1" },
+    ProviderOption { name: "NVIDIA NIM", slot: "nvidia", env_var: "NVIDIA_API_KEY", base_url: "https://integrate.api.nvidia.com/v1" },
+    ProviderOption { name: "Together AI", slot: "together", env_var: "TOGETHER_API_KEY", base_url: "https://api.together.xyz/v1" },
+    ProviderOption { name: "Fireworks AI", slot: "fireworks", env_var: "FIREWORKS_API_KEY", base_url: "https://api.fireworks.ai/inference/v1" },
+    ProviderOption { name: "Ollama (Local)", slot: "ollama", env_var: "OLLAMA_API_KEY", base_url: "http://localhost:11434/v1" },
     ProviderOption { name: "OpenRouter", slot: "openrouter", env_var: "OPENROUTER_API_KEY", base_url: "https://openrouter.ai/api/v1" },
-    ProviderOption { name: "Custom", slot: "custom", env_var: "CUSTOM_API_KEY", base_url: "" },
+    ProviderOption { name: "Custom Provider", slot: "custom", env_var: "CUSTOM_API_KEY", base_url: "" },
 ];
 
 pub struct SetupWizard {
@@ -615,7 +625,11 @@ impl SetupWizard {
     fn draw_provider_select(&self, frame: &mut Frame, area: Rect) {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Length(2), Constraint::Min(0)])
+            .constraints([
+                Constraint::Length(2), // Judul
+                Constraint::Length(1), // Spacer
+                Constraint::Min(0),    // List area
+            ])
             .split(area);
 
         let title = Paragraph::new(Line::from(vec![
@@ -624,7 +638,7 @@ impl SetupWizard {
         .style(Style::default().bg(Color::Rgb(15, 15, 15)));
         frame.render_widget(title, chunks[0]);
 
-        // Menambahkan padding kiri-kanan (4 kolom) untuk grid provider
+        // Padding horizontal (4 kolom di kiri dan kanan)
         let horizontal_chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
@@ -632,76 +646,47 @@ impl SetupWizard {
                 Constraint::Min(0),
                 Constraint::Length(4),
             ])
-            .split(chunks[1]);
+            .split(chunks[2]);
 
-        let cols = 2u16;
-        let card_h = 5u16;
         let list_area = horizontal_chunks[1];
 
+        // 3 kolom, dengan 15 provider, maka rows_per_col adalah (15 + 2) / 3 = 5 baris.
+        let cols = 3u16;
+        let rows_per_col = 5u16;
+        let col_width = list_area.width / cols;
+
         for (i, provider) in self.providers.iter().enumerate() {
-            let col = i as u16 % cols;
-            let row = i as u16 / cols;
-            let card_width = list_area.width / cols;
-            let card_x = list_area.x + col * card_width;
-            let card_y = list_area.y + row * card_h;
+            let col = i as u16 / rows_per_col;
+            let row = i as u16 % rows_per_col;
 
-            if card_y + card_h > list_area.y + list_area.height {
-                break;
-            }
-
-            let card_rect = Rect { x: card_x, y: card_y, width: card_width, height: card_h };
+            let item_x = list_area.x + col * col_width;
+            let item_y = list_area.y + row;
             let is_selected = i == self.selected;
 
-            let border_style = if is_selected {
-                Style::default().fg(Color::Rgb(254, 192, 126))
+            let item_rect = Rect {
+                x: item_x,
+                y: item_y,
+                width: col_width.saturating_sub(2),
+                height: 1,
+            };
+
+            let text = if is_selected {
+                Line::from(vec![
+                    Span::styled(" \u{25B6} ", Style::default().fg(Color::Rgb(254, 192, 126)).add_modifier(Modifier::BOLD)),
+                    Span::styled(provider.name, Style::default().fg(Color::Rgb(254, 192, 126)).add_modifier(Modifier::BOLD)),
+                ])
             } else {
-                Style::default().fg(Color::Rgb(60, 60, 60))
-            };
-            let card = Block::default()
-                .borders(Borders::ALL)
-                .border_style(border_style)
-                .style(if is_selected {
-                    Style::default().bg(Color::Rgb(25, 25, 25))
-                } else {
-                    Style::default().bg(Color::Rgb(15, 15, 15))
-                });
-
-            let inner = card.inner(card_rect);
-            frame.render_widget(ratatui::widgets::Clear, card_rect);
-            frame.render_widget(card, card_rect);
-
-            let desc = match provider.slot {
-                "openai" => "Official OpenAI API gateway",
-                "anthropic" => "Official Anthropic Claude API",
-                "groq" => "Groq LLaMA/Mixtral API gateway",
-                "openrouter" => "OpenRouter multi-provider API",
-                "custom" => "Custom OpenAI-compatible endpoint",
-                _ => "OpenAI-compatible LLM endpoint",
-            };
-
-            let text = vec![
-                Line::from(""), // Vertical spacing padding
                 Line::from(vec![
-                    Span::styled(
-                        format!("  {}", provider.name),
-                        if is_selected {
-                            Style::default().fg(Color::Rgb(254, 192, 126)).add_modifier(Modifier::BOLD)
-                        } else {
-                            Style::default().fg(Color::Rgb(200, 200, 200))
-                        },
-                    ),
-                ]),
-                Line::from(vec![
-                    Span::styled(
-                        format!("    {}", desc),
-                        Style::default().fg(Color::Rgb(80, 80, 80)),
-                    ),
-                ]),
-            ];
+                    Span::styled("   ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(provider.name, Style::default().fg(Color::Rgb(160, 160, 160))),
+                ])
+            };
 
             let para = Paragraph::new(text)
                 .style(Style::default().bg(if is_selected { Color::Rgb(25, 25, 25) } else { Color::Rgb(15, 15, 15) }));
-            frame.render_widget(para, inner);
+
+            frame.render_widget(ratatui::widgets::Clear, item_rect);
+            frame.render_widget(para, item_rect);
         }
     }
 
