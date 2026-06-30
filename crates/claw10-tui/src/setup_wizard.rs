@@ -568,13 +568,13 @@ impl SetupWizard {
             ]),
             Line::from(""),
             Line::from(vec![
-                Span::styled("• Provider model LLM", Style::default().fg(Color::Rgb(180, 180, 180))),
+                Span::styled("  \u{2022} Provider model LLM", Style::default().fg(Color::Rgb(180, 180, 180))),
             ]),
             Line::from(vec![
-                Span::styled("• API key", Style::default().fg(Color::Rgb(180, 180, 180))),
+                Span::styled("  \u{2022} API key", Style::default().fg(Color::Rgb(180, 180, 180))),
             ]),
             Line::from(vec![
-                Span::styled("• Model default (auto-fetch dari API)", Style::default().fg(Color::Rgb(180, 180, 180))),
+                Span::styled("  \u{2022} Model default (auto-fetch dari API)", Style::default().fg(Color::Rgb(180, 180, 180))),
             ]),
             Line::from(""),
             Line::from(vec![
@@ -583,7 +583,9 @@ impl SetupWizard {
         ];
 
         let welcome_height = lines.len() as u16;
-        let chunks = Layout::default()
+        
+        // Menengahkan secara vertikal
+        let vertical_chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
                 Constraint::Min(0),
@@ -592,10 +594,22 @@ impl SetupWizard {
             ])
             .split(area);
 
+        // Menengahkan secara horizontal menggunakan card dengan lebar tetap 46
+        let card_width = 46u16;
+        let left_padding = area.width.saturating_sub(card_width) / 2;
+        
+        let horizontal_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Length(left_padding),
+                Constraint::Length(card_width),
+                Constraint::Min(0),
+            ])
+            .split(vertical_chunks[1]);
+
         let para = Paragraph::new(lines)
-            .alignment(ratatui::layout::Alignment::Center)
             .style(Style::default().bg(Color::Rgb(15, 15, 15)));
-        frame.render_widget(para, chunks[1]);
+        frame.render_widget(para, horizontal_chunks[1]);
     }
 
     fn draw_provider_select(&self, frame: &mut Frame, area: Rect) {
