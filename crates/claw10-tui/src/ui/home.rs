@@ -24,6 +24,7 @@ pub fn draw_home(frame: &mut Frame, area: Rect, app: &TuiApp) {
         .constraints([
             Constraint::Min(0),    // Area utama
             Constraint::Length(1), // Footer
+            Constraint::Length(1), // Spacer bawah agar tidak mepet ke batas bawah
         ])
         .split(area);
     let main_area = main_chunks[0];

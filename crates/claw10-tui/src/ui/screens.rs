@@ -15,6 +15,7 @@ fn default_layout(area: Rect) -> Vec<Rect> {
             Constraint::Length(0), // Dinonaktifkan (diganti Top Bar global)
             Constraint::Min(0),    // content
             Constraint::Length(1), // footer
+            Constraint::Length(1), // Spacer bawah agar tidak mepet ke batas bawah
         ])
         .split(area)
         .to_vec()
