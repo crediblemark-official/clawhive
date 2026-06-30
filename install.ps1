@@ -1,12 +1,12 @@
 # ClawHive OS — Windows installer (PowerShell)
 # Usage:
-#   irm https://raw.githubusercontent.com/clawhive/clawhive/main/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/crediblemark-official/clawhive/main/install.ps1 | iex
 #
 # To use your own domain, replace the raw GitHub URL above and host this script there.
 
 $ErrorActionPreference = "Stop"
 
-$Repo = "clawhive/clawhive"
+$Repo = "crediblemark-official/clawhive"
 $Binary = "clawhive.exe"
 $InstallDir = if ($env:CLAWHIVE_INSTALL_DIR) { $env:CLAWHIVE_INSTALL_DIR } else { "$env:LOCALAPPDATA\ClawHive\bin" }
 $CargoBuild = if ($env:CLAWHIVE_CARGO_BUILD) { $env:CLAWHIVE_CARGO_BUILD } else { "0" }

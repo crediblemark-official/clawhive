@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # ClawHive OS — cross-platform installer (Linux, macOS, WSL, VPS)
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/clawhive/clawhive/main/install.sh | sh
-#   wget -qO- https://raw.githubusercontent.com/clawhive/clawhive/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/crediblemark-official/clawhive/main/install.sh | sh
+#   wget -qO- https://raw.githubusercontent.com/crediblemark-official/clawhive/main/install.sh | sh
 #
 # To use your own domain, replace the raw GitHub URL above and host this script there.
 
 set -e
 
-REPO="clawhive/clawhive"
+REPO="crediblemark-official/clawhive"
 BINARY="clawhive"
 INSTALL_DIR="${CLAWHIVE_INSTALL_DIR:-$HOME/.local/bin}"
 CARGO_BUILD="${CLAWHIVE_CARGO_BUILD:-0}"
@@ -33,7 +33,7 @@ esac
 
 if [ "$PLATFORM" = "windows" ]; then
     echo "Detected Windows. Please use the PowerShell installer instead:"
-    echo '  irm https://raw.githubusercontent.com/clawhive/clawhive/main/install.ps1 | iex'
+    echo '  irm https://raw.githubusercontent.com/crediblemark-official/clawhive/main/install.ps1 | iex'
     exit 1
 fi
 
