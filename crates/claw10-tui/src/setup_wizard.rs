@@ -556,7 +556,6 @@ impl SetupWizard {
 
     fn draw_welcome(&self, frame: &mut Frame, area: Rect) {
         let lines = vec![
-            Line::from(""),
             Line::from(vec![
                 Span::styled("Selamat datang di Claw10 OS!", Style::default().fg(Color::Rgb(254, 192, 126)).add_modifier(Modifier::BOLD)),
             ]),
@@ -579,10 +578,21 @@ impl SetupWizard {
                 Span::styled("Tekan Enter untuk memulai...", Style::default().fg(Color::Rgb(120, 120, 120))),
             ]),
         ];
+
+        let welcome_height = lines.len() as u16;
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Min(0),
+                Constraint::Length(welcome_height),
+                Constraint::Min(0),
+            ])
+            .split(area);
+
         let para = Paragraph::new(lines)
             .alignment(ratatui::layout::Alignment::Center)
             .style(Style::default().bg(Color::Rgb(15, 15, 15)));
-        frame.render_widget(para, area);
+        frame.render_widget(para, chunks[1]);
     }
 
     fn draw_provider_select(&self, frame: &mut Frame, area: Rect) {
