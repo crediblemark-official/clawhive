@@ -2,29 +2,33 @@
 name = "claw10-control-api"
 version.workspace = true
 edition = "2024"
+description = "HTTP control API for Claw10 OS"
+license.workspace = true
+authors.workspace = true
+repository = "https://github.com/crediblemark-official/claw10"
 
 [dependencies]
-claw10-domain = { path = "../claw10-domain" }
-claw10-mission = { path = "../claw10-mission" }
-claw10-task = { path = "../claw10-task" }
-claw10-lineage = { path = "../claw10-lineage" }
-claw10-spawn = { path = "../claw10-spawn" }
-claw10-budget = { path = "../claw10-budget" }
-claw10-lifecycle = { path = "../claw10-lifecycle" }
-claw10-scheduler = { path = "../claw10-scheduler" }
-claw10-worker = { path = "../claw10-worker" }
-claw10-policy = { path = "../claw10-policy" }
-claw10-icvs = { path = "../claw10-icvs" }
-claw10-memory = { path = "../claw10-memory" }
-claw10-gateway = { path = "../claw10-gateway" }
-claw10-skill = { path = "../claw10-skill" }
-claw10-artifact = { path = "../claw10-artifact" }
-claw10-store = { path = "../claw10-store" }
-claw10-agent = { path = "../claw10-agent" }
-claw10-event = { path = "../claw10-event" }
-claw10-telemetry = { path = "../claw10-telemetry" }
-claw10-model-router = { path = "../claw10-model-router" }
-claw10-tool = { path = "../claw10-tool" }
+claw10-domain = { workspace = true }
+claw10-mission = { workspace = true }
+claw10-task = { workspace = true }
+claw10-lineage = { workspace = true }
+claw10-spawn = { workspace = true }
+claw10-budget = { workspace = true }
+claw10-lifecycle = { workspace = true }
+claw10-scheduler = { workspace = true }
+claw10-worker = { workspace = true }
+claw10-policy = { workspace = true }
+claw10-icvs = { workspace = true }
+claw10-memory = { workspace = true }
+claw10-gateway = { workspace = true }
+claw10-skill = { workspace = true }
+claw10-artifact = { workspace = true }
+claw10-store = { workspace = true }
+claw10-agent = { workspace = true }
+claw10-event = { workspace = true }
+claw10-telemetry = { workspace = true }
+claw10-model-router = { workspace = true }
+claw10-tool = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }

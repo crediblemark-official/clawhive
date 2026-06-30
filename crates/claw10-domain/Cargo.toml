@@ -2,6 +2,10 @@
 name = "claw10-domain"
 version.workspace = true
 edition = "2024"
+description = "Domain models and types for Claw10 OS"
+license.workspace = true
+authors.workspace = true
+repository = "https://github.com/crediblemark-official/claw10"
 
 [dependencies]
 serde = { workspace = true }

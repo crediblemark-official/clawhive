@@ -2,15 +2,19 @@
 name = "claw10-spawn"
 version.workspace = true
 edition = "2024"
+description = "Agent spawn broker for Claw10 OS"
+license.workspace = true
+authors.workspace = true
+repository = "https://github.com/crediblemark-official/claw10"
 
 [dependencies]
-claw10-domain = { path = "../claw10-domain" }
-claw10-auth = { path = "../claw10-auth" }
-claw10-budget = { path = "../claw10-budget" }
-claw10-lineage = { path = "../claw10-lineage" }
-claw10-store = { path = "../claw10-store" }
-claw10-agent = { path = "../claw10-agent" }
-claw10-event = { path = "../claw10-event" }
+claw10-domain = { workspace = true }
+claw10-auth = { workspace = true }
+claw10-budget = { workspace = true }
+claw10-lineage = { workspace = true }
+claw10-store = { workspace = true }
+claw10-agent = { workspace = true }
+claw10-event = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }

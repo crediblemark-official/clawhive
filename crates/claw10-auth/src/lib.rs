@@ -9,3 +9,7 @@ pub use credential::*;
 pub use error::*;
 pub use identity::*;
 pub use rbac::*;
+
+#[cfg(test)]
+mod lib_test;
+

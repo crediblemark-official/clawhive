@@ -2,9 +2,13 @@
 name = "claw10-tool"
 version.workspace = true
 edition = "2024"
+description = "Tool registry and built-in tools for Claw10 agents"
+license.workspace = true
+authors.workspace = true
+repository = "https://github.com/crediblemark-official/claw10"
 
 [dependencies]
-claw10-domain = { path = "../claw10-domain" }
+claw10-domain = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

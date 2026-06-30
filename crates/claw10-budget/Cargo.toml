@@ -2,9 +2,13 @@
 name = "claw10-budget"
 version.workspace = true
 edition = "2024"
+description = "Budget tracking for Claw10 agents"
+license.workspace = true
+authors.workspace = true
+repository = "https://github.com/crediblemark-official/claw10"
 
 [dependencies]
-claw10-domain = { path = "../claw10-domain" }
+claw10-domain = { workspace = true }
 serde = { workspace = true }
 chrono = { workspace = true }
 thiserror = { workspace = true }

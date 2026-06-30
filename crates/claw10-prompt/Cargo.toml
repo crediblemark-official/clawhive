@@ -2,11 +2,15 @@
 name = "claw10-prompt"
 version.workspace = true
 edition.workspace = true
+description = "Prompt assembly for Claw10 agents"
+license.workspace = true
+authors.workspace = true
+repository = "https://github.com/crediblemark-official/claw10"
 
 [dependencies]
-claw10-domain = { path = "../claw10-domain" }
-claw10-toon = { path = "../claw10-toon" }
-claw10-icvs = { path = "../claw10-icvs" }
+claw10-domain = { workspace = true }
+claw10-toon = { workspace = true }
+claw10-icvs = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }

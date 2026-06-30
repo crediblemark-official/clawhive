@@ -2,21 +2,25 @@
 name = "claw10"
 version.workspace = true
 edition = "2024"
+description = "Claw10 OS - Recursive Agent Swarm Operating System CLI"
+license.workspace = true
+authors.workspace = true
+repository = "https://github.com/crediblemark-official/claw10"
 
 [dependencies]
-claw10-domain = { path = "../claw10-domain" }
-claw10-control-api = { path = "../claw10-control-api" }
-claw10-mission = { path = "../claw10-mission" }
-claw10-task = { path = "../claw10-task" }
-claw10-lineage = { path = "../claw10-lineage" }
-claw10-spawn = { path = "../claw10-spawn" }
-claw10-budget = { path = "../claw10-budget" }
-claw10-store = { path = "../claw10-store" }
-claw10-tui = { path = "../claw10-tui" }
-claw10-model-router = { path = "../claw10-model-router" }
-claw10-agent = { path = "../claw10-agent" }
-claw10-worker = { path = "../claw10-worker" }
-claw10-tool = { path = "../claw10-tool" }
+claw10-domain = { workspace = true }
+claw10-control-api = { workspace = true }
+claw10-mission = { workspace = true }
+claw10-task = { workspace = true }
+claw10-lineage = { workspace = true }
+claw10-spawn = { workspace = true }
+claw10-budget = { workspace = true }
+claw10-store = { workspace = true }
+claw10-tui = { workspace = true }
+claw10-model-router = { workspace = true }
+claw10-agent = { workspace = true }
+claw10-worker = { workspace = true }
+claw10-tool = { workspace = true }
 reqwest = { workspace = true, features = ["blocking"] }
 axum = { workspace = true }
 clap = { workspace = true }

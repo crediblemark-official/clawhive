@@ -2,10 +2,14 @@
 name = "claw10-memory"
 version.workspace = true
 edition = "2024"
+description = "Memory service for Claw10 agents"
+license.workspace = true
+authors.workspace = true
+repository = "https://github.com/crediblemark-official/claw10"
 
 [dependencies]
-claw10-domain = { path = "../claw10-domain" }
-claw10-store = { path = "../claw10-store" }
+claw10-domain = { workspace = true }
+claw10-store = { workspace = true }
 async-trait = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true }

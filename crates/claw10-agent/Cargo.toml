@@ -2,18 +2,22 @@
 name = "claw10-agent"
 version.workspace = true
 edition = "2024"
+description = "Agent runtime and execution for Claw10 OS"
+license.workspace = true
+authors.workspace = true
+repository = "https://github.com/crediblemark-official/claw10"
 
 [dependencies]
-claw10-domain = { path = "../claw10-domain" }
-claw10-tool = { path = "../claw10-tool" }
-claw10-model-router = { path = "../claw10-model-router" }
-claw10-budget = { path = "../claw10-budget" }
-claw10-lifecycle = { path = "../claw10-lifecycle" }
-claw10-store = { path = "../claw10-store" }
-claw10-policy = { path = "../claw10-policy" }
-claw10-worker = { path = "../claw10-worker" }
-claw10-prompt = { path = "../claw10-prompt" }
-claw10-context = { path = "../claw10-context" }
+claw10-domain = { workspace = true }
+claw10-tool = { workspace = true }
+claw10-model-router = { workspace = true }
+claw10-budget = { workspace = true }
+claw10-lifecycle = { workspace = true }
+claw10-store = { workspace = true }
+claw10-policy = { workspace = true }
+claw10-worker = { workspace = true }
+claw10-prompt = { workspace = true }
+claw10-context = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
