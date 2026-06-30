@@ -624,67 +624,8 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
         frame.render_widget(black_block.clone(), horizontal_sidebar_layout[0]);
         frame.render_widget(black_block.clone(), horizontal_sidebar_layout[2]);
 
-        // Pisahkan area sidebar: accordion di atas, footer 2 baris di bawah
-        let sidebar_chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Min(0), Constraint::Length(2)])
-            .split(active_sidebar_area);
-
-        // Sidebar sebagai accordion vertikal: setiap tab jadi section,
-        // tab yang aktif di-expand, sisanya collapsed. Ini memanfaatkan
-        // tinggi layar sempit dengan tetap menampilkan semua tab.
-        draw_sidebar_accordion(frame, sidebar_chunks[0], app);
-
-        // Sidebar Footer
-        let current_dir = std::env::current_dir()
-            .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or_else(|_| "/home/rasyiqi/PROJECT/claw10".to_string());
-
-        // Pecah path agar kata "claw10" dicetak putih tebal
-        let (base_path, folder_name) = if current_dir.ends_with("/claw10") {
-            (
-                current_dir[..current_dir.len() - 8].to_string(),
-                "claw10".to_string(),
-            )
-        } else {
-            (current_dir.to_string(), "".to_string())
-        };
-
-        let repo_line = if folder_name.is_empty() {
-            Line::from(vec![
-                Span::styled(base_path, Style::default().fg(Color::Rgb(150, 150, 150)).bg(Color::Rgb(0, 0, 0))),
-                Span::styled(":master", Style::default().fg(Color::Rgb(255, 255, 255)).bg(Color::Rgb(0, 0, 0))),
-            ])
-        } else {
-            Line::from(vec![
-                Span::styled(base_path, Style::default().fg(Color::Rgb(150, 150, 150)).bg(Color::Rgb(0, 0, 0))),
-                Span::styled(
-                    folder_name,
-                    Style::default()
-                        .fg(Color::Rgb(255, 255, 255))
-                        .bg(Color::Rgb(0, 0, 0))
-                        .add_modifier(Modifier::BOLD),
-                ),
-                Span::styled(":master", Style::default().fg(Color::Rgb(150, 150, 150)).bg(Color::Rgb(0, 0, 0))),
-            ])
-        };
-
-        let footer_text = Paragraph::new(vec![
-            repo_line,
-            Line::from(vec![
-                Span::styled("● ", Style::default().fg(Color::Green).bg(Color::Rgb(0, 0, 0))),
-                Span::styled(
-                    "Claw10 ",
-                    Style::default()
-                        .fg(Color::Rgb(255, 255, 255))
-                        .bg(Color::Rgb(0, 0, 0))
-                        .add_modifier(Modifier::BOLD),
-                ),
-                Span::styled("0.1.0", Style::default().fg(Color::Rgb(200, 200, 200)).bg(Color::Rgb(0, 0, 0))),
-            ]),
-        ])
-        .style(Style::default().fg(Color::Rgb(255, 255, 255)).bg(Color::Rgb(0, 0, 0))); // Background hitam pekat
-        frame.render_widget(footer_text, sidebar_chunks[1]);
+        // Gambar sidebar accordion secara penuh pada active_sidebar_area
+        draw_sidebar_accordion(frame, active_sidebar_area, app);
     }
 }
 
@@ -700,15 +641,6 @@ fn draw_sidebar_accordion(frame: &mut Frame, area: Rect, app: &TuiApp) {
         Tab::Agents,
         Tab::Workers,
         Tab::SpawnRequests,
-        Tab::Missions,
-        Tab::Tasks,
-        Tab::Memory,
-        Tab::Approvals,
-        Tab::Costs,
-        Tab::Policies,
-        Tab::Skills,
-        Tab::Artifacts,
-        Tab::Incidents,
     ];
 
     // Bangun constraints: setiap tab collapsed = 1 baris header,
