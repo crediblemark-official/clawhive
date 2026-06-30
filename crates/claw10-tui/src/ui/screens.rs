@@ -118,9 +118,6 @@ pub fn draw_missions(frame: &mut Frame, area: Rect, app: &TuiApp) {
     .column_spacing(0)
     .block(
         Block::default()
-            .title(" Missions ")
-            .title_style(Style::default().fg(Color::Rgb(218, 165, 32)))
-            .title_alignment(Alignment::Center)
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Rgb(150, 120, 50))),
     );
@@ -176,9 +173,6 @@ pub fn draw_tasks(frame: &mut Frame, area: Rect, app: &TuiApp) {
     .column_spacing(0)
     .block(
         Block::default()
-            .title(" Tasks ")
-            .title_style(Style::default().fg(Color::Rgb(218, 165, 32)))
-            .title_alignment(Alignment::Center)
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Rgb(150, 120, 50))),
     );
@@ -233,9 +227,6 @@ pub fn draw_memory(frame: &mut Frame, area: Rect, app: &TuiApp) {
     .column_spacing(0)
     .block(
         Block::default()
-            .title(" Memory ")
-            .title_style(Style::default().fg(Color::Rgb(218, 165, 32)))
-            .title_alignment(Alignment::Center)
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Rgb(150, 120, 50))),
     );
@@ -290,9 +281,6 @@ pub fn draw_approvals(frame: &mut Frame, area: Rect, app: &TuiApp) {
     .column_spacing(0)
     .block(
         Block::default()
-            .title(" Tool Approvals ")
-            .title_style(Style::default().fg(Color::Rgb(218, 165, 32)))
-            .title_alignment(Alignment::Center)
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Rgb(150, 120, 50))),
     );
@@ -319,9 +307,6 @@ pub fn draw_costs(frame: &mut Frame, area: Rect, app: &TuiApp) {
     ])
     .block(
         Block::default()
-            .title(" Costs Summary ")
-            .title_style(Style::default().fg(Color::Rgb(218, 165, 32)))
-            .title_alignment(Alignment::Center)
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Rgb(150, 120, 50))),
     );
@@ -367,9 +352,6 @@ pub fn draw_costs(frame: &mut Frame, area: Rect, app: &TuiApp) {
     .column_spacing(0)
     .block(
         Block::default()
-            .title(" Agent Costs ")
-            .title_style(Style::default().fg(Color::Rgb(218, 165, 32)))
-            .title_alignment(Alignment::Center)
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Rgb(150, 120, 50))),
     );
@@ -429,9 +411,6 @@ pub fn draw_policies(frame: &mut Frame, area: Rect, app: &TuiApp) {
     .header(header)
     .block(
         Block::default()
-            .title(" Policies ")
-            .title_style(Style::default().fg(Color::Rgb(218, 165, 32)))
-            .title_alignment(Alignment::Center)
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Rgb(150, 120, 50))),
     );
@@ -486,9 +465,6 @@ pub fn draw_skills(frame: &mut Frame, area: Rect, app: &TuiApp) {
     .header(header)
     .block(
         Block::default()
-            .title(" Skills ")
-            .title_style(Style::default().fg(Color::Rgb(218, 165, 32)))
-            .title_alignment(Alignment::Center)
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Rgb(150, 120, 50))),
     );
@@ -548,9 +524,6 @@ pub fn draw_artifacts(frame: &mut Frame, area: Rect, app: &TuiApp) {
     .header(header)
     .block(
         Block::default()
-            .title(" Artifacts ")
-            .title_style(Style::default().fg(Color::Rgb(218, 165, 32)))
-            .title_alignment(Alignment::Center)
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Rgb(150, 120, 50))),
     );
@@ -603,9 +576,6 @@ pub fn draw_incidents(frame: &mut Frame, area: Rect, app: &TuiApp) {
     .header(header)
     .block(
         Block::default()
-            .title(" Incidents ")
-            .title_style(Style::default().fg(Color::Rgb(218, 165, 32)))
-            .title_alignment(Alignment::Center)
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Rgb(150, 120, 50))),
     );
