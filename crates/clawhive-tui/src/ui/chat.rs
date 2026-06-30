@@ -647,24 +647,7 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
         frame.render_widget(black_block.clone(), sidebar_chunks[2]);
 
         // Sidebar Header (Titel tab aktif dengan indikator navigasi)
-        let tab_titles = vec!["Sess", "Agents", "Pool", "Broker"];
-        let tabs = ratatui::widgets::Tabs::new(tab_titles)
-            .select(match app.selected_tab {
-                Tab::Session => 0,
-                Tab::Agents => 1,
-                Tab::Workers => 2,
-                Tab::SpawnRequests => 3,
-            })
-            .block(Block::default().borders(Borders::BOTTOM).border_style(Style::default().fg(Color::Rgb(200, 200, 200)).bg(Color::Rgb(0, 0, 0))))
-            .style(Style::default().fg(Color::Rgb(200, 200, 200)).bg(Color::Rgb(0, 0, 0)))
-            .highlight_style(
-                Style::default()
-                    .fg(Color::Rgb(218, 165, 32))
-                    .bg(Color::Rgb(0, 0, 0))
-                    .add_modifier(Modifier::BOLD),
-            )
-            .divider(" ");
-        frame.render_widget(tabs, sidebar_chunks[1]);
+        crate::ui::screens::draw_sidebar_tab_bar(frame, sidebar_chunks[1], app);
 
         // Render data list sidebar sesuai tab aktif
         match app.selected_tab {
@@ -788,6 +771,23 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
                         .style(Style::default().bg(Color::Rgb(0, 0, 0)));
                     frame.render_widget(list, sidebar_chunks[3]);
                 }
+            }
+            Tab::Missions
+            | Tab::Tasks
+            | Tab::Memory
+            | Tab::Approvals
+            | Tab::Costs
+            | Tab::Policies
+            | Tab::Skills
+            | Tab::Artifacts
+            | Tab::Logs
+            | Tab::Incidents => {
+                let p = Paragraph::new(Span::styled(
+                    "  Press Tab to open full screen.",
+                    Style::default().fg(Color::Rgb(150, 150, 150)).bg(Color::Rgb(0, 0, 0)),
+                ))
+                .style(Style::default().fg(Color::Rgb(255, 255, 255)).bg(Color::Rgb(0, 0, 0)));
+                frame.render_widget(p, sidebar_chunks[3]);
             }
         }
 

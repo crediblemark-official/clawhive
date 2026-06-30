@@ -125,7 +125,19 @@ impl Tool for SpawnTool {
             .map_err(|e| ToolError::Other(format!("gagal simpan spawn request: {e}")))?;
 
         // Loop memantau database untuk menunggu keputusan persetujuan user di TUI
+        let timeout = std::time::Duration::from_secs(300);
+        let start = std::time::Instant::now();
+        let mut interval_ms = 100_u64;
+        const MAX_INTERVAL_MS: u64 = 2000;
+
         loop {
+            if start.elapsed() > timeout {
+                return Ok(ToolOutput::fail(format!(
+                    "Spawn request untuk child '{}' timeout setelah 300 detik.",
+                    role
+                )));
+            }
+
             if let Ok(Some(current_req)) = self.kv_store.get::<SpawnRequest>(&key).await {
                 match current_req.state {
                     SpawnState::Completed => {
@@ -147,7 +159,8 @@ impl Tool for SpawnTool {
                     _ => {}
                 }
             }
-            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+            tokio::time::sleep(std::time::Duration::from_millis(interval_ms)).await;
+            interval_ms = (interval_ms * 2).min(MAX_INTERVAL_MS);
         }
     }
 }

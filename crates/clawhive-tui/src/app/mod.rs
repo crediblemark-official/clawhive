@@ -20,6 +20,16 @@ pub enum Tab {
     Agents,
     Workers,
     SpawnRequests,
+    Missions,
+    Tasks,
+    Memory,
+    Approvals,
+    Costs,
+    Policies,
+    Skills,
+    Artifacts,
+    Logs,
+    Incidents,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -27,6 +37,16 @@ pub enum Screen {
     Home,
     Chat,
     WorkspaceSelect,
+    Missions,
+    Tasks,
+    Memory,
+    Approvals,
+    Costs,
+    Policies,
+    Skills,
+    Artifacts,
+    Logs,
+    Incidents,
 }
 
 pub enum InputMode {
@@ -65,6 +85,15 @@ pub struct TuiApp {
     pub agents: Vec<Agent>,
     pub workers: Vec<Worker>,
     pub spawn_requests: Vec<SpawnRequest>,
+    pub missions: Vec<clawhive_domain::Mission>,
+    pub tasks: Vec<clawhive_domain::Task>,
+    pub memories: Vec<clawhive_domain::Memory>,
+    pub approvals: Vec<clawhive_domain::approval::ToolApprovalRequest>,
+    pub policies: Vec<clawhive_domain::PolicyBundle>,
+    pub skills: Vec<clawhive_domain::Skill>,
+    pub artifacts: Vec<clawhive_domain::Artifact>,
+    pub audit_events: Vec<clawhive_domain::AuditEvent>,
+    pub incidents: Vec<clawhive_domain::Incident>,
     pub selected_index: usize,
     pub selected_tab: Tab,
     pub should_quit: bool,
@@ -138,6 +167,15 @@ impl TuiApp {
             agents: Vec::new(),
             workers: Vec::new(),
             spawn_requests: Vec::new(),
+            missions: Vec::new(),
+            tasks: Vec::new(),
+            memories: Vec::new(),
+            approvals: Vec::new(),
+            policies: Vec::new(),
+            skills: Vec::new(),
+            artifacts: Vec::new(),
+            audit_events: Vec::new(),
+            incidents: Vec::new(),
             selected_index: 0,
             selected_tab: Tab::Session,
             should_quit: false,
@@ -274,7 +312,7 @@ impl TuiApp {
     }
 
     pub async fn refresh(&mut self) {
-        use clawhive_control_api::store::{AGENT_PREFIX, SPAWNREQ_PREFIX};
+        use clawhive_control_api::store::{AGENT_PREFIX, MISSION_PREFIX, SPAWNREQ_PREFIX, TASK_PREFIX};
         use clawhive_store::StoreExt;
 
         use clawhive_domain::{Agent, AgentState};
@@ -332,18 +370,105 @@ impl TuiApp {
             .map(|(_, r)| r)
             .collect();
 
-        // Deteksi pending tool approval
-        let approvals = self
+        // Load data untuk TUI screens baru (read-only list)
+        self.missions = self
+            .state
+            .kv_store
+            .scan_prefix::<clawhive_domain::Mission>(MISSION_PREFIX)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(_, m)| m)
+            .collect();
+
+        self.tasks = self
+            .state
+            .kv_store
+            .scan_prefix::<clawhive_domain::Task>(TASK_PREFIX)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(_, t)| t)
+            .collect();
+
+        self.memories = self
+            .state
+            .kv_store
+            .scan_prefix::<clawhive_domain::Memory>("memory:")
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(_, m)| m)
+            .collect();
+
+        self.approvals = self
             .state
             .kv_store
             .scan_prefix::<clawhive_domain::approval::ToolApprovalRequest>("tool_approval:")
             .await
-            .unwrap_or_default();
-        
-        self.pending_tool_approval = approvals
+            .unwrap_or_default()
             .into_iter()
-            .map(|(_, r)| r)
-            .find(|r| r.state == clawhive_domain::approval::ToolApprovalState::Pending);
+            .map(|(_, a)| a)
+            .collect();
+
+        self.policies = self
+            .state
+            .kv_store
+            .scan_prefix::<clawhive_domain::PolicyBundle>("policy:bundle:")
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(_, p)| p)
+            .collect();
+
+        self.skills = self
+            .state
+            .kv_store
+            .scan_prefix::<clawhive_domain::Skill>("skill:")
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(_, s)| s)
+            .collect();
+
+        self.artifacts = self
+            .state
+            .kv_store
+            .scan_prefix::<clawhive_domain::Artifact>("artifact:meta:")
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(_, a)| a)
+            .collect();
+
+        self.audit_events = self
+            .state
+            .kv_store
+            .scan_prefix::<clawhive_domain::AuditEvent>("audit:")
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(_, e)| e)
+            .collect();
+
+        // Incident tidak selalu disimpan dengan prefix di store saat ini.
+        // Jika ada, gunakan prefix "incident:"; jika tidak, tampilkan list kosong.
+        self.incidents = self
+            .state
+            .kv_store
+            .scan_prefix::<clawhive_domain::Incident>("incident:")
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(_, i)| i)
+            .collect();
+
+        // Deteksi pending tool approval
+        self.pending_tool_approval = self
+            .approvals
+            .iter()
+            .find(|r| r.state == clawhive_domain::approval::ToolApprovalState::Pending)
+            .cloned();
 
         if self.selected_index >= self.current_list_len() {
             self.selected_index = self.current_list_len().saturating_sub(1);
@@ -352,10 +477,38 @@ impl TuiApp {
 
     pub(crate) fn current_list_len(&self) -> usize {
         match self.selected_tab {
-            Tab::Session => 0,
+            Tab::Session => 1,
             Tab::Agents => self.agents.len(),
             Tab::Workers => self.workers.len(),
             Tab::SpawnRequests => self.spawn_requests.len(),
+            Tab::Missions => self.missions.len(),
+            Tab::Tasks => self.tasks.len(),
+            Tab::Memory => self.memories.len(),
+            Tab::Approvals => self.approvals.len(),
+            Tab::Costs => self.agents.len(),
+            Tab::Policies => self.policies.len(),
+            Tab::Skills => self.skills.len(),
+            Tab::Artifacts => self.artifacts.len(),
+            Tab::Logs => self.audit_events.len(),
+            Tab::Incidents => self.incidents.len(),
+        }
+    }
+
+    /// Map tab yang dipilih ke screen yang sesuai. Tab lama tetap di Chat
+    /// (sidebar), tab baru membuka screen full-page read-only.
+    pub(crate) fn screen_for_tab(tab: Tab) -> Screen {
+        match tab {
+            Tab::Session | Tab::Agents | Tab::Workers | Tab::SpawnRequests => Screen::Chat,
+            Tab::Missions => Screen::Missions,
+            Tab::Tasks => Screen::Tasks,
+            Tab::Memory => Screen::Memory,
+            Tab::Approvals => Screen::Approvals,
+            Tab::Costs => Screen::Costs,
+            Tab::Policies => Screen::Policies,
+            Tab::Skills => Screen::Skills,
+            Tab::Artifacts => Screen::Artifacts,
+            Tab::Logs => Screen::Logs,
+            Tab::Incidents => Screen::Incidents,
         }
     }
 
@@ -668,91 +821,150 @@ impl TuiApp {
         Some(agent_id)
     }
 
-    /// Deteksi spawn requests yang Approved, buat Agent baru di DB,
-    /// jalankan reasoning loop-nya, dan ubah state request ke Executed.
+    /// Deteksi spawn requests yang Approved, proses via SpawnBroker,
+    /// jalankan reasoning loop anak-anaknya, dan ubah state request ke Completed.
     pub(crate) async fn process_approved_spawns(&mut self) {
-        use clawhive_control_api::store::{AGENT_PREFIX, SPAWNREQ_PREFIX};
-        use clawhive_domain::{SpawnState, AgentId};
+            use clawhive_control_api::store::{AGENT_PREFIX, MISSION_PREFIX, SPAWNREQ_PREFIX};
+        use clawhive_domain::{Agent, Mission, SpawnState};
         use clawhive_store::StoreExt;
 
         let requests = self
             .state
             .kv_store
-            .scan_prefix::<SpawnRequest>(SPAWNREQ_PREFIX)
+            .scan_prefix::<clawhive_domain::SpawnRequest>(SPAWNREQ_PREFIX)
             .await
             .unwrap_or_default();
 
-
         for (key, mut req) in requests {
-            if req.state == SpawnState::Approved {
+            if req.state != SpawnState::Approved {
+                continue;
+            }
 
-                req.state = SpawnState::Completed;
+            // Resolve model profile sebelum passing ke broker
+            let mut resolved_req = req.clone();
+            for child in &mut resolved_req.children {
+                if child.model_profile == "default" {
+                    child.model_profile = self.active_model.clone();
+                }
+                child.model_profile = self.resolve_model_id_without_provider(&child.model_profile);
+            }
+
+            // Load parent agent
+            let parent_key = format!("{AGENT_PREFIX}{}", req.requested_by.0);
+            let Some(mut parent) = self.state.kv_store.get::<Agent>(&parent_key).await.unwrap_or_default() else {
+                tracing::warn!("Parent agent {} not found for spawn request {}", req.requested_by.0, req.id.0);
+                req.state = SpawnState::Failed;
                 req.updated_at = chrono::Utc::now();
                 let _ = self.state.kv_store.set(&key, &req).await;
+                continue;
+            };
 
-                // Eksekusi setiap anak di spec
-                for child in &req.children {
-                    let child_id = AgentId(uuid::Uuid::now_v7());
-                    let raw_model = if child.model_profile == "default" { &self.active_model } else { &child.model_profile };
-                    let resolved_model = self.resolve_model_id_without_provider(raw_model);
-                    let mut child_agent = crate::tui_agent::make_default_agent(
-                        child_id.clone(),
-                        &resolved_model,
-                        req.mission_id.clone(),
-                    );
-                    child_agent.name = format!("Child ({})", child.role);
-                    child_agent.role = child.role.clone();
-                    child_agent.parent_agent_id = Some(req.requested_by.clone());
-                    child_agent.budget.allocated_usd = child.budget_usd;
-                    child_agent.budget.hard_limit_usd = Some(child.budget_usd);
-                    child_agent.budget.soft_limit_usd = Some(child.budget_usd * 0.8);
+            // Load mission
+            let mission_key = format!("{MISSION_PREFIX}{}", req.mission_id.0);
+            let Some(mission) = self.state.kv_store.get::<Mission>(&mission_key).await.unwrap_or_default() else {
+                tracing::warn!("Mission {} not found for spawn request {}", req.mission_id.0, req.id.0);
+                req.state = SpawnState::Failed;
+                req.updated_at = chrono::Utc::now();
+                let _ = self.state.kv_store.set(&key, &req).await;
+                continue;
+            };
 
-                    // Simpan child agent ke DB
-                    let agent_key = format!("{AGENT_PREFIX}{}", child_id.0);
-                    let _ = self.state.kv_store.set(&agent_key, &child_agent).await;
+            // Load all agents untuk depth/swarm validation
+            let all_agents: Vec<Agent> = self
+                .state
+                .kv_store
+                .scan_prefix_unsorted::<Agent>(AGENT_PREFIX)
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .map(|(_, a)| a)
+                .collect();
 
-                    // Kirim info ke chat TUI
-                    self.chat_history.push((
-                        "System".to_string(),
-                        "".to_string(),
-                        format!(
-                            "Spawned child agent '{}' (role: {}) untuk objective: '{}'",
-                            child_agent.name, child_agent.role, child.objective
-                        ),
-                    ));
+            let current_depth = Self::calculate_spawn_depth(&req.requested_by, &all_agents);
 
-                    // Jalankan child agent jika runtime siap
-                    if let Some(runtime) = &self.agent_runtime {
-                        let runtime_clone = std::sync::Arc::clone(runtime);
-                        let objective = child.objective.clone();
-                        let (agent_tx, agent_rx) = tokio::sync::mpsc::unbounded_channel();
-                        
-                        // Set receiver ke TUI agar output streaming masuk ke UI chat
-                        self.agent_rx = Some(agent_rx);
-                        self.is_streaming = true;
-                        self.stream_status = Some(format!("Executing child agent {}...", child_agent.name));
+            // Proses via broker
+            match self
+                .state
+                .spawn_broker
+                .process_spawn_request(&mut parent, &mission, &resolved_req, &all_agents, current_depth)
+                .await
+            {
+                Ok(children) => {
+                    req.state = SpawnState::Completed;
+                    req.updated_at = chrono::Utc::now();
+                    let _ = self.state.kv_store.set(&key, &req).await;
 
-                        tokio::spawn(async move {
-                            let ctx = std::collections::HashMap::new();
-                            match runtime_clone.execute_agent_streaming(
-                                &child_id,
-                                objective,
-                                ctx,
-                                None,
-                                agent_tx.clone(),
-                            ).await {
-                                Ok(_) => {}
-                                Err(e) => {
+                    for (idx, child) in children.iter().enumerate() {
+                        let objective = req
+                            .children
+                            .get(idx)
+                            .map(|c| c.objective.clone())
+                            .unwrap_or_default();
+
+                        self.chat_history.push((
+                            "System".to_string(),
+                            "".to_string(),
+                            format!(
+                                "Spawned child agent '{}' (role: {}) untuk objective: '{}'",
+                                child.name, child.role, objective
+                            ),
+                        ));
+
+                        // Jalankan child agent jika runtime siap
+                        if let Some(runtime) = &self.agent_runtime {
+                            let runtime_clone = std::sync::Arc::clone(runtime);
+                            let child_id = child.id.clone();
+                            let (agent_tx, agent_rx) = tokio::sync::mpsc::unbounded_channel();
+
+                            // Set receiver ke TUI agar output streaming masuk ke UI chat
+                            self.agent_rx = Some(agent_rx);
+                            self.is_streaming = true;
+                            self.stream_status = Some(format!("Executing child agent {}...", child.name));
+
+                            tokio::spawn(async move {
+                                let ctx = std::collections::HashMap::new();
+                                if let Err(e) = runtime_clone
+                                    .execute_agent_streaming(&child_id, objective, ctx, None, agent_tx.clone())
+                                    .await
+                                {
                                     let _ = agent_tx.send(AgentEvent::Error {
                                         message: format!("Child Agent error: {e}"),
                                     });
                                 }
-                            }
-                        });
+                            });
+                        }
                     }
+                }
+                Err(e) => {
+                    tracing::warn!("Spawn broker failed for request {}: {e}", req.id.0);
+                    req.state = SpawnState::Failed;
+                    req.updated_at = chrono::Utc::now();
+                    let _ = self.state.kv_store.set(&key, &req).await;
+
+                    self.chat_history.push((
+                        "System".to_string(),
+                        "".to_string(),
+                        format!("Spawn request {} failed: {e}", req.id.0),
+                    ));
                 }
             }
         }
+    }
+
+    /// Hitung depth agen relatif terhadap root (parent=None).
+    fn calculate_spawn_depth(agent_id: &clawhive_domain::AgentId, agents: &[Agent]) -> u32 {
+        let mut depth = 0;
+        let mut current = agent_id.clone();
+        while let Some(agent) = agents.iter().find(|a| a.id == current) {
+            match &agent.parent_agent_id {
+                Some(pid) => {
+                    depth += 1;
+                    current = pid.clone();
+                }
+                None => break,
+            }
+        }
+        depth
     }
 }
 

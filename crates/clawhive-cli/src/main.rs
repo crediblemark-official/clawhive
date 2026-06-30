@@ -8,6 +8,8 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::Registry;
 
+mod telemetry_layer;
+
 #[derive(Parser)]
 #[command(
     name = "clawhive",
@@ -52,6 +54,12 @@ enum Commands {
     },
     /// Print version
     Version,
+    /// Initial setup wizard: create config file and workspace
+    Setup {
+        /// Force overwrite existing config
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 #[tokio::main]
@@ -62,6 +70,7 @@ async fn main() {
         Commands::Serve { tui, .. } => *tui,
         Commands::RunAgent { .. } => false,
         Commands::Version => false,
+        Commands::Setup { .. } => false,
     };
 
     // Ensure logs directory exists
@@ -80,6 +89,13 @@ async fn main() {
     let stderr_layer = tracing_subscriber::fmt::layer()
         .with_ansi(true);
 
+    // Layer 3: structured JSON telemetry log for Vector consumption.
+    // Only captures events with target "clawhive_telemetry".
+    let telemetry_appender = tracing_appender::rolling::daily("logs", "clawhive-telemetry.json");
+    let (telemetry_non_blocking, _telemetry_guard) =
+        tracing_appender::non_blocking(telemetry_appender);
+    let telemetry_layer = telemetry_layer::TelemetryLayer::new(telemetry_non_blocking);
+
     let env_filter =
         tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into());
 
@@ -87,12 +103,14 @@ async fn main() {
         Registry::default()
             .with(env_filter)
             .with(file_layer)
+            .with(telemetry_layer)
             .init();
     } else {
         Registry::default()
             .with(env_filter)
             .with(file_layer)
             .with(stderr_layer)
+            .with(telemetry_layer)
             .init();
     }
 
@@ -151,6 +169,16 @@ async fn main() {
             } else {
                 // 2. Fallback: env var → KV store for every known provider
                 for config in clawhive_model_router::providers::provider_configs() {
+                    // Native providers (e.g. Bedrock) are registered via their factory.
+                    if let Some(factory) = config.factory {
+                        let name = config.name.to_string();
+                        if !registry.list_providers().contains(&name) {
+                            tracing::info!("registering native provider: {}", name);
+                            registry.register(factory());
+                        }
+                        continue;
+                    }
+
                     let key = match std::env::var(config.api_key_env) {
                         Ok(k) if !k.is_empty() => Some(k),
                         _ => {
@@ -272,6 +300,15 @@ async fn main() {
                 registry.register_resolved_providers(resolved);
             } else {
                 for config in clawhive_model_router::providers::provider_configs() {
+                    // Native providers (e.g. Bedrock) are registered via their factory.
+                    if let Some(factory) = config.factory {
+                        let name = config.name.to_string();
+                        if !registry.list_providers().contains(&name) {
+                            registry.register(factory());
+                        }
+                        continue;
+                    }
+
                     let key = match std::env::var(config.api_key_env) {
                         Ok(k) if !k.is_empty() => Some(k),
                         _ => {
@@ -343,7 +380,6 @@ async fn main() {
                     let new_agent = clawhive_domain::Agent {
                         id: clawhive_domain::AgentId(uuid::Uuid::now_v7()),
                         identity_id: clawhive_domain::IdentityId(uuid::Uuid::now_v7()),
-                        organization_id: clawhive_domain::OrganizationId(uuid::Uuid::now_v7()),
                         mission_id: clawhive_domain::MissionId(uuid::Uuid::now_v7()),
                         parent_agent_id: None,
                         lineage_id: clawhive_domain::LineageId(uuid::Uuid::now_v7()),
@@ -474,5 +510,135 @@ async fn main() {
                 }
             }
         }
+        Commands::Setup { force } => {
+            if let Err(e) = run_setup_wizard(force).await {
+                eprintln!("Setup failed: {e}");
+                std::process::exit(1);
+            }
+        }
     }
+}
+
+async fn run_setup_wizard(force: bool) -> Result<(), Box<dyn std::error::Error>> {
+    use std::io::Write;
+
+    println!("=== ClawHive OS Setup Wizard ===\n");
+
+    let config_dir = dirs::config_dir()
+        .map(|p| p.join("clawhive"))
+        .unwrap_or_else(|| {
+            let home = std::env::var("HOME")
+                .or_else(|_| std::env::var("USERPROFILE"))
+                .unwrap_or_else(|_| ".".into());
+            std::path::PathBuf::from(home).join(".config").join("clawhive")
+        });
+
+    let config_path = config_dir.join("config.toml");
+    let local_config_path = std::path::PathBuf::from("clawhive.toml");
+
+    let target_path = if local_config_path.exists() || config_path.exists() {
+        println!("Config file found at:");
+        if local_config_path.exists() {
+            println!("  - {}", local_config_path.display());
+        }
+        if config_path.exists() {
+            println!("  - {}", config_path.display());
+        }
+        if !force {
+            print!("\nOverwrite existing config? [y/N]: ");
+            std::io::stdout().flush()?;
+            let mut answer = String::new();
+            std::io::stdin().read_line(&mut answer)?;
+            if !answer.trim().eq_ignore_ascii_case("y") {
+                println!("Setup cancelled.");
+                return Ok(());
+            }
+        }
+        &config_path
+    } else {
+        &config_path
+    };
+
+    std::fs::create_dir_all(target_path.parent().unwrap())?;
+
+    println!("\nChoose your default model provider:");
+    println!("  1) OpenAI (gpt-4o-mini)");
+    println!("  2) Anthropic (claude-3-5-haiku)");
+    println!("  3) OpenRouter (openai/gpt-4o-mini)");
+    println!("  4) Groq (llama-3.1-70b-versatile)");
+    println!("  5) Custom / Skip");
+    print!("Selection [1-5, default 1]: ");
+    std::io::stdout().flush()?;
+
+    let mut choice = String::new();
+    std::io::stdin().read_line(&mut choice)?;
+    let choice = choice.trim();
+
+    let (slot, model, env_var) = match choice {
+        "2" => ("anthropic", "claude-3-5-haiku", "ANTHROPIC_API_KEY"),
+        "3" => ("openrouter", "openai/gpt-4o-mini", "OPENROUTER_API_KEY"),
+        "4" => ("groq", "llama-3.1-70b-versatile", "GROQ_API_KEY"),
+        "5" | "" => {
+            println!("\nSkipping provider configuration.");
+            println!("You can edit {} later.", target_path.display());
+            write_default_config(target_path)?;
+            return Ok(());
+        }
+        _ => ("openai", "gpt-4o-mini", "OPENAI_API_KEY"),
+    };
+
+    println!("\nEnter your {env_var} (input hidden):");
+    print!("{env_var}: ");
+    std::io::stdout().flush()?;
+
+    let api_key = rpassword::read_password()?.trim().to_string();
+
+    if api_key.is_empty() {
+        println!("Warning: empty API key. You can set it later via environment variable {env_var}.");
+    }
+
+    let config = format!(
+        "# ClawHive OS configuration\n\
+         # Generated by `clawhive setup`\n\n\
+         [alias.default]\n\
+         slot = \"{slot}\"\n\
+         model = \"{model}\"\n\
+         api_key = \"${env_var}\"\n\n\
+         # Example fallback\n\
+         # fallback = \"cheap\"\n\n\
+         # [alias.cheap]\n\
+         # slot = \"openai\"\n\
+         # model = \"gpt-4o-mini\"\n\
+         # api_key = \"$OPENAI_API_KEY\"\n"
+    );
+
+    std::fs::write(target_path, config)?;
+
+    println!("\nConfig written to: {}", target_path.display());
+    println!("Make sure to set your API key:");
+    println!("  export {env_var}=\"your-key-here\"");
+    println!("\nYou can now run:");
+    println!("  clawhive serve --tui");
+
+    Ok(())
+}
+
+fn write_default_config(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+    let config = r#"# ClawHive OS configuration
+# Generated by `clawhive setup`
+
+# Example alias:
+# [alias.default]
+# slot = "openai"
+# model = "gpt-4o-mini"
+# api_key = "$OPENAI_API_KEY"
+
+# [alias.cheap]
+# slot = "openai"
+# model = "gpt-4o-mini"
+# api_key = "$OPENAI_API_KEY"
+"#;
+    std::fs::write(path, config)?;
+    println!("\nDefault config written to: {}", path.display());
+    Ok(())
 }

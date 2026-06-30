@@ -15,7 +15,6 @@ use clawhive_domain::{
     budget::Budget,
     identity::IdentityId,
     lineage::LineageId,
-    organization::OrganizationId,
 };
 use clawhive_model_router::router::ModelRouter;
 use clawhive_tool::registry::ToolRegistry;
@@ -76,7 +75,6 @@ pub fn make_default_agent(agent_id: AgentId, model_id: &str, mission_id: Mission
     Agent {
         id: agent_id,
         identity_id: IdentityId(uuid::Uuid::nil()),
-        organization_id: OrganizationId(uuid::Uuid::nil()),
         mission_id,
         parent_agent_id: None,
         lineage_id: LineageId(uuid::Uuid::now_v7()),

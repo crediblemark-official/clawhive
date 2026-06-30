@@ -43,6 +43,15 @@ impl TuiApp {
         } else {
             // No config file — fallback: env var → KV store (global_store) for each built-in provider
             for config in clawhive_model_router::providers::provider_configs() {
+                // Native providers (e.g. Bedrock) are registered via their factory.
+                if let Some(factory) = config.factory {
+                    let name = config.name.to_string();
+                    if !registry.list_providers().contains(&name) {
+                        registry.register(factory());
+                    }
+                    continue;
+                }
+
                 let key = match std::env::var(config.api_key_env) {
                     Ok(k) if !k.is_empty() => Some(k),
                     _ => {

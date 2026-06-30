@@ -3,17 +3,32 @@ use ratatui::{layout::Rect, Frame};
 pub mod chat;
 pub mod components;
 pub mod home;
+pub mod screens;
 
 use crate::app::{CommandMode, Screen, TuiApp};
 use crate::ui::chat::draw_chat;
 use crate::ui::components::{draw_apikey_input, draw_command_palette, draw_model_selection};
 use crate::ui::home::draw_home;
+use crate::ui::screens::{
+    draw_approvals, draw_artifacts, draw_costs, draw_incidents, draw_logs, draw_memory,
+    draw_missions, draw_policies, draw_skills, draw_tasks,
+};
 
 pub fn draw(frame: &mut Frame, area: Rect, app: &TuiApp) {
     match app.active_screen {
         Screen::Home => draw_home(frame, area, app),
         Screen::WorkspaceSelect => draw_home(frame, area, app),
         Screen::Chat => draw_chat(frame, area, app),
+        Screen::Missions => draw_missions(frame, area, app),
+        Screen::Tasks => draw_tasks(frame, area, app),
+        Screen::Memory => draw_memory(frame, area, app),
+        Screen::Approvals => draw_approvals(frame, area, app),
+        Screen::Costs => draw_costs(frame, area, app),
+        Screen::Policies => draw_policies(frame, area, app),
+        Screen::Skills => draw_skills(frame, area, app),
+        Screen::Artifacts => draw_artifacts(frame, area, app),
+        Screen::Logs => draw_logs(frame, area, app),
+        Screen::Incidents => draw_incidents(frame, area, app),
     }
 
     // Render modals di atas layar apa pun jika aktif

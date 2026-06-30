@@ -315,6 +315,60 @@ impl TuiApp {
                             return;
                         }
 
+                        // ── Read-only list screens handler ────────────────────────────────────
+                        if matches!(
+                            self.active_screen,
+                            Screen::Missions
+                                | Screen::Tasks
+                                | Screen::Memory
+                                | Screen::Approvals
+                                | Screen::Costs
+                                | Screen::Policies
+                                | Screen::Skills
+                                | Screen::Artifacts
+                                | Screen::Logs
+                                | Screen::Incidents
+                        ) {
+                            match key.code {
+                                KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('Q') => {
+                                    self.active_screen = Screen::Home;
+                                }
+                                KeyCode::Up => {
+                                    if self.selected_index > 0 {
+                                        self.selected_index -= 1;
+                                    }
+                                }
+                                KeyCode::Down => {
+                                    let max = self.current_list_len().saturating_sub(1);
+                                    if self.selected_index < max {
+                                        self.selected_index += 1;
+                                    }
+                                }
+                                KeyCode::Tab => {
+                                    self.selected_tab = match self.selected_tab {
+                                        Tab::Session => Tab::Agents,
+                                        Tab::Agents => Tab::Workers,
+                                        Tab::Workers => Tab::SpawnRequests,
+                                        Tab::SpawnRequests => Tab::Missions,
+                                        Tab::Missions => Tab::Tasks,
+                                        Tab::Tasks => Tab::Memory,
+                                        Tab::Memory => Tab::Approvals,
+                                        Tab::Approvals => Tab::Costs,
+                                        Tab::Costs => Tab::Policies,
+                                        Tab::Policies => Tab::Skills,
+                                        Tab::Skills => Tab::Artifacts,
+                                        Tab::Artifacts => Tab::Logs,
+                                        Tab::Logs => Tab::Incidents,
+                                        Tab::Incidents => Tab::Session,
+                                    };
+                                    self.selected_index = 0;
+                                    self.active_screen = crate::app::TuiApp::screen_for_tab(self.selected_tab);
+                                }
+                                _ => {}
+                            }
+                            return;
+                        }
+
                         // Standard Input / Navigation handling
                         match key.code {
                             KeyCode::Enter => {
@@ -507,9 +561,20 @@ impl TuiApp {
                                     Tab::Session => Tab::Agents,
                                     Tab::Agents => Tab::Workers,
                                     Tab::Workers => Tab::SpawnRequests,
-                                    Tab::SpawnRequests => Tab::Session,
+                                    Tab::SpawnRequests => Tab::Missions,
+                                    Tab::Missions => Tab::Tasks,
+                                    Tab::Tasks => Tab::Memory,
+                                    Tab::Memory => Tab::Approvals,
+                                    Tab::Approvals => Tab::Costs,
+                                    Tab::Costs => Tab::Policies,
+                                    Tab::Policies => Tab::Skills,
+                                    Tab::Skills => Tab::Artifacts,
+                                    Tab::Artifacts => Tab::Logs,
+                                    Tab::Logs => Tab::Incidents,
+                                    Tab::Incidents => Tab::Session,
                                 };
                                 self.selected_index = 0;
+                                self.active_screen = crate::app::TuiApp::screen_for_tab(self.selected_tab);
                             }
                             KeyCode::Up => {
                                 if self.active_screen == Screen::Chat && !self.active_suggestions.is_empty() {

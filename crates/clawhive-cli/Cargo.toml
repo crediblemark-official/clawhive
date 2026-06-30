@@ -6,8 +6,6 @@ edition = "2024"
 [dependencies]
 clawhive-domain = { path = "../clawhive-domain" }
 clawhive-control-api = { path = "../clawhive-control-api" }
-clawhive-auth = { path = "../clawhive-auth" }
-clawhive-organization = { path = "../clawhive-organization" }
 clawhive-mission = { path = "../clawhive-mission" }
 clawhive-task = { path = "../clawhive-task" }
 clawhive-lineage = { path = "../clawhive-lineage" }
@@ -25,6 +23,8 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-appender = { workspace = true }
+rpassword = { workspace = true }
+dirs = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }

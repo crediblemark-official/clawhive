@@ -287,25 +287,33 @@ Type any message to start a chat with the active model.",
             }
             "goto" => {
                 if parts.len() < 2 {
-                    "Usage: :goto <agents|workers|spawn>".into()
+                    "Usage: :goto <agents|workers|spawn|missions|tasks|memory|approvals|costs|policies|skills|artifacts|logs|incidents>".into()
                 } else {
-                    match parts[1] {
-                        "agents" => {
-                            self.selected_tab = Tab::Agents;
+                    let target = parts[1];
+                    let maybe_tab = match target {
+                        "agents" => Some((Tab::Agents, "Agents")),
+                        "workers" => Some((Tab::Workers, "Workers")),
+                        "spawn" => Some((Tab::SpawnRequests, "Spawn Requests")),
+                        "missions" => Some((Tab::Missions, "Missions")),
+                        "tasks" => Some((Tab::Tasks, "Tasks")),
+                        "memory" => Some((Tab::Memory, "Memory")),
+                        "approvals" => Some((Tab::Approvals, "Approvals")),
+                        "costs" => Some((Tab::Costs, "Costs")),
+                        "policies" => Some((Tab::Policies, "Policies")),
+                        "skills" => Some((Tab::Skills, "Skills")),
+                        "artifacts" => Some((Tab::Artifacts, "Artifacts")),
+                        "logs" => Some((Tab::Logs, "Logs")),
+                        "incidents" => Some((Tab::Incidents, "Incidents")),
+                        _ => None,
+                    };
+                    match maybe_tab {
+                        Some((tab, label)) => {
+                            self.selected_tab = tab;
                             self.selected_index = 0;
-                            "Switched to Agents".into()
+                            self.active_screen = crate::app::TuiApp::screen_for_tab(tab);
+                            format!("Switched to {label}")
                         }
-                        "workers" => {
-                            self.selected_tab = Tab::Workers;
-                            self.selected_index = 0;
-                            "Switched to Workers".into()
-                        }
-                        "spawn" => {
-                            self.selected_tab = Tab::SpawnRequests;
-                            self.selected_index = 0;
-                            "Switched to Spawn Requests".into()
-                        }
-                        other => format!("Unknown tab: {other}"),
+                        None => format!("Unknown tab: {target}"),
                     }
                 }
             }
