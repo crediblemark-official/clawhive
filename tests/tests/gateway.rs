@@ -3,16 +3,16 @@ use std::sync::Arc;
 
 use uuid::Uuid;
 
-use clawhive_domain::{ChannelType, IdentityId};
-use clawhive_gateway::{GatewayService, Message};
-use clawhive_store::InMemoryStore;
+use claw10_domain::{ChannelType, IdentityId};
+use claw10_gateway::{GatewayService, Message};
+use claw10_store::InMemoryStore;
 
 fn make_identity() -> IdentityId {
     IdentityId(Uuid::now_v7())
 }
 
 fn make_svc() -> GatewayService {
-    let store = Arc::new(InMemoryStore::new()) as Arc<dyn clawhive_store::Store>;
+    let store = Arc::new(InMemoryStore::new()) as Arc<dyn claw10_store::Store>;
     GatewayService::new(store)
 }
 
@@ -84,7 +84,7 @@ async fn test_create_session() {
         .unwrap();
 
     assert_eq!(session.identity_id, identity);
-    assert_eq!(session.state, clawhive_domain::SessionState::Active);
+    assert_eq!(session.state, claw10_domain::SessionState::Active);
     assert!(session.expires_at > session.created_at);
 }
 
@@ -113,7 +113,7 @@ async fn test_terminate_session() {
     svc.terminate_session(&session.id).await.unwrap();
     assert_eq!(
         svc.get_session(&session.id).await.unwrap().unwrap().state,
-        clawhive_domain::SessionState::Terminated
+        claw10_domain::SessionState::Terminated
     );
 }
 

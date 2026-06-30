@@ -1,0 +1,13 @@
+[package]
+name = "claw10-store"
+version.workspace = true
+edition = "2024"
+
+[dependencies]
+claw10-domain = { path = "../claw10-domain" }
+sled.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+async-trait.workspace = true
+tokio.workspace = true
+thiserror.workspace = true

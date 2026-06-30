@@ -1,8 +1,8 @@
-# ClawHive OS
+# Claw10 OS
 
 **Recursive, Persistent, and Ephemeral Agent Swarm Operating System**
 
-ClawHive OS adalah sistem operasi untuk kawanan agen AI yang dapat merekrut agen baru secara rekursif, memiliki siklus hidup persisten maupun ephemeral, serta dikontrol melalui API HTTP, TUI (Terminal User Interface), dan CLI.
+Claw10 OS adalah sistem operasi untuk kawanan agen AI yang dapat merekrut agen baru secara rekursif, memiliki siklus hidup persisten maupun ephemeral, serta dikontrol melalui API HTTP, TUI (Terminal User Interface), dan CLI.
 
 **Status:** Core runtime, TUI, API, model router, dan control-plane sudah berfungsi. Proyek ini dioptimalkan untuk **single-user, local-first** deployment.
 
@@ -38,26 +38,26 @@ ClawHive OS adalah sistem operasi untuk kawanan agen AI yang dapat merekrut agen
 
 ### One-line installer
 
-> `clawhive.dev` belum aktif. Gunakan URL GitHub raw di bawah, atau host script `install.sh` / `install.ps1` di domainmu sendiri.
+> `claw10.dev` belum aktif. Gunakan URL GitHub raw di bawah, atau host script `install.sh` / `install.ps1` di domainmu sendiri.
 
 **Linux / macOS / WSL / VPS:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/crediblemark-official/clawhive/master/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/crediblemark-official/claw10/master/install.sh | sh
 ```
 
 **Windows PowerShell:**
 
 ```powershell
-irm https://raw.githubusercontent.com/crediblemark-official/clawhive/master/install.ps1 | iex
+irm https://raw.githubusercontent.com/crediblemark-official/claw10/master/install.ps1 | iex
 ```
 
 **Build dari source:**
 
 ```bash
-git clone https://github.com/crediblemark-official/clawhive.git
-cd clawhive
-cargo install --path crates/clawhive-cli
+git clone https://github.com/crediblemark-official/claw10.git
+cd claw10
+cargo install --path crates/claw10-cli
 ```
 
 ### Update
@@ -65,32 +65,32 @@ cargo install --path crates/clawhive-cli
 **Linux / macOS / WSL / VPS:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/crediblemark-official/clawhive/master/update.sh | sh
+curl -fsSL https://raw.githubusercontent.com/crediblemark-official/claw10/master/update.sh | sh
 ```
 
 **Windows PowerShell:**
 
 ```powershell
-irm https://raw.githubusercontent.com/crediblemark-official/clawhive/master/update.ps1 | iex
+irm https://raw.githubusercontent.com/crediblemark-official/claw10/master/update.ps1 | iex
 ```
 
-Updater akan menimpa binary dengan versi terbaru dari GitHub release tanpa menghapus konfigurasi dan data di `~/.clawhive`.
+Updater akan menimpa binary dengan versi terbaru dari GitHub release tanpa menghapus konfigurasi dan data di `~/.claw10`.
 
 ### Uninstall
 
 **Linux / macOS / WSL / VPS:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/crediblemark-official/clawhive/master/uninstall.sh | sh
+curl -fsSL https://raw.githubusercontent.com/crediblemark-official/claw10/master/uninstall.sh | sh
 ```
 
 **Windows PowerShell:**
 
 ```powershell
-irm https://raw.githubusercontent.com/crediblemark-official/clawhive/master/uninstall.ps1 | iex
+irm https://raw.githubusercontent.com/crediblemark-official/claw10/master/uninstall.ps1 | iex
 ```
 
-Uninstaller akan menghapus binary, direktori `~/.clawhive`, dan entri PATH yang ditambahkan oleh installer.
+Uninstaller akan menghapus binary, direktori `~/.claw10`, dan entri PATH yang ditambahkan oleh installer.
 
 ---
 
@@ -99,15 +99,15 @@ Uninstaller akan menghapus binary, direktori `~/.clawhive`, dan entri PATH yang 
 ### 1. Setup awal
 
 ```bash
-clawhive setup
+claw10 setup
 ```
 
-Wizard akan membuat file konfigurasi di `~/.clawhive/config.toml` (atau `./clawhive.toml`) dan meminta API key provider LLM pilihanmu.
+Wizard akan membuat file konfigurasi di `~/.claw10/config.toml` (atau `./claw10.toml`) dan meminta API key provider LLM pilihanmu.
 
 ### 2. Jalankan server + TUI
 
 ```bash
-clawhive serve --tui
+claw10 serve --tui
 ```
 
 - API server berjalan di `http://0.0.0.0:3000`
@@ -116,26 +116,26 @@ clawhive serve --tui
 ### 3. Jalankan agent headless
 
 ```bash
-clawhive run-agent --objective "buat file hello.txt"
+claw10 run-agent --objective "buat file hello.txt"
 ```
 
 ### 4. Dengan persistent store
 
 ```bash
-clawhive serve --db /tmp/clawhive.sled --tui
+claw10 serve --db /tmp/claw10.sled --tui
 ```
 
 ### 5. Dengan NATS event bus
 
 ```bash
-NATS_URL=nats://localhost:4222 clawhive serve --features nats -- serve
+NATS_URL=nats://localhost:4222 claw10 serve --features nats -- serve
 ```
 
 ---
 
 ## Konfigurasi Provider LLM
 
-File konfigurasi menggunakan format TOML. Contoh `~/.clawhive/config.toml`:
+File konfigurasi menggunakan format TOML. Contoh `~/.claw10/config.toml`:
 
 ```toml
 [alias.default]
@@ -168,41 +168,41 @@ Workspace terdiri dari 29 crate:
 
 ```
 crates/
-├── clawhive-cli              # Entry point binary
-├── clawhive-control-api      # HTTP API (axum)
-├── clawhive-tui              # Terminal UI (ratatui)
-├── clawhive-agent            # Agent runtime & executor
-├── clawhive-model-router     # Multi-provider LLM routing
-├── clawhive-tool             # Tool system
-├── clawhive-store            # Store abstraction (InMemory + Sled)
-├── clawhive-domain           # Domain types
-├── clawhive-spawn            # Spawn broker & validator
-├── clawhive-lifecycle        # Agent lifecycle
-├── clawhive-worker           # Worker registry
-├── clawhive-scheduler        # Schedule service
-├── clawhive-memory           # Memory service + admission pipeline
-├── clawhive-policy           # Policy engine
-├── clawhive-gateway          # Omnichannel gateway
-├── clawhive-event            # Event bus (InMemory + NATS)
-├── clawhive-prompt           # Prompt assembly & ICVS
-├── clawhive-toon             # Context serialization format
-├── clawhive-icvs             # ICVS policy/prompt compiler
-├── clawhive-auth             # Agent identity & credential (internal, used by spawn)
-├── clawhive-mission          # Mission service
-├── clawhive-task             # Task service
-├── clawhive-lineage          # Lineage tracking
-├── clawhive-skill            # Skill lifecycle
-├── clawhive-artifact         # Artifact storage
-├── clawhive-context          # Context pipeline
-├── clawhive-budget           # Budget service
-└── clawhive-telemetry        # Telemetry events
+├── claw10-cli              # Entry point binary
+├── claw10-control-api      # HTTP API (axum)
+├── claw10-tui              # Terminal UI (ratatui)
+├── claw10-agent            # Agent runtime & executor
+├── claw10-model-router     # Multi-provider LLM routing
+├── claw10-tool             # Tool system
+├── claw10-store            # Store abstraction (InMemory + Sled)
+├── claw10-domain           # Domain types
+├── claw10-spawn            # Spawn broker & validator
+├── claw10-lifecycle        # Agent lifecycle
+├── claw10-worker           # Worker registry
+├── claw10-scheduler        # Schedule service
+├── claw10-memory           # Memory service + admission pipeline
+├── claw10-policy           # Policy engine
+├── claw10-gateway          # Omnichannel gateway
+├── claw10-event            # Event bus (InMemory + NATS)
+├── claw10-prompt           # Prompt assembly & ICVS
+├── claw10-toon             # Context serialization format
+├── claw10-icvs             # ICVS policy/prompt compiler
+├── claw10-auth             # Agent identity & credential (internal, used by spawn)
+├── claw10-mission          # Mission service
+├── claw10-task             # Task service
+├── claw10-lineage          # Lineage tracking
+├── claw10-skill            # Skill lifecycle
+├── claw10-artifact         # Artifact storage
+├── claw10-context          # Context pipeline
+├── claw10-budget           # Budget service
+└── claw10-telemetry        # Telemetry events
 ```
 
 ---
 
 ## Catatan Hardware / Embedded
 
-ClawHive OS saat ini **tidak memiliki hardware subsystem**. Dukungan untuk board seperti Arduino Uno Q, STM32 Nucleo, Raspberry Pi, Android, Aardvark, dan abstraksi `Peripheral` trait belum diimplementasikan. Menambahkan HAL (Hardware Abstraction Layer) merupakan pekerjaan besar tersendiri yang memerlukan crate baru dan adapter per board.
+Claw10 OS saat ini **tidak memiliki hardware subsystem**. Dukungan untuk board seperti Arduino Uno Q, STM32 Nucleo, Raspberry Pi, Android, Aardvark, dan abstraksi `Peripheral` trait belum diimplementasikan. Menambahkan HAL (Hardware Abstraction Layer) merupakan pekerjaan besar tersendiri yang memerlukan crate baru dan adapter per board.
 
 ---
 

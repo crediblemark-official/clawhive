@@ -1,9 +1,9 @@
 use uuid::Uuid;
 
-use clawhive_domain::{
+use claw10_domain::{
     PolicyBundle, PolicyBundleId, PolicyEffect, PolicyRule, PolicyRuleId, PolicySubject,
 };
-use clawhive_policy::PolicyService;
+use claw10_policy::PolicyService;
 
 fn make_rule(
     id: u128,

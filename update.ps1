@@ -1,18 +1,18 @@
-# ClawHive OS — Windows updater (PowerShell)
+# Claw10 OS — Windows updater (PowerShell)
 # Usage:
-#   irm https://raw.githubusercontent.com/crediblemark-official/clawhive/master/update.ps1 | iex
+#   irm https://raw.githubusercontent.com/crediblemark-official/claw10/master/update.ps1 | iex
 #
 # This script downloads and runs the latest install.ps1, preserving your
-# existing %USERPROFILE%\.clawhive configuration and data.
+# existing %USERPROFILE%\.claw10 configuration and data.
 
 $ErrorActionPreference = "Stop"
 
-$Repo = "crediblemark-official/clawhive"
+$Repo = "crediblemark-official/claw10"
 $InstallScript = "https://raw.githubusercontent.com/$Repo/master/install.ps1"
-$InstallDir = if ($env:CLAWHIVE_INSTALL_DIR) { $env:CLAWHIVE_INSTALL_DIR } else { "$env:LOCALAPPDATA\ClawHive\bin" }
-$Binary = Join-Path $InstallDir "clawhive.exe"
+$InstallDir = if ($env:CLAW10_INSTALL_DIR) { $env:CLAW10_INSTALL_DIR } else { "$env:LOCALAPPDATA\Claw10\bin" }
+$Binary = Join-Path $InstallDir "claw10.exe"
 
-Write-Host "ClawHive OS Updater"
+Write-Host "Claw10 OS Updater"
 Write-Host "===================="
 Write-Host ""
 
@@ -24,7 +24,7 @@ if (Test-Path $Binary) {
         Write-Host "Current version: unknown"
     }
 } else {
-    Write-Host "ClawHive is not currently installed."
+    Write-Host "Claw10 is not currently installed."
     Write-Host "Run the installer instead:"
     Write-Host "  irm $InstallScript | iex"
     exit 1
@@ -45,4 +45,4 @@ if (Test-Path $Binary) {
         Write-Host "Updated successfully."
     }
 }
-Write-Host "Your config and data in %USERPROFILE%\.clawhive have been preserved."
+Write-Host "Your config and data in %USERPROFILE%\.claw10 have been preserved."

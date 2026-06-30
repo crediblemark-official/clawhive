@@ -1,0 +1,24 @@
+[package]
+name = "claw10-agent"
+version.workspace = true
+edition = "2024"
+
+[dependencies]
+claw10-domain = { path = "../claw10-domain" }
+claw10-tool = { path = "../claw10-tool" }
+claw10-model-router = { path = "../claw10-model-router" }
+claw10-budget = { path = "../claw10-budget" }
+claw10-lifecycle = { path = "../claw10-lifecycle" }
+claw10-store = { path = "../claw10-store" }
+claw10-policy = { path = "../claw10-policy" }
+claw10-worker = { path = "../claw10-worker" }
+claw10-prompt = { path = "../claw10-prompt" }
+claw10-context = { path = "../claw10-context" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+async-trait = "0.1"
+tokio = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }

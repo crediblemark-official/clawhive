@@ -1,34 +1,34 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/clawhive-domain",
-    "crates/clawhive-control-api",
-    "crates/clawhive-auth",
-    "crates/clawhive-mission",
-    "crates/clawhive-task",
-    "crates/clawhive-scheduler",
-    "crates/clawhive-agent",
-    "crates/clawhive-lifecycle",
-    "crates/clawhive-spawn",
-    "crates/clawhive-lineage",
-    "crates/clawhive-policy",
-    "crates/clawhive-icvs",
-    "crates/clawhive-context",
-    "crates/clawhive-toon",
-    "crates/clawhive-model-router",
-    "crates/clawhive-memory",
-    "crates/clawhive-skill",
-    "crates/clawhive-tool",
-    "crates/clawhive-worker",
-    "crates/clawhive-artifact",
-    "crates/clawhive-budget",
-    "crates/clawhive-telemetry",
-    "crates/clawhive-gateway",
-    "crates/clawhive-cli",
-    "crates/clawhive-tui",
-    "crates/clawhive-store",
-    "crates/clawhive-prompt",
-    "crates/clawhive-event",
+    "crates/claw10-domain",
+    "crates/claw10-control-api",
+    "crates/claw10-auth",
+    "crates/claw10-mission",
+    "crates/claw10-task",
+    "crates/claw10-scheduler",
+    "crates/claw10-agent",
+    "crates/claw10-lifecycle",
+    "crates/claw10-spawn",
+    "crates/claw10-lineage",
+    "crates/claw10-policy",
+    "crates/claw10-icvs",
+    "crates/claw10-context",
+    "crates/claw10-toon",
+    "crates/claw10-model-router",
+    "crates/claw10-memory",
+    "crates/claw10-skill",
+    "crates/claw10-tool",
+    "crates/claw10-worker",
+    "crates/claw10-artifact",
+    "crates/claw10-budget",
+    "crates/claw10-telemetry",
+    "crates/claw10-gateway",
+    "crates/claw10-cli",
+    "crates/claw10-tui",
+    "crates/claw10-store",
+    "crates/claw10-prompt",
+    "crates/claw10-event",
     "tests",
 ]
 
@@ -36,7 +36,7 @@ members = [
 version = "0.2.0"
 edition = "2024"
 license = "MIT"
-authors = ["ClawHive Contributors"]
+authors = ["Claw10 Contributors"]
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }

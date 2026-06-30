@@ -362,25 +362,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
 
 [[package]]
-name = "clawhive"
+name = "claw10"
 version = "0.2.0"
 dependencies = [
  "axum",
  "chrono",
  "clap",
- "clawhive-agent",
- "clawhive-budget",
- "clawhive-control-api",
- "clawhive-domain",
- "clawhive-lineage",
- "clawhive-mission",
- "clawhive-model-router",
- "clawhive-spawn",
- "clawhive-store",
- "clawhive-task",
- "clawhive-tool",
- "clawhive-tui",
- "clawhive-worker",
+ "claw10-agent",
+ "claw10-budget",
+ "claw10-control-api",
+ "claw10-domain",
+ "claw10-lineage",
+ "claw10-mission",
+ "claw10-model-router",
+ "claw10-spawn",
+ "claw10-store",
+ "claw10-task",
+ "claw10-tool",
+ "claw10-tui",
+ "claw10-worker",
  "crossterm",
  "dirs",
  "dotenvy",
@@ -396,21 +396,21 @@ dependencies = [
 ]
 
 [[package]]
-name = "clawhive-agent"
+name = "claw10-agent"
 version = "0.2.0"
 dependencies = [
  "async-trait",
  "chrono",
- "clawhive-budget",
- "clawhive-context",
- "clawhive-domain",
- "clawhive-lifecycle",
- "clawhive-model-router",
- "clawhive-policy",
- "clawhive-prompt",
- "clawhive-store",
- "clawhive-tool",
- "clawhive-worker",
+ "claw10-budget",
+ "claw10-context",
+ "claw10-domain",
+ "claw10-lifecycle",
+ "claw10-model-router",
+ "claw10-policy",
+ "claw10-prompt",
+ "claw10-store",
+ "claw10-tool",
+ "claw10-worker",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -420,13 +420,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "clawhive-artifact"
+name = "claw10-artifact"
 version = "0.2.0"
 dependencies = [
  "async-trait",
  "chrono",
- "clawhive-domain",
- "clawhive-store",
+ "claw10-domain",
+ "claw10-store",
  "serde",
  "serde_json",
  "sha2",
@@ -436,11 +436,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "clawhive-auth"
+name = "claw10-auth"
 version = "0.2.0"
 dependencies = [
  "chrono",
- "clawhive-domain",
+ "claw10-domain",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -449,22 +449,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "clawhive-budget"
+name = "claw10-budget"
 version = "0.2.0"
 dependencies = [
  "chrono",
- "clawhive-domain",
+ "claw10-domain",
  "serde",
  "thiserror 2.0.18",
 ]
 
 [[package]]
-name = "clawhive-context"
+name = "claw10-context"
 version = "0.2.0"
 dependencies = [
  "chrono",
- "clawhive-domain",
- "clawhive-toon",
+ "claw10-domain",
+ "claw10-toon",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -474,33 +474,33 @@ dependencies = [
 ]
 
 [[package]]
-name = "clawhive-control-api"
+name = "claw10-control-api"
 version = "0.2.0"
 dependencies = [
  "axum",
  "base64 0.22.1",
  "chrono",
- "clawhive-agent",
- "clawhive-artifact",
- "clawhive-budget",
- "clawhive-domain",
- "clawhive-event",
- "clawhive-gateway",
- "clawhive-icvs",
- "clawhive-lifecycle",
- "clawhive-lineage",
- "clawhive-memory",
- "clawhive-mission",
- "clawhive-model-router",
- "clawhive-policy",
- "clawhive-scheduler",
- "clawhive-skill",
- "clawhive-spawn",
- "clawhive-store",
- "clawhive-task",
- "clawhive-telemetry",
- "clawhive-tool",
- "clawhive-worker",
+ "claw10-agent",
+ "claw10-artifact",
+ "claw10-budget",
+ "claw10-domain",
+ "claw10-event",
+ "claw10-gateway",
+ "claw10-icvs",
+ "claw10-lifecycle",
+ "claw10-lineage",
+ "claw10-memory",
+ "claw10-mission",
+ "claw10-model-router",
+ "claw10-policy",
+ "claw10-scheduler",
+ "claw10-skill",
+ "claw10-spawn",
+ "claw10-store",
+ "claw10-task",
+ "claw10-telemetry",
+ "claw10-tool",
+ "claw10-worker",
  "nats",
  "serde",
  "serde_json",
@@ -513,7 +513,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "clawhive-domain"
+name = "claw10-domain"
 version = "0.2.0"
 dependencies = [
  "chrono",
@@ -527,12 +527,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "clawhive-event"
+name = "claw10-event"
 version = "0.2.0"
 dependencies = [
  "async-trait",
  "chrono",
- "clawhive-domain",
+ "claw10-domain",
  "nats",
  "serde",
  "serde_json",
@@ -543,13 +543,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "clawhive-gateway"
+name = "claw10-gateway"
 version = "0.2.0"
 dependencies = [
  "async-trait",
  "chrono",
- "clawhive-domain",
- "clawhive-store",
+ "claw10-domain",
+ "claw10-store",
  "reqwest",
  "serde",
  "serde_json",
@@ -559,10 +559,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "clawhive-icvs"
+name = "claw10-icvs"
 version = "0.2.0"
 dependencies = [
- "clawhive-domain",
+ "claw10-domain",
  "icvs",
  "serde",
  "thiserror 2.0.18",
@@ -570,57 +570,57 @@ dependencies = [
 ]
 
 [[package]]
-name = "clawhive-lifecycle"
+name = "claw10-lifecycle"
 version = "0.2.0"
 dependencies = [
  "chrono",
- "clawhive-domain",
+ "claw10-domain",
  "serde_json",
  "thiserror 2.0.18",
  "uuid",
 ]
 
 [[package]]
-name = "clawhive-lineage"
+name = "claw10-lineage"
 version = "0.2.0"
 dependencies = [
  "chrono",
- "clawhive-domain",
+ "claw10-domain",
  "serde",
  "thiserror 2.0.18",
  "uuid",
 ]
 
 [[package]]
-name = "clawhive-memory"
+name = "claw10-memory"
 version = "0.2.0"
 dependencies = [
  "async-trait",
  "chrono",
- "clawhive-domain",
- "clawhive-store",
+ "claw10-domain",
+ "claw10-store",
  "thiserror 2.0.18",
  "tracing",
  "uuid",
 ]
 
 [[package]]
-name = "clawhive-mission"
+name = "claw10-mission"
 version = "0.2.0"
 dependencies = [
  "chrono",
- "clawhive-domain",
+ "claw10-domain",
  "serde",
  "thiserror 2.0.18",
  "uuid",
 ]
 
 [[package]]
-name = "clawhive-model-router"
+name = "claw10-model-router"
 version = "0.2.0"
 dependencies = [
  "async-trait",
- "clawhive-domain",
+ "claw10-domain",
  "dirs",
  "futures",
  "reqwest",
@@ -634,11 +634,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "clawhive-policy"
+name = "claw10-policy"
 version = "0.2.0"
 dependencies = [
  "chrono",
- "clawhive-domain",
+ "claw10-domain",
  "serde_json",
  "thiserror 2.0.18",
  "tracing",
@@ -646,14 +646,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "clawhive-prompt"
+name = "claw10-prompt"
 version = "0.2.0"
 dependencies = [
  "async-trait",
  "chrono",
- "clawhive-domain",
- "clawhive-icvs",
- "clawhive-toon",
+ "claw10-domain",
+ "claw10-icvs",
+ "claw10-toon",
  "hex",
  "schemars",
  "serde",
@@ -665,27 +665,27 @@ dependencies = [
 ]
 
 [[package]]
-name = "clawhive-scheduler"
+name = "claw10-scheduler"
 version = "0.2.0"
 dependencies = [
  "async-trait",
  "chrono",
  "chrono-tz",
- "clawhive-domain",
- "clawhive-store",
+ "claw10-domain",
+ "claw10-store",
  "cron",
  "thiserror 2.0.18",
  "uuid",
 ]
 
 [[package]]
-name = "clawhive-skill"
+name = "claw10-skill"
 version = "0.2.0"
 dependencies = [
  "async-trait",
  "chrono",
- "clawhive-domain",
- "clawhive-store",
+ "claw10-domain",
+ "claw10-store",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -694,18 +694,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "clawhive-spawn"
+name = "claw10-spawn"
 version = "0.2.0"
 dependencies = [
  "async-trait",
  "chrono",
- "clawhive-agent",
- "clawhive-auth",
- "clawhive-budget",
- "clawhive-domain",
- "clawhive-event",
- "clawhive-lineage",
- "clawhive-store",
+ "claw10-agent",
+ "claw10-auth",
+ "claw10-budget",
+ "claw10-domain",
+ "claw10-event",
+ "claw10-lineage",
+ "claw10-store",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -715,11 +715,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "clawhive-store"
+name = "claw10-store"
 version = "0.2.0"
 dependencies = [
  "async-trait",
- "clawhive-domain",
+ "claw10-domain",
  "serde",
  "serde_json",
  "sled",
@@ -728,11 +728,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "clawhive-task"
+name = "claw10-task"
 version = "0.2.0"
 dependencies = [
  "chrono",
- "clawhive-domain",
+ "claw10-domain",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -740,11 +740,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "clawhive-telemetry"
+name = "claw10-telemetry"
 version = "0.2.0"
 dependencies = [
  "chrono",
- "clawhive-domain",
+ "claw10-domain",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -753,30 +753,30 @@ dependencies = [
 ]
 
 [[package]]
-name = "clawhive-tests"
+name = "claw10-tests"
 version = "0.2.0"
 dependencies = [
  "async-trait",
  "axum",
  "chrono",
- "clawhive-agent",
- "clawhive-auth",
- "clawhive-budget",
- "clawhive-control-api",
- "clawhive-domain",
- "clawhive-event",
- "clawhive-gateway",
- "clawhive-lifecycle",
- "clawhive-lineage",
- "clawhive-memory",
- "clawhive-model-router",
- "clawhive-policy",
- "clawhive-scheduler",
- "clawhive-spawn",
- "clawhive-store",
- "clawhive-telemetry",
- "clawhive-tool",
- "clawhive-worker",
+ "claw10-agent",
+ "claw10-auth",
+ "claw10-budget",
+ "claw10-control-api",
+ "claw10-domain",
+ "claw10-event",
+ "claw10-gateway",
+ "claw10-lifecycle",
+ "claw10-lineage",
+ "claw10-memory",
+ "claw10-model-router",
+ "claw10-policy",
+ "claw10-scheduler",
+ "claw10-spawn",
+ "claw10-store",
+ "claw10-telemetry",
+ "claw10-tool",
+ "claw10-worker",
  "reqwest",
  "serde_json",
  "tokio",
@@ -786,11 +786,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "clawhive-tool"
+name = "claw10-tool"
 version = "0.2.0"
 dependencies = [
  "async-trait",
- "clawhive-domain",
+ "claw10-domain",
  "reqwest",
  "serde",
  "serde_json",
@@ -801,11 +801,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "clawhive-toon"
+name = "claw10-toon"
 version = "0.2.0"
 dependencies = [
  "chrono",
- "clawhive-domain",
+ "claw10-domain",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -813,19 +813,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "clawhive-tui"
+name = "claw10-tui"
 version = "0.2.0"
 dependencies = [
  "async-trait",
  "chrono",
- "clawhive-agent",
- "clawhive-budget",
- "clawhive-control-api",
- "clawhive-domain",
- "clawhive-model-router",
- "clawhive-store",
- "clawhive-tool",
- "clawhive-worker",
+ "claw10-agent",
+ "claw10-budget",
+ "claw10-control-api",
+ "claw10-domain",
+ "claw10-model-router",
+ "claw10-store",
+ "claw10-tool",
+ "claw10-worker",
  "crossterm",
  "ratatui",
  "serde",
@@ -837,13 +837,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "clawhive-worker"
+name = "claw10-worker"
 version = "0.2.0"
 dependencies = [
  "async-trait",
  "chrono",
- "clawhive-domain",
- "clawhive-store",
+ "claw10-domain",
+ "claw10-store",
  "thiserror 2.0.18",
  "uuid",
 ]
@@ -3010,9 +3010,9 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.51"
+version = "0.3.52"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85c17d80feb7334b40c484e45ed1a5273dfd8bfda537c3be2e74a06a6686f327"
+checksum = "0e48db7b415311b615f910b3dcaa4557bcd4bf1982379c95c223fd8c2a20e210"
 dependencies = [
  "deranged",
  "num-conv",
@@ -3030,9 +3030,9 @@ checksum = "9e1c906769ad99c88eaa54e728060edef082f8e358ff32030cb7c7d315e81109"
 
 [[package]]
 name = "time-macros"
-version = "0.2.30"
+version = "0.2.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcef1a61bdb119096e153208ec5cbec23944ce8bca13be5c7f60c634f7403935"
+checksum = "c431b87111666e491a90baa837f914fb45cd5dc3c268591b0220ff5057f2085f"
 dependencies = [
  "num-conv",
  "time-core",

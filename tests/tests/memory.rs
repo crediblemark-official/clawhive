@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use uuid::Uuid;
 
-use clawhive_domain::{AgentId, EvidenceId, MemoryStatus, MemoryType, TaskId};
-use clawhive_memory::{MemoryQuery, MemoryService, StoreMemoryInput};
-use clawhive_store::InMemoryStore;
+use claw10_domain::{AgentId, EvidenceId, MemoryStatus, MemoryType, TaskId};
+use claw10_memory::{MemoryQuery, MemoryService, StoreMemoryInput};
+use claw10_store::InMemoryStore;
 
 fn make_agent_id() -> AgentId {
     AgentId(Uuid::now_v7())
@@ -35,7 +35,7 @@ fn make_input(
 }
 
 fn make_svc() -> MemoryService {
-    let store = Arc::new(InMemoryStore::new()) as Arc<dyn clawhive_store::Store>;
+    let store = Arc::new(InMemoryStore::new()) as Arc<dyn claw10_store::Store>;
     MemoryService::new(store)
 }
 

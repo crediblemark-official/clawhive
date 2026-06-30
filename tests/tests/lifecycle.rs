@@ -1,21 +1,21 @@
 use chrono::{Duration, Utc};
 use uuid::Uuid;
 
-use clawhive_domain::{
+use claw10_domain::{
     Agent, AgentGenome, AgentId, AgentState, AutonomyConfig, Budget, CheckpointReason, IdentityId,
     LifecycleMode, MemoryConfig, ModelPolicy, NetworkPolicy, PolicyBundle,
     PolicyBundleId, RuntimeConfig,
 };
-use clawhive_lifecycle::{LifecycleError, LifecycleService};
+use claw10_lifecycle::{LifecycleError, LifecycleService};
 
 fn make_test_agent() -> Agent {
     let now = Utc::now();
     Agent {
         id: AgentId(Uuid::now_v7()),
         identity_id: IdentityId(Uuid::now_v7()),
-        mission_id: clawhive_domain::MissionId(Uuid::now_v7()),
+        mission_id: claw10_domain::MissionId(Uuid::now_v7()),
         parent_agent_id: None,
-        lineage_id: clawhive_domain::LineageId(Uuid::now_v7()),
+        lineage_id: claw10_domain::LineageId(Uuid::now_v7()),
         name: "test-agent".into(),
         role: "tester".into(),
         genome: AgentGenome {
@@ -57,7 +57,7 @@ fn make_test_agent() -> Agent {
         },
         delegable_permissions: vec![],
         non_delegable_permissions: vec![],
-        current_runtime: Some(clawhive_domain::RuntimeLease {
+        current_runtime: Some(claw10_domain::RuntimeLease {
             worker_id: "worker-1".into(),
             acquired_at: now,
             expires_at: now + Duration::seconds(60),
@@ -85,8 +85,8 @@ fn make_test_agent() -> Agent {
     }
 }
 
-fn make_lease(worker_id: &str) -> clawhive_domain::RuntimeLease {
-    clawhive_domain::RuntimeLease {
+fn make_lease(worker_id: &str) -> claw10_domain::RuntimeLease {
+    claw10_domain::RuntimeLease {
         worker_id: worker_id.into(),
         acquired_at: Utc::now(),
         expires_at: Utc::now() + Duration::seconds(120),
@@ -166,7 +166,7 @@ fn test_heartbeat_renews_lease() {
 #[test]
 fn test_heartbeat_expired_lease_fails() {
     let mut agent = make_test_agent();
-    agent.current_runtime = Some(clawhive_domain::RuntimeLease {
+    agent.current_runtime = Some(claw10_domain::RuntimeLease {
         worker_id: "worker-1".into(),
         acquired_at: Utc::now() - Duration::hours(2),
         expires_at: Utc::now() - Duration::seconds(10),
@@ -181,7 +181,7 @@ fn test_heartbeat_expired_lease_fails() {
 fn test_detect_stale() {
     let fresh = make_test_agent();
     let mut stale = make_test_agent();
-    stale.current_runtime = Some(clawhive_domain::RuntimeLease {
+    stale.current_runtime = Some(claw10_domain::RuntimeLease {
         worker_id: "stale-worker".into(),
         acquired_at: Utc::now() - Duration::hours(2),
         expires_at: Utc::now() - Duration::seconds(30),

@@ -3,16 +3,16 @@ use std::sync::Arc;
 use chrono::Utc;
 use uuid::Uuid;
 
-use clawhive_domain::{AgentId, Schedule, ScheduleAction};
-use clawhive_scheduler::ScheduleService;
-use clawhive_store::InMemoryStore;
+use claw10_domain::{AgentId, Schedule, ScheduleAction};
+use claw10_scheduler::ScheduleService;
+use claw10_store::InMemoryStore;
 
 fn make_agent_id() -> AgentId {
     AgentId(Uuid::now_v7())
 }
 
 fn make_svc() -> ScheduleService {
-    let store = Arc::new(InMemoryStore::new()) as Arc<dyn clawhive_store::Store>;
+    let store = Arc::new(InMemoryStore::new()) as Arc<dyn claw10_store::Store>;
     ScheduleService::new(store)
 }
 

@@ -1,6 +1,6 @@
-# Contoh Tugas untuk Uji Coba (Testing) ClawHive OS
+# Contoh Tugas untuk Uji Coba (Testing) Claw10 OS
 
-Dokumen ini berisi kumpulan contoh instruksi/tugas (*prompts*) yang dapat digunakan untuk menguji fungsionalitas inti ClawHive OS melalui TUI Chat maupun CLI Swarm.
+Dokumen ini berisi kumpulan contoh instruksi/tugas (*prompts*) yang dapat digunakan untuk menguji fungsionalitas inti Claw10 OS melalui TUI Chat maupun CLI Swarm.
 
 ---
 

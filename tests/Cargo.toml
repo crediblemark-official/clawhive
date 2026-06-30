@@ -1,32 +1,32 @@
 [package]
-name = "clawhive-tests"
+name = "claw10-tests"
 version.workspace = true
 edition = "2024"
 publish = false
 
 [features]
 default = []
-nats = ["clawhive-event/nats", "clawhive-control-api/nats"]
+nats = ["claw10-event/nats", "claw10-control-api/nats"]
 
 [dependencies]
-clawhive-domain = { path = "../crates/clawhive-domain" }
-clawhive-auth = { path = "../crates/clawhive-auth" }
-clawhive-lineage = { path = "../crates/clawhive-lineage" }
-clawhive-spawn = { path = "../crates/clawhive-spawn" }
-clawhive-lifecycle = { path = "../crates/clawhive-lifecycle" }
-clawhive-scheduler = { path = "../crates/clawhive-scheduler" }
-clawhive-worker = { path = "../crates/clawhive-worker" }
-clawhive-policy = { path = "../crates/clawhive-policy" }
-clawhive-memory = { path = "../crates/clawhive-memory" }
-clawhive-gateway = { path = "../crates/clawhive-gateway" }
-clawhive-store = { path = "../crates/clawhive-store" }
-clawhive-control-api = { path = "../crates/clawhive-control-api" }
-clawhive-telemetry = { path = "../crates/clawhive-telemetry" }
-clawhive-agent = { path = "../crates/clawhive-agent" }
-clawhive-event = { path = "../crates/clawhive-event" }
-clawhive-model-router = { path = "../crates/clawhive-model-router" }
-clawhive-tool = { path = "../crates/clawhive-tool" }
-clawhive-budget = { path = "../crates/clawhive-budget" }
+claw10-domain = { path = "../crates/claw10-domain" }
+claw10-auth = { path = "../crates/claw10-auth" }
+claw10-lineage = { path = "../crates/claw10-lineage" }
+claw10-spawn = { path = "../crates/claw10-spawn" }
+claw10-lifecycle = { path = "../crates/claw10-lifecycle" }
+claw10-scheduler = { path = "../crates/claw10-scheduler" }
+claw10-worker = { path = "../crates/claw10-worker" }
+claw10-policy = { path = "../crates/claw10-policy" }
+claw10-memory = { path = "../crates/claw10-memory" }
+claw10-gateway = { path = "../crates/claw10-gateway" }
+claw10-store = { path = "../crates/claw10-store" }
+claw10-control-api = { path = "../crates/claw10-control-api" }
+claw10-telemetry = { path = "../crates/claw10-telemetry" }
+claw10-agent = { path = "../crates/claw10-agent" }
+claw10-event = { path = "../crates/claw10-event" }
+claw10-model-router = { path = "../crates/claw10-model-router" }
+claw10-tool = { path = "../crates/claw10-tool" }
+claw10-budget = { path = "../crates/claw10-budget" }
 chrono = { workspace = true }
 uuid = { workspace = true }
 tokio = { workspace = true }

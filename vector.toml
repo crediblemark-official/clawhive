@@ -1,14 +1,14 @@
 # ──────────────────────────────────────────────────────────────────────
-# ClawHive OS — Vector Observability Pipeline
+# Claw10 OS — Vector Observability Pipeline
 # ──────────────────────────────────────────────────────────────────────
-# Reads structured JSON telemetry from `logs/clawhive-telemetry.json`
+# Reads structured JSON telemetry from `logs/claw10-telemetry.json`
 # and forwards to configurable sinks.
 #
 # Usage:
-#   cargo run -- serve   # produces logs/clawhive-telemetry.json
+#   cargo run -- serve   # produces logs/claw10-telemetry.json
 #   vector --config vector.toml
 #
-# Telemetry is emitted via `tracing::info!(target: "clawhive_telemetry", ...)`
+# Telemetry is emitted via `tracing::info!(target: "claw10_telemetry", ...)`
 # and written as one JSON object per line by the tracing_subscriber JSON layer.
 # ──────────────────────────────────────────────────────────────────────
 
@@ -18,10 +18,10 @@ address = "0.0.0.0:8686"
 
 # ── Sources ───────────────────────────────────────────────────────────
 
-# Source: tail the ClawHive JSON telemetry log
-[sources.clawhive_logs]
+# Source: tail the Claw10 JSON telemetry log
+[sources.claw10_logs]
 type = "file"
-include = ["logs/clawhive-telemetry.json"]
+include = ["logs/claw10-telemetry.json"]
 start_at_beginning = false
 ignore_older_secs = 600
 fingerprint.strategy = "device_and_inode"
@@ -36,7 +36,7 @@ type = "internal_metrics"
 # Each line is already a TelemetryEvent JSON object.
 [transforms.parse_telemetry]
 type = "remap"
-inputs = ["clawhive_logs"]
+inputs = ["claw10_logs"]
 source = '''
   parsed = parse_json!(.message)
 
@@ -91,28 +91,28 @@ encoding.codec = "json"
 [sinks.agent_events_file]
 type = "file"
 inputs = ["route_by_type.agent_events"]
-path = "/var/log/clawhive/agents.jsonl"
+path = "/var/log/claw10/agents.jsonl"
 encoding.codec = "json"
 
 # Sink: Worker events → separate file
 [sinks.worker_events_file]
 type = "file"
 inputs = ["route_by_type.worker_events"]
-path = "/var/log/clawhive/workers.jsonl"
+path = "/var/log/claw10/workers.jsonl"
 encoding.codec = "json"
 
 # Sink: Memory/Mission events → separate file
 [sinks.memory_events_file]
 type = "file"
 inputs = ["route_by_type.memory_events"]
-path = "/var/log/clawhive/memory.jsonl"
+path = "/var/log/claw10/memory.jsonl"
 encoding.codec = "json"
 
 # Sink: Policy/Gateway/Schedule events → separate file
 [sinks.policy_events_file]
 type = "file"
 inputs = ["route_by_type.policy_events"]
-path = "/var/log/clawhive/operations.jsonl"
+path = "/var/log/claw10/operations.jsonl"
 encoding.codec = "json"
 
 # ── Optional: External sinks (uncomment as needed) ────────────────────
@@ -122,7 +122,7 @@ encoding.codec = "json"
 # type = "elasticsearch"
 # inputs = ["filter_telemetry"]
 # endpoint = "http://localhost:9200"
-# index = "clawhive-telemetry-%Y-%m-%d"
+# index = "claw10-telemetry-%Y-%m-%d"
 # encoding.codec = "json"
 # bulk.action = "index"
 

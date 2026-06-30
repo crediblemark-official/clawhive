@@ -1,0 +1,15 @@
+[package]
+name = "claw10-tool"
+version.workspace = true
+edition = "2024"
+
+[dependencies]
+claw10-domain = { path = "../claw10-domain" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+async-trait = "0.1"
+tokio = { workspace = true }
+uuid = { workspace = true }
+reqwest = { version = "0.12", default-features = false, features = ["json"] }

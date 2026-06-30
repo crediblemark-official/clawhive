@@ -1,19 +1,19 @@
 use std::sync::Arc;
 
-use clawhive_agent::AgentStore;
-use clawhive_auth::credential::CredentialService;
-use clawhive_auth::identity::IdentityService;
-use clawhive_domain::{
+use claw10_agent::AgentStore;
+use claw10_auth::credential::CredentialService;
+use claw10_auth::identity::IdentityService;
+use claw10_domain::{
     Agent, AgentGenome, AgentId, AgentState, AutonomyConfig, Budget, ChildSpec, Credential,
     CredentialKind, IdentityId, LifecycleMode, Lineage, MemoryConfig, Mission, MissionId,
     MissionState, ModelPolicy, NetworkPolicy, Permission, PolicyBundle,
     PolicyBundleId, RiskLevel, RuntimeConfig, SwarmLimitsConfig,
 };
-use clawhive_event::InMemoryEventBus;
-use clawhive_lineage::LineageService;
-use clawhive_spawn::broker::SpawnBroker;
-use clawhive_spawn::descendant::DescendantManager;
-use clawhive_store::InMemoryStore;
+use claw10_event::InMemoryEventBus;
+use claw10_lineage::LineageService;
+use claw10_spawn::broker::SpawnBroker;
+use claw10_spawn::descendant::DescendantManager;
+use claw10_store::InMemoryStore;
 
 fn make_broker() -> SpawnBroker {
     let store = Arc::new(InMemoryStore::new());
@@ -56,7 +56,7 @@ fn make_root_agent(mission: &Mission) -> Agent {
         identity_id: identity.id,
         mission_id: mission.id.clone(),
         parent_agent_id: None,
-        lineage_id: clawhive_domain::LineageId(uuid::Uuid::now_v7()),
+        lineage_id: claw10_domain::LineageId(uuid::Uuid::now_v7()),
         name: "root-agent".into(),
         role: "root".into(),
         genome: AgentGenome {
@@ -387,7 +387,7 @@ async fn test_spawn_validation_fails_when_swarm_size_exceeded() {
     assert!(result.is_err());
     let err = result.unwrap_err();
     assert!(
-        matches!(err, clawhive_spawn::SpawnError::SwarmSizeExceeded),
+        matches!(err, claw10_spawn::SpawnError::SwarmSizeExceeded),
         "Harus gagal karena ukuran swarm melebihi batas limit"
     );
 }
@@ -413,7 +413,7 @@ async fn test_spawn_validation_fails_when_duplicate_objective() {
 
     assert!(result_dup_role.is_err());
     assert!(
-        matches!(result_dup_role.unwrap_err(), clawhive_spawn::SpawnError::DuplicateObjective(_)),
+        matches!(result_dup_role.unwrap_err(), claw10_spawn::SpawnError::DuplicateObjective(_)),
         "Harus gagal karena role bertabrakan"
     );
 
@@ -433,7 +433,7 @@ async fn test_spawn_validation_fails_when_duplicate_objective() {
 
     assert!(result_dup_obj.is_err());
     assert!(
-        matches!(result_dup_obj.unwrap_err(), clawhive_spawn::SpawnError::DuplicateObjective(_)),
+        matches!(result_dup_obj.unwrap_err(), claw10_spawn::SpawnError::DuplicateObjective(_)),
         "Harus gagal karena objective terkandung dalam nama agen yang sudah ada"
     );
 }
@@ -463,7 +463,7 @@ async fn test_spawn_validation_fails_when_permission_not_delegable() {
     assert!(result.is_err());
     let err = result.unwrap_err();
     assert!(
-        matches!(err, clawhive_spawn::SpawnError::PermissionNotDelegable(_)),
+        matches!(err, claw10_spawn::SpawnError::PermissionNotDelegable(_)),
         "Harus gagal karena permission tidak didelegasikan oleh parent"
     );
 }
@@ -490,7 +490,7 @@ async fn test_spawn_validation_fails_when_mission_not_active() {
     assert!(result.is_err());
     let err = result.unwrap_err();
     assert!(
-        matches!(err, clawhive_spawn::SpawnError::Validation(_)),
+        matches!(err, claw10_spawn::SpawnError::Validation(_)),
         "Harus gagal karena mission tidak aktif"
     );
 }

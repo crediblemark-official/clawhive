@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# ClawHive OS — cross-platform installer (Linux, macOS, WSL, VPS)
+# Claw10 OS — cross-platform installer (Linux, macOS, WSL, VPS)
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/crediblemark-official/clawhive/master/install.sh | sh
-#   wget -qO- https://raw.githubusercontent.com/crediblemark-official/clawhive/master/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/crediblemark-official/claw10/master/install.sh | sh
+#   wget -qO- https://raw.githubusercontent.com/crediblemark-official/claw10/master/install.sh | sh
 #
 # To use your own domain, replace the raw GitHub URL above and host this script there.
 
 set -e
 
-REPO="crediblemark-official/clawhive"
-BINARY="clawhive"
-INSTALL_DIR="${CLAWHIVE_INSTALL_DIR:-$HOME/.local/bin}"
-CARGO_BUILD="${CLAWHIVE_CARGO_BUILD:-0}"
+REPO="crediblemark-official/claw10"
+BINARY="claw10"
+INSTALL_DIR="${CLAW10_INSTALL_DIR:-$HOME/.local/bin}"
+CARGO_BUILD="${CLAW10_CARGO_BUILD:-0}"
 
 # Detect OS
 OS=$(uname -s)
@@ -33,7 +33,7 @@ esac
 
 if [ "$PLATFORM" = "windows" ]; then
     echo "Detected Windows. Please use the PowerShell installer instead:"
-    echo '  irm https://raw.githubusercontent.com/crediblemark-official/clawhive/master/install.ps1 | iex'
+    echo '  irm https://raw.githubusercontent.com/crediblemark-official/claw10/master/install.ps1 | iex'
     exit 1
 fi
 
@@ -42,7 +42,7 @@ if [ "$ARCH" = "unknown" ]; then
     CARGO_BUILD=1
 fi
 
-echo "Installing ClawHive OS for $PLATFORM-$ARCH..."
+echo "Installing Claw10 OS for $PLATFORM-$ARCH..."
 
 # Create install directory
 mkdir -p "$INSTALL_DIR"
@@ -84,13 +84,13 @@ if [ "$CARGO_BUILD" = "1" ]; then
     fi
 
     TMP_DIR=$(mktemp -d)
-    git clone --depth 1 "https://github.com/$REPO.git" "$TMP_DIR/clawhive" 2>/dev/null || {
+    git clone --depth 1 "https://github.com/$REPO.git" "$TMP_DIR/claw10" 2>/dev/null || {
         echo "Failed to clone repository. Make sure git is installed and internet is available."
         rm -rf "$TMP_DIR"
         exit 1
     }
-    cargo build --release --manifest-path "$TMP_DIR/clawhive/Cargo.toml"
-    install -m 755 "$TMP_DIR/clawhive/target/release/$BINARY" "$INSTALL_DIR/$BINARY"
+    cargo build --release --manifest-path "$TMP_DIR/claw10/Cargo.toml"
+    install -m 755 "$TMP_DIR/claw10/target/release/$BINARY" "$INSTALL_DIR/$BINARY"
     rm -rf "$TMP_DIR"
 fi
 
@@ -114,6 +114,6 @@ if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
 fi
 
 echo ""
-echo "ClawHive OS installed to: $INSTALL_DIR/$BINARY"
-echo "Run 'clawhive --help' to get started."
-echo "Run 'clawhive setup' for initial configuration wizard."
+echo "Claw10 OS installed to: $INSTALL_DIR/$BINARY"
+echo "Run 'claw10 --help' to get started."
+echo "Run 'claw10 setup' for initial configuration wizard."

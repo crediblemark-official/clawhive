@@ -1,0 +1,10 @@
+[package]
+name = "claw10-budget"
+version.workspace = true
+edition = "2024"
+
+[dependencies]
+claw10-domain = { path = "../claw10-domain" }
+serde = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }

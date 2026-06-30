@@ -1,0 +1,148 @@
+use std::sync::Arc;
+
+use claw10_agent::AgentStore;
+use claw10_domain::SwarmLimitsConfig;
+use claw10_event::{EventBus, InMemoryEventBus};
+use claw10_gateway::GatewayService;
+use claw10_memory::MemoryService;
+use claw10_model_router::router::ModelRouter;
+use claw10_scheduler::ScheduleService;
+use claw10_spawn::broker::SpawnBroker;
+use claw10_store::{InMemoryStore as KvInMemory, Store};
+use claw10_telemetry::TelemetryService;
+use claw10_tool::registry::ToolRegistry;
+use claw10_worker::WorkerService;
+
+pub use crate::store::*;
+
+#[derive(Clone)]
+pub struct AppState {
+    pub scheduler_service: Arc<ScheduleService>,
+    pub worker_service: Arc<WorkerService>,
+    pub memory_service: Arc<MemoryService>,
+    pub gateway_service: Arc<GatewayService>,
+    pub skill_service: Arc<claw10_skill::SkillService>,
+    pub artifact_service: Arc<claw10_artifact::ArtifactService>,
+    pub spawn_broker: Arc<SpawnBroker>,
+    pub event_bus: Arc<dyn EventBus>,
+    pub telemetry: TelemetryService,
+    pub kv_store: Arc<dyn Store>,
+    pub model_router: Option<Arc<ModelRouter>>,
+    pub tool_registry: Option<Arc<ToolRegistry>>,
+}
+
+impl AppState {
+    /// Create AppState dengan in-memory KV store.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::new_with_store(Arc::new(KvInMemory::new()))
+    }
+
+    /// Create AppState dengan shared KV store (untuk prod dengan sled).
+    #[must_use]
+    pub fn new_with_store(kv_store: Arc<dyn Store>) -> Self {
+        let limits = SwarmLimitsConfig {
+            max_spawn_depth: 5,
+            max_children_per_agent: 10,
+            max_agents_per_mission: 100,
+            max_concurrent_agents: 50,
+            max_persistent_children_per_agent: 5,
+            max_turns_per_ephemeral_agent: 100,
+            max_idle_seconds_ephemeral: 600,
+        };
+
+        // AgentStore menggunakan KV store yang sama
+        let agent_store = Arc::new(AgentStore::new(Arc::clone(&kv_store)));
+
+        // Event bus: NATS jika env NATS_URL di-set, fallback ke InMemory
+        let event_bus: Arc<dyn EventBus> = create_event_bus();
+
+        Self {
+            scheduler_service: Arc::new(ScheduleService::new(Arc::clone(&kv_store))),
+            worker_service: Arc::new(WorkerService::new(Arc::clone(&kv_store))),
+            memory_service: Arc::new(MemoryService::new(Arc::clone(&kv_store))),
+            gateway_service: Arc::new(GatewayService::new(Arc::clone(&kv_store))),
+            skill_service: Arc::new(claw10_skill::SkillService::new(Arc::clone(&kv_store))),
+            artifact_service: Arc::new(claw10_artifact::ArtifactService::new(Arc::clone(&kv_store))),
+            spawn_broker: Arc::new(SpawnBroker::new(limits, agent_store, Arc::clone(&event_bus))),
+            event_bus,
+            telemetry: TelemetryService::default(),
+            kv_store,
+            model_router: None,
+            tool_registry: None,
+        }
+    }
+
+    /// Create AppState dengan model router dan tool registry untuk agent execution.
+    #[must_use]
+    pub fn new_with_services(
+        kv_store: Arc<dyn Store>,
+        model_router: Arc<ModelRouter>,
+        tool_registry: Arc<ToolRegistry>,
+    ) -> Self {
+        let mut state = Self::new_with_store(kv_store);
+        state.model_router = Some(model_router);
+        state.tool_registry = Some(tool_registry);
+        start_background_scheduler(Arc::clone(&state.scheduler_service));
+        state
+    }
+}
+
+impl Default for AppState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Membuat event bus berdasarkan konfigurasi lingkungan.
+/// Jika env `NATS_URL` di-set, gunakan `NatsEventBus`, fallback ke `InMemoryEventBus`.
+fn create_event_bus() -> Arc<dyn EventBus> {
+    let nats_url = std::env::var("NATS_URL");
+    if let Ok(url) = nats_url {
+        #[cfg(feature = "nats")]
+        {
+            match claw10_event::NatsEventBus::new(&url) {
+                Ok(bus) => {
+                    tracing::info!("Menggunakan NatsEventBus dengan NATS_URL={url}");
+                    return Arc::new(bus);
+                }
+                Err(e) => {
+                    tracing::warn!("Gagal konek NATS ({url}), fallback ke InMemoryEventBus: {e}");
+                }
+            }
+        }
+        #[cfg(not(feature = "nats"))]
+        {
+            tracing::warn!("NATS_URL={url} di-set tapi fitur `nats` tidak aktif. Aktifkan dengan `--features nats`. Fallback ke InMemoryEventBus.");
+        }
+    }
+    Arc::new(InMemoryEventBus::new())
+}
+
+/// Spawn a background task that polls for due schedules every 30 seconds
+/// and logs them.
+pub fn start_background_scheduler(scheduler_service: Arc<ScheduleService>) {
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
+        loop {
+            interval.tick().await;
+            let now = chrono::Utc::now();
+            match scheduler_service.get_due_schedules(&now).await {
+                Ok(due) => {
+                    for ds in &due {
+                        tracing::info!(
+                            "Scheduler triggering agent {} (action: {:?} cron: {})",
+                            ds.agent_id.0,
+                            ds.schedule.action,
+                            ds.schedule.cron,
+                        );
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("Scheduler poll error: {e}");
+                }
+            }
+        }
+    });
+}
+

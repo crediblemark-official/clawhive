@@ -1,0 +1,16 @@
+[package]
+name = "claw10-gateway"
+version.workspace = true
+edition = "2024"
+
+[dependencies]
+claw10-domain = { path = "../claw10-domain" }
+claw10-store = { path = "../claw10-store" }
+async-trait = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+reqwest = { workspace = true }

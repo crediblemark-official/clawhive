@@ -3,8 +3,8 @@
 
 use std::net::SocketAddr;
 
-use clawhive_control_api::state::AppState;
-use clawhive_store::StoreExt;
+use claw10_control_api::state::AppState;
+use claw10_store::StoreExt;
 
 const AGENT_PREFIX: &str = "agent:";
 const MISSION_PREFIX: &str = "mission:";
@@ -15,15 +15,15 @@ async fn spawn_server(state: AppState) -> SocketAddr {
         .await
         .unwrap();
     let addr = listener.local_addr().unwrap();
-    let app = clawhive_control_api::build_router(state);
+    let app = claw10_control_api::build_router(state);
     tokio::spawn(async move {
         axum::serve(listener, app).await.unwrap();
     });
     addr
 }
 
-fn make_mission() -> clawhive_domain::Mission {
-    use clawhive_domain::*;
+fn make_mission() -> claw10_domain::Mission {
+    use claw10_domain::*;
     Mission {
         id: MissionId(uuid::Uuid::now_v7()),
         owner_id: IdentityId(uuid::Uuid::now_v7()),
@@ -48,8 +48,8 @@ fn make_mission() -> clawhive_domain::Mission {
     }
 }
 
-fn make_root_agent(mission: &clawhive_domain::Mission) -> clawhive_domain::Agent {
-    use clawhive_domain::*;
+fn make_root_agent(mission: &claw10_domain::Mission) -> claw10_domain::Agent {
+    use claw10_domain::*;
     let now = chrono::Utc::now();
     Agent {
         id: AgentId(uuid::Uuid::now_v7()),
@@ -632,8 +632,8 @@ async fn test_http_lifecycle_and_gateway() {
 
     // Create agent with Active state and runtime lease (needed for hibernate)
     let mut agent = make_root_agent(&mission);
-    agent.state = clawhive_domain::AgentState::Active;
-    agent.current_runtime = Some(clawhive_domain::RuntimeLease {
+    agent.state = claw10_domain::AgentState::Active;
+    agent.current_runtime = Some(claw10_domain::RuntimeLease {
         worker_id: "worker-1".into(),
         acquired_at: chrono::Utc::now(),
         expires_at: chrono::Utc::now() + chrono::Duration::seconds(60),
@@ -1043,12 +1043,12 @@ async fn test_http_spawn_deny() {
     let spawn_id = created["id"].as_str().unwrap().to_string();
 
     // Verifikasi data ada di KV store menggunakan SPAWNREQ_PREFIX untuk menghilangkan warning unused constant
-    let stored_req: clawhive_domain::SpawnRequest = store
+    let stored_req: claw10_domain::SpawnRequest = store
         .get(&format!("{SPAWNREQ_PREFIX}{spawn_id}"))
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(stored_req.state, clawhive_domain::SpawnState::Pending);
+    assert_eq!(stored_req.state, claw10_domain::SpawnState::Pending);
 
     // POST /v1/spawn-requests/{id}/deny
     let resp = client

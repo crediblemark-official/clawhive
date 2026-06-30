@@ -3,6 +3,6 @@
 .env
 *.log
 .DS_Store
-/clawhive.db
+/claw10.db
 /logs
-clawhive.toml
+claw10.toml

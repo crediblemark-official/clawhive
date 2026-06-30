@@ -1,6 +1,6 @@
 # PRODUCT REQUIREMENTS DOCUMENT
 
-# ClawHive OS
+# Claw10 OS
 
 ## Recursive, Persistent, and Ephemeral Agent Swarm Operating System
 
@@ -11,13 +11,13 @@
 **Bahasa utama:** Rust
 **Antarmuka utama:** Ratatui TUI, CLI, API, Webhook, dan Messaging Gateway
 **Model deployment:** Local, private server, VPS, cloud, edge
-**Nama kerja produk:** ClawHive OS
+**Nama kerja produk:** Claw10 OS
 
 ---
 
 # 1. Ringkasan Eksekutif
 
-ClawHive OS adalah sistem operasi untuk mengelola organisasi agen AI yang dapat:
+Claw10 OS adalah sistem operasi untuk mengelola organisasi agen AI yang dapat:
 
 1. menerima tujuan dari manusia;
 2. menyusun rencana;
@@ -35,11 +35,11 @@ ClawHive OS adalah sistem operasi untuk mengelola organisasi agen AI yang dapat:
 14. menghentikan agen dan tim secara aman;
 15. mempertahankan jejak lengkap setelah agen dihentikan.
 
-ClawHive tidak memakai sekumpulan agen statis.
+Claw10 tidak memakai sekumpulan agen statis.
 
 Setiap agen dapat menjadi pemimpin tim. Agen dapat mengusulkan pembuatan agen anak berdasarkan kebutuhan tugas. Agen anak juga dapat membuat tim baru jika policy, anggaran, dan batas kedalaman mengizinkannya.
 
-ClawHive mendukung dua model kehidupan utama.
+Claw10 mendukung dua model kehidupan utama.
 
 ## 1.1 Ephemeral Agent
 
@@ -90,11 +90,11 @@ Persistent Agent dapat membentuk:
 
 # 2. Definisi Produk
 
-ClawHive OS adalah:
+Claw10 OS adalah:
 
 > Platform agent swarm yang memungkinkan agen membentuk tim secara rekursif, bekerja sementara atau jangka panjang, menjalankan tindakan nyata, belajar dari pengalaman, dan tetap berada di bawah kendali policy serta manusia.
 
-ClawHive terdiri atas lima bagian utama.
+Claw10 terdiri atas lima bagian utama.
 
 | Bagian             | Fungsi                                                                        |
 | ------------------ | ----------------------------------------------------------------------------- |
@@ -168,7 +168,7 @@ Memory atau skill yang salah dapat digunakan berulang kali dan mencemari keputus
 
 Recursive swarm dapat berkembang tanpa batas jika tidak memiliki budget dan circuit breaker.
 
-ClawHive menyelesaikan masalah tersebut melalui recursive swarm, governed spawning, dual lifecycle, deterministic policy, evidence-based completion, dan secure teardown.
+Claw10 menyelesaikan masalah tersebut melalui recursive swarm, governed spawning, dual lifecycle, deterministic policy, evidence-based completion, dan secure teardown.
 
 ---
 
@@ -795,7 +795,7 @@ Menangani pekerjaan berkala, health check, dan cleanup.
 Agent Genome adalah template pembentukan agent.
 
 ```yaml
-api_version: clawhive/v1
+api_version: claw10/v1
 kind: AgentGenome
 
 metadata:
@@ -896,7 +896,7 @@ flowchart TD
 ## 17.2 Spawn Request
 
 ```yaml
-api_version: clawhive/v1
+api_version: claw10/v1
 kind: SpawnRequest
 
 metadata:
@@ -1091,7 +1091,7 @@ Mission memiliki:
 * termination criteria.
 
 ```yaml
-api_version: clawhive/v1
+api_version: claw10/v1
 kind: Mission
 
 metadata:
@@ -1337,7 +1337,7 @@ Jika model gagal:
 
 ICVS menjadi source authoring format.
 
-ClawHive tidak mengeksekusi raw ICVS secara langsung.
+Claw10 tidak mengeksekusi raw ICVS secara langsung.
 
 ```text
 ICVS Source
@@ -1385,7 +1385,7 @@ Explicit deny selalu menang.
 ## 24.4 Example ICVS
 
 ```ini
-#project: "clawhive-security"
+#project: "claw10-security"
 
 [node: require_agent_identity]
   type = rule
@@ -1414,7 +1414,7 @@ Explicit deny selalu menang.
 [edge: require_agent_identity -> restrict_child_permissions]
 [edge: restrict_child_permissions -> external_send_approval]
 
-[target: clawhive]
+[target: claw10]
   resolve = [
     require_agent_identity,
     restrict_child_permissions,
@@ -1687,7 +1687,7 @@ Hanya satu active writer runtime yang boleh mengendalikan satu logical agent, ke
 
 # 31. Omnichannel Gateway
 
-ClawHive mendukung adapter untuk:
+Claw10 mendukung adapter untuk:
 
 * terminal;
 * REST;
@@ -1764,7 +1764,7 @@ Policy dapat mempertahankan descendant tertentu dengan melakukan reparenting yan
 Setiap agent yang berakhir menghasilkan record.
 
 ```yaml
-api_version: clawhive/v1
+api_version: claw10/v1
 kind: AgentLegacy
 
 metadata:
@@ -1884,7 +1884,7 @@ Menampilkan:
 ## 35.3 Example
 
 ```text
-┌ ClawHive Control Center ───────────────────────────────────────────────┐
+┌ Claw10 Control Center ───────────────────────────────────────────────┐
 │ Organization: Teacher Portal                  Environment: Production │
 ├───────────────────┬───────────────────────────────────────────────────┤
 │ PERSISTENT AGENTS │ ACTIVE SWARM                                      │
@@ -2608,36 +2608,36 @@ expected_value_of_child >
 # 48. Repository Structure
 
 ```text
-clawhive/
+claw10/
 ├── Cargo.toml
 ├── crates/
-│   ├── clawhive-domain/
-│   ├── clawhive-control-api/
-│   ├── clawhive-auth/
-│   ├── clawhive-organization/
-│   ├── clawhive-mission/
-│   ├── clawhive-task/
-│   ├── clawhive-scheduler/
-│   ├── clawhive-agent/
-│   ├── clawhive-lifecycle/
-│   ├── clawhive-spawn/
-│   ├── clawhive-lineage/
-│   ├── clawhive-policy/
-│   ├── clawhive-icvs/
-│   ├── clawhive-context/
-│   ├── clawhive-toon/
-│   ├── clawhive-model-router/
-│   ├── clawhive-memory/
-│   ├── clawhive-skill/
-│   ├── clawhive-tool/
-│   ├── clawhive-worker/
-│   ├── clawhive-artifact/
-│   ├── clawhive-budget/
-│   ├── clawhive-audit/
-│   ├── clawhive-telemetry/
-│   ├── clawhive-gateway/
-│   ├── clawhive-cli/
-│   └── clawhive-tui/
+│   ├── claw10-domain/
+│   ├── claw10-control-api/
+│   ├── claw10-auth/
+│   ├── claw10-organization/
+│   ├── claw10-mission/
+│   ├── claw10-task/
+│   ├── claw10-scheduler/
+│   ├── claw10-agent/
+│   ├── claw10-lifecycle/
+│   ├── claw10-spawn/
+│   ├── claw10-lineage/
+│   ├── claw10-policy/
+│   ├── claw10-icvs/
+│   ├── claw10-context/
+│   ├── claw10-toon/
+│   ├── claw10-model-router/
+│   ├── claw10-memory/
+│   ├── claw10-skill/
+│   ├── claw10-tool/
+│   ├── claw10-worker/
+│   ├── claw10-artifact/
+│   ├── claw10-budget/
+│   ├── claw10-audit/
+│   ├── claw10-telemetry/
+│   ├── claw10-gateway/
+│   ├── claw10-cli/
+│   └── claw10-tui/
 ├── policies/
 ├── genomes/
 ├── migrations/
@@ -2754,7 +2754,7 @@ Given Persistent Agent telah aktif selama beberapa bulan, when system melakukan 
 
 # 51. Launch Gates
 
-ClawHive belum production-ready sampai:
+Claw10 belum production-ready sampai:
 
 1. policy bypass test lulus;
 2. tenant isolation test lulus;
@@ -2818,7 +2818,7 @@ Hermes-inspired capability
 Paperclip-inspired capability
 = organization, goals, budgets, governance, heartbeats
 
-ClawHive innovation
+Claw10 innovation
 = recursive self-forming teams
 + bounded agent spawning
 + persistent and ephemeral lifecycle
@@ -2844,7 +2844,7 @@ Vector
 
 # 54. Kesimpulan
 
-ClawHive OS harus memungkinkan agen membentuk organisasi kerja yang sesuai dengan kebutuhan aktual.
+Claw10 OS harus memungkinkan agen membentuk organisasi kerja yang sesuai dengan kebutuhan aktual.
 
 Agen dapat membelah tugas menjadi tim. Agen dapat menciptakan child agents. Child agents dapat membentuk swarm lanjutan selama policy mengizinkan.
 
@@ -2876,7 +2876,7 @@ Saat agent berakhir, runtime menghilang. Jejak pekerjaan tetap hidup melalui:
 * cost records;
 * legacy trace.
 
-Dengan rancangan ini, ClawHive menjadi sistem operasi untuk tenaga kerja digital yang dapat membentuk, mempertahankan, mengubah, dan membubarkan organisasinya sendiri tanpa kehilangan kendali manusia.
+Dengan rancangan ini, Claw10 menjadi sistem operasi untuk tenaga kerja digital yang dapat membentuk, mempertahankan, mengubah, dan membubarkan organisasinya sendiri tanpa kehilangan kendali manusia.
 
 ---
 
@@ -2894,7 +2894,7 @@ Alasan:
 5. Paling hemat token dibanding SQLite/PostgreSQL
 
 Implementasi:
-- `clawhive-store` crate: Store trait + SledStore + InMemoryStore (testing)
+- `claw10-store` crate: Store trait + SledStore + InMemoryStore (testing)
 - Setiap service yang butuh persistence menerima `Arc<dyn Store>`
 - InMemoryStore untuk fallback/testing tanpa sled dependency
 
@@ -2917,7 +2917,7 @@ Coverage:
 Tidak menggunakan Markdown untuk instructions. ICVS menggantikan Markdown sepenuhnya di ranah instruction authoring.
 
 Implementasi:
-- `clawhive-icvs` crate: adapter yang wrap icvs crate
+- `claw10-icvs` crate: adapter yang wrap icvs crate
 - ICVS source → compile → domain types (PolicyRule, AgentPrompt, etc.)
 - Tidak ada hardcoded prompt strings
 
@@ -2939,9 +2939,9 @@ Coverage:
 - Cost summary
 
 Implementasi:
-- `clawhive-toon` crate: encoder dari domain struct ke TOON format
+- `claw10-toon` crate: encoder dari domain struct ke TOON format
 - Fallback ke JSON jika model gagal parse
-- Bagian dari context pipeline di `clawhive-context`
+- Bagian dari context pipeline di `claw10-context`
 
 ## A.4 Prompt System
 

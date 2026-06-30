@@ -1,14 +1,14 @@
 use uuid::Uuid;
 
-use clawhive_domain::{
+use claw10_domain::{
     Agent, AgentGenome, AgentId, AgentState, AutonomyConfig, Budget, ChildSpec, IdentityId,
     LifecycleMode, MemoryConfig, Mission, MissionId, MissionState, ModelPolicy, NetworkPolicy,
     PolicyBundle, PolicyBundleId, RuntimeConfig,
 };
-use clawhive_spawn::broker::SpawnBroker;
+use claw10_spawn::broker::SpawnBroker;
 
-use clawhive_control_api::state::AppState;
-use clawhive_store::StoreExt;
+use claw10_control_api::state::AppState;
+use claw10_store::StoreExt;
 
 const AGENT_PREFIX: &str = "agent:";
 const SPAWNREQ_PREFIX: &str = "spawnreq:";
@@ -32,7 +32,7 @@ fn make_mission() -> Mission {
             hard_limit_usd: Some(1000.0),
             recurring_monthly_usd: None,
         },
-        risk: clawhive_domain::RiskLevel("low".into()),
+        risk: claw10_domain::RiskLevel("low".into()),
         require_evidence: false,
         minimum_verifiers: 1,
         state: MissionState::Active,
@@ -48,7 +48,7 @@ fn make_root_agent(mission: &Mission) -> Agent {
         identity_id: IdentityId(Uuid::now_v7()),
         mission_id: mission.id.clone(),
         parent_agent_id: None,
-        lineage_id: clawhive_domain::LineageId(Uuid::now_v7()),
+        lineage_id: claw10_domain::LineageId(Uuid::now_v7()),
         name: "e2e-root".into(),
         role: "root".into(),
         genome: AgentGenome {
@@ -67,8 +67,8 @@ fn make_root_agent(mission: &Mission) -> Agent {
                 max_children: 10,
             },
             delegable_permissions: vec![
-                clawhive_domain::Permission("read".into()),
-                clawhive_domain::Permission("write".into()),
+                claw10_domain::Permission("read".into()),
+                claw10_domain::Permission("write".into()),
             ],
             non_delegable_permissions: vec![],
             memory: MemoryConfig {
@@ -92,11 +92,11 @@ fn make_root_agent(mission: &Mission) -> Agent {
             recurring_monthly_usd: None,
         },
         delegable_permissions: vec![
-            clawhive_domain::Permission("read".into()),
-            clawhive_domain::Permission("write".into()),
+            claw10_domain::Permission("read".into()),
+            claw10_domain::Permission("write".into()),
         ],
         non_delegable_permissions: vec![],
-        current_runtime: Some(clawhive_domain::RuntimeLease {
+        current_runtime: Some(claw10_domain::RuntimeLease {
             worker_id: "worker-1".into(),
             acquired_at: now,
             expires_at: now + chrono::Duration::seconds(60),
@@ -193,9 +193,9 @@ async fn test_e2e_spawn_approve_lifecycle() {
     assert_eq!(stored_root.state, AgentState::Active);
     assert_eq!(stored_root.budget.spent_usd, 0.0);
 
-    let stored_spawn: clawhive_domain::SpawnRequest =
+    let stored_spawn: claw10_domain::SpawnRequest =
         store.get(&spawn_key).await.unwrap().unwrap();
-    assert_eq!(stored_spawn.state, clawhive_domain::SpawnState::Pending);
+    assert_eq!(stored_spawn.state, claw10_domain::SpawnState::Pending);
 
     // 7. Simulate approve_spawn flow (matching handler logic)
     let all_agents: Vec<Agent> = store
@@ -206,7 +206,7 @@ async fn test_e2e_spawn_approve_lifecycle() {
         .map(|(_, a)| a)
         .collect();
 
-    let mut request: clawhive_domain::SpawnRequest =
+    let mut request: claw10_domain::SpawnRequest =
         store.get(&spawn_key).await.unwrap().unwrap();
 
     // Load mission
@@ -260,7 +260,7 @@ async fn test_e2e_spawn_approve_lifecycle() {
     );
 
     // 10. Update and save spawn request
-    request.state = clawhive_domain::SpawnState::Approved;
+    request.state = claw10_domain::SpawnState::Approved;
     request.updated_at = chrono::Utc::now();
     store.set(&spawn_key, &request).await.unwrap();
 
@@ -312,7 +312,7 @@ async fn test_e2e_spawn_approve_lifecycle() {
     {
         let child_key = format!("{AGENT_PREFIX}{}", children[0].id.0);
         let mut child: Agent = store.get(&child_key).await.unwrap().unwrap();
-        clawhive_lifecycle::LifecycleService::terminate_descendant(&mut child);
+        claw10_lifecycle::LifecycleService::terminate_descendant(&mut child);
         store.set(&child_key, &child).await.unwrap();
 
         let terminated: Agent = store.get(&child_key).await.unwrap().unwrap();
@@ -334,7 +334,7 @@ async fn test_e2e_spawn_approve_lifecycle() {
     // 16. Test lifecycle: Heartbeat parent
     {
         let mut parent: Agent = store.get(&parent_key).await.unwrap().unwrap();
-        let remaining = clawhive_lifecycle::LifecycleService::heartbeat(&mut parent).unwrap();
+        let remaining = claw10_lifecycle::LifecycleService::heartbeat(&mut parent).unwrap();
         assert!(
             remaining.num_seconds() > 0,
             "heartbeat should return positive remaining time"
@@ -345,20 +345,20 @@ async fn test_e2e_spawn_approve_lifecycle() {
     // 17. Test lifecycle: Hibernate parent → wake parent
     {
         let mut parent: Agent = store.get(&parent_key).await.unwrap().unwrap();
-        let _cp = clawhive_lifecycle::LifecycleService::hibernate(&mut parent).unwrap();
+        let _cp = claw10_lifecycle::LifecycleService::hibernate(&mut parent).unwrap();
         assert_eq!(parent.state, AgentState::Hibernating);
         assert!(parent.current_runtime.is_none());
         assert_eq!(parent.checkpoints.len(), 1);
         store.set(&parent_key, &parent).await.unwrap();
 
         // Wake it up
-        let lease = clawhive_domain::RuntimeLease {
+        let lease = claw10_domain::RuntimeLease {
             worker_id: "worker-2".into(),
             acquired_at: chrono::Utc::now(),
             expires_at: chrono::Utc::now() + chrono::Duration::seconds(120),
             renewal_interval_seconds: 120,
         };
-        clawhive_lifecycle::LifecycleService::wake(&mut parent, lease).unwrap();
+        claw10_lifecycle::LifecycleService::wake(&mut parent, lease).unwrap();
         assert_eq!(parent.state, AgentState::Active);
         assert!(parent.current_runtime.is_some());
         assert_eq!(
@@ -371,7 +371,7 @@ async fn test_e2e_spawn_approve_lifecycle() {
     // 18. Test lifecycle: Terminate parent (should go through full teardown phases)
     {
         let mut parent: Agent = store.get(&parent_key).await.unwrap().unwrap();
-        clawhive_lifecycle::LifecycleService::terminate(&mut parent);
+        claw10_lifecycle::LifecycleService::terminate(&mut parent);
         assert_eq!(parent.state, AgentState::Terminated);
         assert!(parent.terminated_at.is_some());
         assert!(parent.current_runtime.is_none());
@@ -454,7 +454,7 @@ async fn test_e2e_spawn_budget_exhaustion() {
         .map(|(_, a)| a)
         .collect();
 
-    let request: clawhive_domain::SpawnRequest =
+    let request: claw10_domain::SpawnRequest =
         store.get(&spawn_key).await.unwrap().unwrap();
     let mission_stored: Mission = store.get(&mission_key).await.unwrap().unwrap();
     let mut parent: Agent = store.get(&root_key).await.unwrap().unwrap();
@@ -530,7 +530,7 @@ async fn test_e2e_spawn_validation_parent_not_active() {
         .map(|(_, a)| a)
         .collect();
 
-    let request: clawhive_domain::SpawnRequest =
+    let request: claw10_domain::SpawnRequest =
         store.get(&spawn_key).await.unwrap().unwrap();
     let mission_stored: Mission = store.get(&mission_key).await.unwrap().unwrap();
     let mut parent: Agent = store.get(&root_key).await.unwrap().unwrap();
@@ -567,7 +567,7 @@ async fn test_e2e_spawn_with_lineage() {
     store.set(&root_key, &root).await.unwrap();
 
     // Create lineage
-    let mut lineage = clawhive_lineage::LineageService::create_lineage(
+    let mut lineage = claw10_lineage::LineageService::create_lineage(
         mission.id.clone(),
         root.id.clone(),
     );
@@ -632,7 +632,7 @@ async fn test_e2e_spawn_with_lineage() {
 
     // Add children to lineage
     for child in &children {
-        clawhive_lineage::LineageService::add_entry(
+        claw10_lineage::LineageService::add_entry(
             &mut lineage,
             child.id.clone(),
             Some(root.id.clone()),
@@ -650,10 +650,10 @@ async fn test_e2e_spawn_with_lineage() {
     // Terminate one child and update lineage
     let child_key = format!("{AGENT_PREFIX}{}", children[0].id.0);
     let mut child: Agent = store.get(&child_key).await.unwrap().unwrap();
-    clawhive_lifecycle::LifecycleService::terminate_descendant(&mut child);
+    claw10_lifecycle::LifecycleService::terminate_descendant(&mut child);
     store.set(&child_key, &child).await.unwrap();
 
-    clawhive_lineage::LineageService::terminate_entry(&mut lineage, &children[0].id);
+    claw10_lineage::LineageService::terminate_entry(&mut lineage, &children[0].id);
     assert_eq!(lineage.entries[0].state, "terminated");
     assert!(lineage.entries[0].terminated_at.is_some());
     assert_eq!(lineage.entries[1].state, "active");
@@ -664,7 +664,7 @@ async fn test_e2e_spawn_with_lineage() {
     store.set(&lineage_key, &lineage).await.unwrap();
 
     // Verify persisted lineage
-    let stored_lineage: clawhive_domain::Lineage =
+    let stored_lineage: claw10_domain::Lineage =
         store.get(&lineage_key).await.unwrap().unwrap();
     assert_eq!(stored_lineage.entries.len(), 2);
     assert_eq!(stored_lineage.entries[0].state, "terminated");
@@ -721,7 +721,7 @@ async fn test_e2e_spawn_validation_swarm_size_exceeded() {
         .map(|(_, a)| a)
         .collect();
 
-    let request: clawhive_domain::SpawnRequest =
+    let request: claw10_domain::SpawnRequest =
         store.get(&spawn_key).await.unwrap().unwrap();
     let mission_stored: Mission = store.get(&mission_key).await.unwrap().unwrap();
     let mut parent: Agent = store.get(&root_key).await.unwrap().unwrap();
@@ -740,7 +740,7 @@ async fn test_e2e_spawn_validation_swarm_size_exceeded() {
 
     assert!(result.is_err());
     assert!(
-        matches!(result.unwrap_err(), clawhive_spawn::SpawnError::SwarmSizeExceeded),
+        matches!(result.unwrap_err(), claw10_spawn::SpawnError::SwarmSizeExceeded),
         "Harus gagal karena ukuran swarm melebihi batas limit"
     );
 }
@@ -786,7 +786,7 @@ async fn test_e2e_spawn_validation_duplicate_objective() {
         .map(|(_, a)| a)
         .collect();
 
-    let request: clawhive_domain::SpawnRequest =
+    let request: claw10_domain::SpawnRequest =
         store.get(&spawn_key).await.unwrap().unwrap();
     let mission_stored: Mission = store.get(&mission_key).await.unwrap().unwrap();
     let mut parent: Agent = store.get(&root_key).await.unwrap().unwrap();
@@ -805,7 +805,7 @@ async fn test_e2e_spawn_validation_duplicate_objective() {
 
     assert!(result.is_err());
     assert!(
-        matches!(result.unwrap_err(), clawhive_spawn::SpawnError::DuplicateObjective(_)),
+        matches!(result.unwrap_err(), claw10_spawn::SpawnError::DuplicateObjective(_)),
         "Harus gagal karena role bertabrakan"
     );
 }
@@ -830,7 +830,7 @@ async fn test_e2e_spawn_validation_permission_not_delegable() {
         budget_usd: 10.0,
         model_profile: "gpt-4".into(),
         max_turns: 10,
-        custom_permissions: Some(vec![clawhive_domain::Permission("admin".into())]),
+        custom_permissions: Some(vec![claw10_domain::Permission("admin".into())]),
     }];
 
     let spawn_request = SpawnBroker::create_request(
@@ -851,7 +851,7 @@ async fn test_e2e_spawn_validation_permission_not_delegable() {
         .map(|(_, a)| a)
         .collect();
 
-    let request: clawhive_domain::SpawnRequest =
+    let request: claw10_domain::SpawnRequest =
         store.get(&spawn_key).await.unwrap().unwrap();
     let mission_stored: Mission = store.get(&mission_key).await.unwrap().unwrap();
     let mut parent: Agent = store.get(&root_key).await.unwrap().unwrap();
@@ -870,7 +870,7 @@ async fn test_e2e_spawn_validation_permission_not_delegable() {
 
     assert!(result.is_err());
     assert!(
-        matches!(result.unwrap_err(), clawhive_spawn::SpawnError::PermissionNotDelegable(_)),
+        matches!(result.unwrap_err(), claw10_spawn::SpawnError::PermissionNotDelegable(_)),
         "Harus gagal karena permission tidak didelegasikan oleh parent"
     );
 }
@@ -917,7 +917,7 @@ async fn test_e2e_spawn_validation_mission_not_active() {
         .map(|(_, a)| a)
         .collect();
 
-    let request: clawhive_domain::SpawnRequest =
+    let request: claw10_domain::SpawnRequest =
         store.get(&spawn_key).await.unwrap().unwrap();
     let mission_stored: Mission = store.get(&mission_key).await.unwrap().unwrap();
     let mut parent: Agent = store.get(&root_key).await.unwrap().unwrap();
@@ -936,7 +936,7 @@ async fn test_e2e_spawn_validation_mission_not_active() {
 
     assert!(result.is_err());
     assert!(
-        matches!(result.unwrap_err(), clawhive_spawn::SpawnError::Validation(_)),
+        matches!(result.unwrap_err(), claw10_spawn::SpawnError::Validation(_)),
         "Harus gagal karena mission tidak aktif"
     );
 }

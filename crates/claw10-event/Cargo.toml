@@ -1,0 +1,22 @@
+[package]
+name = "claw10-event"
+version.workspace = true
+edition = "2024"
+
+[dependencies]
+claw10-domain = { path = "../claw10-domain" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+async-trait = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+
+# NATS (optional — aktif hanya di fitur nats)
+nats = { workspace = true, optional = true }
+
+[features]
+default = []
+nats = ["dep:nats"]

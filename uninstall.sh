@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# ClawHive OS uninstaller (Linux, macOS, WSL)
+# Claw10 OS uninstaller (Linux, macOS, WSL)
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/crediblemark-official/clawhive/master/uninstall.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/crediblemark-official/claw10/master/uninstall.sh | sh
 
 set -e
 
-BINARY="clawhive"
-INSTALL_DIR="${CLAWHIVE_INSTALL_DIR:-$HOME/.local/bin}"
-CONFIG_DIR="$HOME/.clawhive"
+BINARY="claw10"
+INSTALL_DIR="${CLAW10_INSTALL_DIR:-$HOME/.local/bin}"
+CONFIG_DIR="$HOME/.claw10"
 
-echo "ClawHive OS Uninstaller"
+echo "Claw10 OS Uninstaller"
 echo "========================"
 echo ""
 echo "This will remove:"
@@ -18,9 +18,9 @@ echo "  - Config & data: $CONFIG_DIR"
 echo "  - PATH entry from shell config (if added by installer)"
 echo ""
 
-# Non-interactive mode: set CLAWHIVE_UNINSTALL_FORCE=1 to skip confirmation
-if [ -z "$CLAWHIVE_UNINSTALL_FORCE" ]; then
-    printf "Are you sure you want to uninstall ClawHive? [y/N] "
+# Non-interactive mode: set CLAW10_UNINSTALL_FORCE=1 to skip confirmation
+if [ -z "$CLAW10_UNINSTALL_FORCE" ]; then
+    printf "Are you sure you want to uninstall Claw10? [y/N] "
     read -r response
     case "$response" in
         [yY][eE][sS]|[yY]) ;;
@@ -62,5 +62,5 @@ for rc in "${RC_FILES[@]}"; do
 done
 
 echo ""
-echo "ClawHive has been uninstalled."
+echo "Claw10 has been uninstalled."
 echo "You may need to restart your terminal for PATH changes to take effect."

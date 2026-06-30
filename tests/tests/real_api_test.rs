@@ -1,12 +1,12 @@
 use std::sync::Arc;
-use clawhive_domain::{
+use claw10_domain::{
     Agent, AgentGenome, AgentId, AgentState, AutonomyConfig, Budget, LifecycleMode,
     MemoryConfig, ModelPolicy, NetworkPolicy, PolicyBundle, PolicyBundleId, RuntimeConfig,
     WorkerType,
 };
-use clawhive_store::InMemoryStore;
-use clawhive_model_router::router::ModelRouter;
-use clawhive_tool::registry::ToolRegistry;
+use claw10_store::InMemoryStore;
+use claw10_model_router::router::ModelRouter;
+use claw10_tool::registry::ToolRegistry;
 
 #[tokio::test]
 async fn test_real_llm_api_call() {
@@ -19,11 +19,11 @@ async fn test_real_llm_api_call() {
         return;
     }
 
-    let kv_store: Arc<dyn clawhive_store::Store> = Arc::new(InMemoryStore::new());
-    let mut registry = clawhive_model_router::provider::ModelRegistry::new();
+    let kv_store: Arc<dyn claw10_store::Store> = Arc::new(InMemoryStore::new());
+    let mut registry = claw10_model_router::provider::ModelRegistry::new();
 
     // Registrasi provider dari env vars
-    for config in clawhive_model_router::providers::provider_configs() {
+    for config in claw10_model_router::providers::provider_configs() {
         // Native providers (e.g. Bedrock) are registered via their factory.
         if let Some(factory) = config.factory {
             let name = config.name.to_string();
@@ -36,7 +36,7 @@ async fn test_real_llm_api_call() {
         if let Ok(key) = std::env::var(config.api_key_env) {
             if !key.trim().is_empty() {
                 registry.register(Box::new(
-                    clawhive_model_router::openai_compat::OpenAiCompatibleProvider::with_config(
+                    claw10_model_router::openai_compat::OpenAiCompatibleProvider::with_config(
                         config.name,
                         config.base_url,
                         key,
@@ -60,10 +60,10 @@ async fn test_real_llm_api_call() {
     let now = chrono::Utc::now();
     let agent = Agent {
         id: AgentId(uuid::Uuid::now_v7()),
-        identity_id: clawhive_domain::IdentityId(uuid::Uuid::now_v7()),
-        mission_id: clawhive_domain::MissionId(uuid::Uuid::now_v7()),
+        identity_id: claw10_domain::IdentityId(uuid::Uuid::now_v7()),
+        mission_id: claw10_domain::MissionId(uuid::Uuid::now_v7()),
         parent_agent_id: None,
-        lineage_id: clawhive_domain::LineageId(uuid::Uuid::now_v7()),
+        lineage_id: claw10_domain::LineageId(uuid::Uuid::now_v7()),
         name: "test-agent".into(),
         role: "Tester".into(),
         genome: AgentGenome {
@@ -127,17 +127,17 @@ async fn test_real_llm_api_call() {
         terminated_at: None,
     };
 
-    let agent_store = clawhive_agent::store::AgentStore::new(Arc::clone(&kv_store));
+    let agent_store = claw10_agent::store::AgentStore::new(Arc::clone(&kv_store));
     agent_store.save(&agent).await.unwrap();
 
     let mut tool_registry = ToolRegistry::new();
-    tool_registry.register(Box::new(clawhive_tool::builtin::ReadFileTool));
-    tool_registry.register(Box::new(clawhive_tool::builtin::WriteFileTool));
-    tool_registry.register(Box::new(clawhive_tool::builtin::HttpTool));
+    tool_registry.register(Box::new(claw10_tool::builtin::ReadFileTool));
+    tool_registry.register(Box::new(claw10_tool::builtin::WriteFileTool));
+    tool_registry.register(Box::new(claw10_tool::builtin::HttpTool));
     let tool_registry = Arc::new(tool_registry);
 
-    let worker_service = Arc::new(clawhive_worker::WorkerService::new(Arc::clone(&kv_store)));
-    let budget_service = Arc::new(clawhive_budget::BudgetService);
+    let worker_service = Arc::new(claw10_worker::WorkerService::new(Arc::clone(&kv_store)));
+    let budget_service = Arc::new(claw10_budget::BudgetService);
 
     let worker = worker_service.register(
         "test-worker".to_string(),
@@ -146,7 +146,7 @@ async fn test_real_llm_api_call() {
         "1.0.0".to_string(),
     ).await;
 
-    let runtime = clawhive_agent::runtime::AgentRuntime::new(
+    let runtime = claw10_agent::runtime::AgentRuntime::new(
         agent_store,
         model_router,
         tool_registry,
@@ -160,7 +160,7 @@ async fn test_real_llm_api_call() {
     context.insert("mission_statement".to_string(), "TEST REAL API".to_string());
 
     let (session, events) = runtime.execute_agent(&agent.id, objective.to_string(), context, None).await.unwrap();
-    assert_eq!(session.state, clawhive_agent::session::SessionState::Completed);
+    assert_eq!(session.state, claw10_agent::session::SessionState::Completed);
     assert!(session.turn_count >= 1);
     assert!(!events.is_empty());
 }

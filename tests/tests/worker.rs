@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use chrono::Utc;
 
-use clawhive_domain::{WorkerCapability, WorkerHeartbeat, WorkerState, WorkerType};
-use clawhive_store::InMemoryStore;
-use clawhive_worker::WorkerService;
+use claw10_domain::{WorkerCapability, WorkerHeartbeat, WorkerState, WorkerType};
+use claw10_store::InMemoryStore;
+use claw10_worker::WorkerService;
 
 fn make_hb() -> WorkerHeartbeat {
     WorkerHeartbeat {
@@ -19,7 +19,7 @@ fn make_hb() -> WorkerHeartbeat {
 }
 
 fn make_svc() -> WorkerService {
-    let store = Arc::new(InMemoryStore::new()) as Arc<dyn clawhive_store::Store>;
+    let store = Arc::new(InMemoryStore::new()) as Arc<dyn claw10_store::Store>;
     WorkerService::new(store)
 }
 

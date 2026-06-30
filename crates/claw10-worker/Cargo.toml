@@ -1,0 +1,12 @@
+[package]
+name = "claw10-worker"
+version.workspace = true
+edition = "2024"
+
+[dependencies]
+claw10-domain = { path = "../claw10-domain" }
+claw10-store = { path = "../claw10-store" }
+async-trait = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+thiserror = { workspace = true }

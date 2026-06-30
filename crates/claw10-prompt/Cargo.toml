@@ -1,0 +1,19 @@
+[package]
+name = "claw10-prompt"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+claw10-domain = { path = "../claw10-domain" }
+claw10-toon = { path = "../claw10-toon" }
+claw10-icvs = { path = "../claw10-icvs" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+sha2 = "0.10"
+hex = "0.4"
+schemars = { workspace = true }
+async-trait = { workspace = true }
+strum = { workspace = true }

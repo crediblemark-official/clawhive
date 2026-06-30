@@ -1,0 +1,25 @@
+[package]
+name = "claw10-tui"
+version.workspace = true
+edition = "2024"
+
+[dependencies]
+claw10-control-api = { path = "../claw10-control-api" }
+claw10-domain = { path = "../claw10-domain" }
+claw10-store = { path = "../claw10-store" }
+claw10-model-router = { path = "../claw10-model-router" }
+claw10-agent = { path = "../claw10-agent" }
+claw10-budget = { path = "../claw10-budget" }
+claw10-tool = { path = "../claw10-tool" }
+claw10-worker = { path = "../claw10-worker" }
+ratatui = { workspace = true }
+crossterm = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
+async-trait = "0.1"
+

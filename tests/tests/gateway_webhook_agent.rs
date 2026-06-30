@@ -6,23 +6,23 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use axum::{Json, Router, routing::post};
 
-use clawhive_control_api::state::AppState;
-use clawhive_domain::{
+use claw10_control_api::state::AppState;
+use claw10_domain::{
     Agent, AgentGenome, AgentId, AgentState, AutonomyConfig, Budget, IdentityId,
     LifecycleMode, LineageId, MemoryConfig, Mission, MissionId, MissionState,
     ModelPolicy, NetworkPolicy, RiskLevel, RuntimeConfig,
 };
-use clawhive_model_router::types::{
+use claw10_model_router::types::{
     ChatRequest, ChatResponse, FinishReason, MessageRole, ModelMessage, ModelProfile,
     UsageInfo,
 };
-use clawhive_store::StoreExt;
+use claw10_store::StoreExt;
 
 struct MockProvider;
 
 #[async_trait::async_trait]
 #[allow(dead_code)]
-impl clawhive_model_router::provider::ModelProvider for MockProvider {
+impl claw10_model_router::provider::ModelProvider for MockProvider {
     fn name(&self) -> &str {
         "mock"
     }
@@ -48,7 +48,7 @@ impl clawhive_model_router::provider::ModelProvider for MockProvider {
         }
     }
 
-    async fn chat(&self, _request: ChatRequest) -> Result<ChatResponse, clawhive_model_router::ModelError> {
+    async fn chat(&self, _request: ChatRequest) -> Result<ChatResponse, claw10_model_router::ModelError> {
         Ok(ChatResponse {
             message: ModelMessage {
                 role: MessageRole::Assistant,
@@ -147,14 +147,14 @@ fn make_agent(mission: &Mission) -> Agent {
         checkpoints: vec![],
         subscriptions: vec![],
         schedules: vec![],
-        policy_bundle: clawhive_domain::PolicyBundle {
-            id: clawhive_domain::PolicyBundleId(uuid::Uuid::now_v7()),
+        policy_bundle: claw10_domain::PolicyBundle {
+            id: claw10_domain::PolicyBundleId(uuid::Uuid::now_v7()),
             name: "default".into(),
             version: "1.0.0".into(),
-            rules: vec![clawhive_domain::PolicyRule {
-                id: clawhive_domain::PolicyRuleId(uuid::Uuid::now_v7()),
-                subject: clawhive_domain::PolicySubject::Role("*".into()),
-                effect: clawhive_domain::PolicyEffect::Allow,
+            rules: vec![claw10_domain::PolicyRule {
+                id: claw10_domain::PolicyRuleId(uuid::Uuid::now_v7()),
+                subject: claw10_domain::PolicySubject::Role("*".into()),
+                effect: claw10_domain::PolicyEffect::Allow,
                 action: "*".into(),
                 resource: "*".into(),
                 priority: 0,
@@ -177,7 +177,7 @@ fn make_agent(mission: &Mission) -> Agent {
 async fn spawn_server(state: AppState) -> SocketAddr {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
-    let app = clawhive_control_api::build_router(state);
+    let app = claw10_control_api::build_router(state);
     tokio::spawn(async move {
         axum::serve(listener, app).await.unwrap();
     });
@@ -187,16 +187,16 @@ async fn spawn_server(state: AppState) -> SocketAddr {
 #[tokio::test]
 async fn test_webhook_routes_to_agent_and_dispatches_reply() {
     let _ = tracing_subscriber::fmt()
-        .with_env_filter("clawhive=debug")
+        .with_env_filter("claw10=debug")
         .try_init();
 
     // 1. Create shared KV store and AppState with mock model provider.
-    let kv = Arc::new(clawhive_store::InMemoryStore::new()) as Arc<dyn clawhive_store::Store>;
+    let kv = Arc::new(claw10_store::InMemoryStore::new()) as Arc<dyn claw10_store::Store>;
 
-    let mut registry = clawhive_model_router::provider::ModelRegistry::new();
+    let mut registry = claw10_model_router::provider::ModelRegistry::new();
     registry.register(Box::new(MockProvider));
-    let model_router = Arc::new(clawhive_model_router::router::ModelRouter::new(registry));
-    let tool_registry = Arc::new(clawhive_tool::registry::ToolRegistry::new());
+    let model_router = Arc::new(claw10_model_router::router::ModelRouter::new(registry));
+    let tool_registry = Arc::new(claw10_tool::registry::ToolRegistry::new());
 
     let state = AppState::new_with_services(kv.clone(), model_router, tool_registry);
 

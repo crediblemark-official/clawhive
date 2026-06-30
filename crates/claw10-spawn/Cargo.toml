@@ -1,0 +1,23 @@
+[package]
+name = "claw10-spawn"
+version.workspace = true
+edition = "2024"
+
+[dependencies]
+claw10-domain = { path = "../claw10-domain" }
+claw10-auth = { path = "../claw10-auth" }
+claw10-budget = { path = "../claw10-budget" }
+claw10-lineage = { path = "../claw10-lineage" }
+claw10-store = { path = "../claw10-store" }
+claw10-agent = { path = "../claw10-agent" }
+claw10-event = { path = "../claw10-event" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+async-trait = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt", "macros"] }

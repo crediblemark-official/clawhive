@@ -1,0 +1,11 @@
+[package]
+name = "claw10-icvs"
+version.workspace = true
+edition = "2024"
+
+[dependencies]
+claw10-domain = { path = "../claw10-domain" }
+icvs.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+uuid.workspace = true

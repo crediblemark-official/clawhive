@@ -1,15 +1,15 @@
-# ClawHive OS — Windows installer (PowerShell)
+# Claw10 OS — Windows installer (PowerShell)
 # Usage:
-#   irm https://raw.githubusercontent.com/crediblemark-official/clawhive/master/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/crediblemark-official/claw10/master/install.ps1 | iex
 #
 # To use your own domain, replace the raw GitHub URL above and host this script there.
 
 $ErrorActionPreference = "Stop"
 
-$Repo = "crediblemark-official/clawhive"
-$Binary = "clawhive.exe"
-$InstallDir = if ($env:CLAWHIVE_INSTALL_DIR) { $env:CLAWHIVE_INSTALL_DIR } else { "$env:LOCALAPPDATA\ClawHive\bin" }
-$CargoBuild = if ($env:CLAWHIVE_CARGO_BUILD) { $env:CLAWHIVE_CARGO_BUILD } else { "0" }
+$Repo = "crediblemark-official/claw10"
+$Binary = "claw10.exe"
+$InstallDir = if ($env:CLAW10_INSTALL_DIR) { $env:CLAW10_INSTALL_DIR } else { "$env:LOCALAPPDATA\Claw10\bin" }
+$CargoBuild = if ($env:CLAW10_CARGO_BUILD) { $env:CLAW10_CARGO_BUILD } else { "0" }
 
 $Platform = "windows"
 $Arch = if ([Environment]::Is64BitOperatingSystem) { "x86_64" } else { "i686" }
@@ -19,14 +19,14 @@ if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64" -or $env:PROCESSOR_ARCHITEW6432 -eq 
     $Arch = "aarch64"
 }
 
-Write-Host "Installing ClawHive OS for $Platform-$Arch..."
+Write-Host "Installing Claw10 OS for $Platform-$Arch..."
 
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 
 $Downloaded = $false
 if ($CargoBuild -eq "0") {
     $LatestUrl = "https://api.github.com/repos/$Repo/releases/latest"
-    $AssetName = "clawhive-$Platform-$Arch.zip"
+    $AssetName = "claw10-$Platform-$Arch.zip"
 
     try {
         $Release = Invoke-RestMethod -Uri $LatestUrl -UseBasicParsing -TimeoutSec 15
@@ -58,13 +58,13 @@ if (-not $Downloaded) {
 
     $TmpDir = Join-Path $env:TEMP ([System.Guid]::NewGuid().ToString())
     New-Item -ItemType Directory -Force -Path $TmpDir | Out-Null
-    git clone --depth 1 "https://github.com/$Repo.git" "$TmpDir\clawhive" 2>$null
-    if (-not (Test-Path "$TmpDir\clawhive")) {
+    git clone --depth 1 "https://github.com/$Repo.git" "$TmpDir\claw10" 2>$null
+    if (-not (Test-Path "$TmpDir\claw10")) {
         Write-Host "Failed to clone repository. Make sure git is installed."
         exit 1
     }
-    cargo build --release --manifest-path "$TmpDir\clawhive\Cargo.toml"
-    Copy-Item -Path "$TmpDir\clawhive\target\release\$Binary" -Destination (Join-Path $InstallDir $Binary) -Force
+    cargo build --release --manifest-path "$TmpDir\claw10\Cargo.toml"
+    Copy-Item -Path "$TmpDir\claw10\target\release\$Binary" -Destination (Join-Path $InstallDir $Binary) -Force
     Remove-Item -Recurse -Force $TmpDir
 }
 
@@ -76,6 +76,6 @@ if ($UserPath -notlike "*$InstallDir*") {
 }
 
 Write-Host ""
-Write-Host "ClawHive OS installed to: $InstallDir\$Binary"
-Write-Host "Run 'clawhive --help' to get started."
-Write-Host "Run 'clawhive setup' for initial configuration wizard."
+Write-Host "Claw10 OS installed to: $InstallDir\$Binary"
+Write-Host "Run 'claw10 --help' to get started."
+Write-Host "Run 'claw10 setup' for initial configuration wizard."

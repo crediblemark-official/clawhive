@@ -1,14 +1,14 @@
-# ClawHive OS — Windows uninstaller (PowerShell)
+# Claw10 OS — Windows uninstaller (PowerShell)
 # Usage:
-#   irm https://raw.githubusercontent.com/crediblemark-official/clawhive/master/uninstall.ps1 | iex
+#   irm https://raw.githubusercontent.com/crediblemark-official/claw10/master/uninstall.ps1 | iex
 
 $ErrorActionPreference = "Stop"
 
-$Binary = "clawhive.exe"
-$InstallDir = if ($env:CLAWHIVE_INSTALL_DIR) { $env:CLAWHIVE_INSTALL_DIR } else { "$env:LOCALAPPDATA\ClawHive\bin" }
-$ConfigDir = "$env:USERPROFILE\.clawhive"
+$Binary = "claw10.exe"
+$InstallDir = if ($env:CLAW10_INSTALL_DIR) { $env:CLAW10_INSTALL_DIR } else { "$env:LOCALAPPDATA\Claw10\bin" }
+$ConfigDir = "$env:USERPROFILE\.claw10"
 
-Write-Host "ClawHive OS Uninstaller"
+Write-Host "Claw10 OS Uninstaller"
 Write-Host "========================"
 Write-Host ""
 Write-Host "This will remove:"
@@ -17,9 +17,9 @@ Write-Host "  - Config & data: $ConfigDir"
 Write-Host "  - PATH entry from user environment (if added by installer)"
 Write-Host ""
 
-# Non-interactive mode: set $env:CLAWHIVE_UNINSTALL_FORCE = "1" to skip confirmation
-if (-not $env:CLAWHIVE_UNINSTALL_FORCE) {
-    $response = Read-Host "Are you sure you want to uninstall ClawHive? [y/N]"
+# Non-interactive mode: set $env:CLAW10_UNINSTALL_FORCE = "1" to skip confirmation
+if (-not $env:CLAW10_UNINSTALL_FORCE) {
+    $response = Read-Host "Are you sure you want to uninstall Claw10? [y/N]"
     if ($response -notmatch "^[yY]") {
         Write-Host "Uninstall cancelled."
         exit 0
@@ -61,5 +61,5 @@ if ($UserPath -and $UserPath -like "*$InstallDir*") {
 }
 
 Write-Host ""
-Write-Host "ClawHive has been uninstalled."
+Write-Host "Claw10 has been uninstalled."
 Write-Host "You may need to restart your terminal for PATH changes to take effect."
