@@ -633,8 +633,9 @@ impl SetupWizard {
             .split(area);
 
         let title = Paragraph::new(Line::from(vec![
-            Span::styled("    Pilih Provider LLM", Style::default().fg(Color::Rgb(254, 192, 126)).add_modifier(Modifier::BOLD)),
+            Span::styled("Pilih Provider LLM", Style::default().fg(Color::Rgb(254, 192, 126)).add_modifier(Modifier::BOLD)),
         ]))
+        .alignment(ratatui::layout::Alignment::Center)
         .style(Style::default().bg(Color::Rgb(15, 15, 15)));
         frame.render_widget(title, chunks[0]);
 
@@ -672,17 +673,17 @@ impl SetupWizard {
 
             let text = if is_selected {
                 Line::from(vec![
-                    Span::styled(" \u{25B6} ", Style::default().fg(Color::Rgb(254, 192, 126)).add_modifier(Modifier::BOLD)),
+                    Span::styled("\u{25B6} ", Style::default().fg(Color::Rgb(254, 192, 126)).add_modifier(Modifier::BOLD)),
                     Span::styled(provider.name, Style::default().fg(Color::Rgb(254, 192, 126)).add_modifier(Modifier::BOLD)),
                 ])
             } else {
                 Line::from(vec![
-                    Span::styled("   ", Style::default().fg(Color::DarkGray)),
                     Span::styled(provider.name, Style::default().fg(Color::Rgb(160, 160, 160))),
                 ])
             };
 
             let para = Paragraph::new(text)
+                .alignment(ratatui::layout::Alignment::Center)
                 .style(Style::default().bg(if is_selected { Color::Rgb(25, 25, 25) } else { Color::Rgb(15, 15, 15) }));
 
             frame.render_widget(ratatui::widgets::Clear, item_rect);
