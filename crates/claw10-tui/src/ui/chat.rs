@@ -26,9 +26,9 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
             .split(area)
     };
 
-    // Bersihkan area chat utama (sisi kiri) dan isi dengan background hitam pekat solid
+    // Bersihkan area chat utama (sisi kiri) dan isi dengan background hitam pekat solid (#000000)
     frame.render_widget(ratatui::widgets::Clear, main_chunks[0]);
-    let left_bg_block = Block::default().style(Style::default().bg(Color::Black));
+    let left_bg_block = Block::default().style(Style::default().bg(Color::Rgb(0, 0, 0)));
     frame.render_widget(left_bg_block, main_chunks[0]);
 
     // Hitung tinggi input box secara dinamis berdasarkan wrap_text dari input_buffer
