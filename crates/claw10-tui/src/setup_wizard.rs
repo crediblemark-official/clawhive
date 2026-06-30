@@ -737,6 +737,7 @@ impl SetupWizard {
         let input_para = Paragraph::new(Line::from(vec![
             Span::styled(display, Style::default().fg(Color::Rgb(218, 165, 32))),
         ]))
+        .alignment(ratatui::layout::Alignment::Center)
         .style(Style::default().bg(Color::Rgb(25, 25, 25)));
 
         frame.render_widget(ratatui::widgets::Clear, chunks[0]);
@@ -753,7 +754,8 @@ impl SetupWizard {
         }
 
         if !self.api_key.is_empty() {
-            let cursor_x = input_inner.x + self.api_key.len() as u16;
+            let text_len = self.api_key.len().min(40) as u16;
+            let cursor_x = input_inner.x + (input_inner.width.saturating_sub(text_len) / 2) + text_len;
             frame.set_cursor_position((cursor_x.min(input_inner.x + input_inner.width.saturating_sub(1)), input_inner.y));
         }
     }
@@ -803,6 +805,7 @@ impl SetupWizard {
         let input_para = Paragraph::new(Line::from(vec![
             Span::styled(display, Style::default().fg(if self.custom_url.is_empty() { Color::DarkGray } else { Color::Rgb(218, 165, 32) })),
         ]))
+        .alignment(ratatui::layout::Alignment::Center)
         .style(Style::default().bg(Color::Rgb(25, 25, 25)));
 
         frame.render_widget(ratatui::widgets::Clear, chunks[0]);
@@ -819,7 +822,8 @@ impl SetupWizard {
         }
 
         if !self.custom_url.is_empty() {
-            let cursor_x = input_inner.x + self.custom_url.len() as u16;
+            let text_len = self.custom_url.len() as u16;
+            let cursor_x = input_inner.x + (input_inner.width.saturating_sub(text_len) / 2) + text_len;
             frame.set_cursor_position((cursor_x.min(input_inner.x + input_inner.width.saturating_sub(1)), input_inner.y));
         }
     }
@@ -882,6 +886,7 @@ impl SetupWizard {
         let search_para = Paragraph::new(Line::from(vec![
             Span::styled(search_display, Style::default().fg(if self.model_search.is_empty() { Color::DarkGray } else { Color::Rgb(218, 165, 32) })),
         ]))
+        .alignment(ratatui::layout::Alignment::Center)
         .style(Style::default().bg(Color::Rgb(25, 25, 25)));
 
         frame.render_widget(ratatui::widgets::Clear, chunks[0]);
@@ -889,7 +894,8 @@ impl SetupWizard {
         frame.render_widget(search_para, search_inner);
 
         if !self.model_search.is_empty() {
-            let cursor_x = search_inner.x + self.model_search.len() as u16;
+            let text_len = self.model_search.len() as u16;
+            let cursor_x = search_inner.x + (search_inner.width.saturating_sub(text_len) / 2) + text_len;
             frame.set_cursor_position((cursor_x.min(search_inner.x + search_inner.width.saturating_sub(1)), search_inner.y));
         }
 
@@ -984,6 +990,7 @@ impl SetupWizard {
         let input_para = Paragraph::new(Line::from(vec![
             Span::styled(display, Style::default().fg(if self.custom_model.is_empty() { Color::DarkGray } else { Color::Rgb(218, 165, 32) })),
         ]))
+        .alignment(ratatui::layout::Alignment::Center)
         .style(Style::default().bg(Color::Rgb(25, 25, 25)));
 
         frame.render_widget(ratatui::widgets::Clear, chunks[0]);
@@ -1000,7 +1007,8 @@ impl SetupWizard {
         }
 
         if !self.custom_model.is_empty() {
-            let cursor_x = input_inner.x + self.custom_model.len() as u16;
+            let text_len = self.custom_model.len() as u16;
+            let cursor_x = input_inner.x + (input_inner.width.saturating_sub(text_len) / 2) + text_len;
             frame.set_cursor_position((cursor_x.min(input_inner.x + input_inner.width.saturating_sub(1)), input_inner.y));
         }
     }
