@@ -9,6 +9,9 @@ use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::Registry;
 
 mod telemetry_layer;
+mod service;
+mod setup;
+mod update;
 
 /// Load environment variables from `~/.claw10/.env` if the file exists.
 /// This makes API keys saved by the setup wizard available to the runtime
@@ -38,7 +41,7 @@ struct Cli {
     command: Option<Commands>,
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Clone)]
 enum Commands {
     /// Start the API server
     Serve {
@@ -93,6 +96,10 @@ enum Commands {
         #[arg(long, short)]
         force: bool,
     },
+    /// Update Claw10 OS to the latest version
+    Update,
+    /// Check if a newer version of Claw10 OS is available
+    Check,
 }
 
 #[derive(Subcommand, Clone, Debug)]
@@ -127,6 +134,8 @@ async fn main() {
         Commands::Service { .. } => false,
         Commands::Start | Commands::Stop => false,
         Commands::Uninstall { .. } => false,
+        Commands::Update => false,
+        Commands::Check => false,
         Commands::RunAgent { .. } => false,
         Commands::Version => false,
     };
@@ -178,7 +187,7 @@ async fn main() {
 
     // Auto-detect first-run: if no config exists and not setup/version, redirect to setup
     let needs_setup = match &command {
-        Commands::Setup { .. } | Commands::Version | Commands::Start | Commands::Stop | Commands::Uninstall { .. } => false,
+        Commands::Setup { .. } | Commands::Version | Commands::Start | Commands::Stop | Commands::Uninstall { .. } | Commands::Update | Commands::Check => false,
         _ => {
             let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
             let candidates = [
@@ -192,21 +201,30 @@ async fn main() {
 
     if needs_setup {
         eprintln!("Belum ada konfigurasi ditemukan. Menjalankan setup wizard...\n");
-        if let Err(e) = run_setup_wizard(false).await {
+        if let Err(e) = setup::run_setup_wizard(false).await {
             eprintln!("Setup gagal: {e}");
             std::process::exit(1);
         }
     }
 
+    // Jalankan auto-update asinkron di background saat startup
+    let cmd_clone = command.clone();
+    tokio::spawn(async move {
+        // Jangan jalankan auto-update jika user memanggil subcommand uninstall/setup/version/check
+        if !matches!(cmd_clone, Commands::Uninstall { .. } | Commands::Setup { .. } | Commands::Version | Commands::Update | Commands::Check) {
+            let _ = update::check_and_perform_update(true).await;
+        }
+    });
+
     // Jika user secara eksplisit memanggil `setup`, jalankan wizard lalu otomatis alihkan ke `serve` (auto run)
     if let Commands::Setup { force } = command {
-        if let Err(e) = run_setup_wizard(force).await {
+        if let Err(e) = setup::run_setup_wizard(force).await {
             eprintln!("Setup gagal: {e}");
             std::process::exit(1);
         }
         println!("\nSetup sukses! Menginstal dan menjalankan Claw10 server daemon di background...");
-        handle_service_command(ServiceAction::Install);
-        handle_service_command(ServiceAction::Start);
+        service::handle_service_command(service::ServiceAction::Install);
+        service::handle_service_command(service::ServiceAction::Start);
         println!("\n✓ Claw10 server daemon aktif dan berjalan otomatis sebagai systemd user service!");
         println!("Gunakan 'claw10 service status' untuk memantau status service.");
         std::process::exit(0);
@@ -648,285 +666,46 @@ async fn main() {
             }
         }
         Commands::Setup { force } => {
-            if let Err(e) = run_setup_wizard(force).await {
+            if let Err(e) = setup::run_setup_wizard(force).await {
                 eprintln!("Setup failed: {e}");
                 std::process::exit(1);
             }
         }
         Commands::Service { action } => {
-            handle_service_command(action);
+            let act = match action {
+                ServiceAction::Install => service::ServiceAction::Install,
+                ServiceAction::Uninstall => service::ServiceAction::Uninstall,
+                ServiceAction::Start => service::ServiceAction::Start,
+                ServiceAction::Stop => service::ServiceAction::Stop,
+                ServiceAction::Status => service::ServiceAction::Status,
+            };
+            service::handle_service_command(act);
         }
         Commands::Start => {
-            handle_service_command(ServiceAction::Start);
+            service::handle_service_command(service::ServiceAction::Start);
         }
         Commands::Stop => {
-            handle_service_command(ServiceAction::Stop);
+            service::handle_service_command(service::ServiceAction::Stop);
+        }
+        Commands::Update => {
+            if let Err(e) = update::check_and_perform_update(false).await {
+                eprintln!("Update gagal: {e}");
+                std::process::exit(1);
+            }
+        }
+        Commands::Check => {
+            if let Err(e) = update::check_version_only().await {
+                eprintln!("Gagal memeriksa versi: {e}");
+                std::process::exit(1);
+            }
         }
         Commands::Uninstall { force } => {
-            if !force {
-                println!("Claw10 OS Uninstaller");
-                println!("========================");
-                println!("");
-                println!("Perintah ini akan menghapus:");
-                println!("  - Daemon Service (systemd)");
-                println!("  - Folder Database & Konfigurasi (~/.claw10)");
-                println!("  - File Eksekusi Binary (claw10)");
-                println!("");
-                print!("Apakah Anda yakin ingin menghapus Claw10 dari sistem? [y/N]: ");
-                use std::io::Write;
-                let _ = std::io::stdout().flush();
-                
-                let mut input = String::new();
-                if std::io::stdin().read_line(&mut input).is_ok() {
-                    let trimmed = input.trim().to_lowercase();
-                    if trimmed != "y" && trimmed != "yes" {
-                        println!("Uninstall dibatalkan.");
-                        std::process::exit(0);
-                    }
-                } else {
-                    println!("Gagal membaca input. Uninstall dibatalkan.");
-                    std::process::exit(1);
-                }
+            if let Err(e) = setup::perform_uninstall(force).await {
+                eprintln!("Uninstall gagal: {e}");
+                std::process::exit(1);
             }
-
-            println!("\n[1/4] Menghentikan dan menghapus daemon service...");
-            handle_service_command(ServiceAction::Stop);
-            handle_service_command(ServiceAction::Uninstall);
-
-            println!("[2/4] Menghapus folder konfigurasi dan database (~/.claw10)...");
-            let home = std::env::var("HOME").unwrap_or_else(|_| "/home/rasyiqi".to_string());
-            let config_dir = std::path::PathBuf::from(&home).join(".claw10");
-            if config_dir.exists() {
-                if let Err(e) = std::fs::remove_dir_all(&config_dir) {
-                    eprintln!("Warning: Gagal menghapus folder config: {e}");
-                } else {
-                    println!("✓ Folder ~/.claw10 berhasil dihapus.");
-                }
-            } else {
-                println!("✓ Folder config tidak ditemukan.");
-            }
-
-            println!("[3/4] Membersihkan entri PATH dari file konfigurasi shell...");
-            let shell_name = std::env::var("SHELL")
-                .map(|s| std::path::Path::new(&s).file_name().unwrap().to_string_lossy().into_owned())
-                .unwrap_or_else(|_| "bash".to_string());
-            
-            let rc_files = match shell_name.as_str() {
-                "bash" => vec![std::path::PathBuf::from(&home).join(".bashrc")],
-                "zsh" => vec![std::path::PathBuf::from(&home).join(".zshrc")],
-                "fish" => vec![std::path::PathBuf::from(&home).join(".config/fish/config.fish")],
-                _ => vec![
-                    std::path::PathBuf::from(&home).join(".bashrc"),
-                    std::path::PathBuf::from(&home).join(".zshrc"),
-                ],
-            };
-
-            let install_dir = std::path::PathBuf::from(&home).join(".local/bin");
-            let cargo_dir = std::path::PathBuf::from(&home).join(".cargo/bin");
-
-            for rc in rc_files {
-                if rc.exists() {
-                    if let Ok(content) = std::fs::read_to_string(&rc) {
-                        let mut lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
-                        let original_len = lines.len();
-                        
-                        // Hapus baris PATH claw10
-                        lines.retain(|line| {
-                            !line.contains("export PATH=") || (!line.contains(".local/bin") && !line.contains(".cargo/bin") && !line.contains("claw10"))
-                        });
-
-                        if lines.len() != original_len {
-                            if let Err(e) = std::fs::write(&rc, lines.join("\n") + "\n") {
-                                eprintln!("Warning: Gagal membersihkan PATH di {}: {e}", rc.display());
-                            } else {
-                                println!("✓ Entri PATH dibersihkan dari {}", rc.display());
-                            }
-                        }
-                    }
-                }
-            }
-
-            println!("[4/4] Menghapus file binary claw10...");
-            let exe_paths = vec![
-                install_dir.join("claw10"),
-                cargo_dir.join("claw10"),
-            ];
-
-            for path in exe_paths {
-                if path.exists() {
-                    let _ = std::fs::remove_file(&path);
-                    println!("✓ File binary {} berhasil dihapus.", path.display());
-                }
-            }
-
-            // Hapus binary saat ini yang sedang dieksekusi jika berbeda dari path di atas
-            if let Ok(current_exe) = std::env::current_exe() {
-                if current_exe.exists() {
-                    let _ = std::fs::remove_file(&current_exe);
-                }
-            }
-
-            // [NEW] Pembersihan sisa logs dan folder /tmp/claw10
-            println!("\n[Tambahan] Membersihkan berkas log dan folder temporary...");
-            let tmp_dir = std::path::PathBuf::from("/tmp/claw10");
-            if tmp_dir.exists() {
-                let _ = std::fs::remove_dir_all(&tmp_dir);
-                println!("✓ Folder temporary /tmp/claw10 berhasil dibersihkan.");
-            }
-
-            let logs_dir = std::path::PathBuf::from(&home).join("logs");
-            if logs_dir.exists() {
-                if let Ok(entries) = std::fs::read_dir(&logs_dir) {
-                    for entry in entries.flatten() {
-                        let path = entry.path();
-                        if let Some(filename) = path.file_name().and_then(|f| f.to_str()) {
-                            if filename.starts_with("claw10") {
-                                let _ = std::fs::remove_file(&path);
-                            }
-                        }
-                    }
-                }
-                println!("✓ Berkas log claw10 di ~/logs/ berhasil dibersihkan.");
-            }
-
-            println!("\n🎉 Claw10 OS berhasil di-uninstall seutuhnya dari sistem Anda.");
         }
     }
 }
 
-fn handle_service_command(action: ServiceAction) {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/home/rasyiqi".to_string());
-    let systemd_dir = std::path::PathBuf::from(&home)
-        .join(".config")
-        .join("systemd")
-        .join("user");
-        
-    let service_file_path = systemd_dir.join("claw10.service");
 
-    match action {
-        ServiceAction::Install => {
-            println!("Menginstal Claw10 systemd user service...");
-            if let Err(e) = std::fs::create_dir_all(&systemd_dir) {
-                eprintln!("Error: Gagal membuat direktori systemd user: {e}");
-                std::process::exit(1);
-            }
-
-            let current_exe = std::env::current_exe()
-                .unwrap_or_else(|_| std::path::PathBuf::from("/home/rasyiqi/.local/bin/claw10"));
-            
-            let service_content = format!(
-                "[Unit]\n\
-                 Description=Claw10 OS API Server Daemon\n\
-                 After=network.target\n\n\
-                 [Service]\n\
-                 ExecStart={} serve\n\
-                 Restart=always\n\
-                 RestartSec=5\n\
-                 Environment=PATH=/usr/bin:/bin:{}/.local/bin\n\
-                 WorkingDirectory={}\n\n\
-                 [Install]\n\
-                 WantedBy=default.target\n",
-                current_exe.display(),
-                home,
-                home
-            );
-
-            if let Err(e) = std::fs::write(&service_file_path, service_content) {
-                eprintln!("Error: Gagal menulis file service unit: {e}");
-                std::process::exit(1);
-            }
-
-            println!("File service unit berhasil ditulis ke: {}", service_file_path.display());
-            
-            let _ = std::process::Command::new("systemctl")
-                .args(["--user", "daemon-reload"])
-                .status();
-                
-            let status = std::process::Command::new("systemctl")
-                .args(["--user", "enable", "claw10"])
-                .status();
-
-            if status.map(|s| s.success()).unwrap_or(false) {
-                println!("✓ Service Claw10 berhasil di-enable!");
-                println!("Jalankan 'claw10 service start' untuk memulai service.");
-            } else {
-                eprintln!("✗ Gagal meng-enable service Claw10.");
-            }
-        }
-        ServiceAction::Uninstall => {
-            println!("Menghapus Claw10 systemd user service...");
-            let _ = std::process::Command::new("systemctl")
-                .args(["--user", "disable", "--now", "claw10"])
-                .status();
-                
-            if service_file_path.exists() {
-                if let Err(e) = std::fs::remove_file(&service_file_path) {
-                    eprintln!("Error: Gagal menghapus file service unit: {e}");
-                } else {
-                    println!("✓ File service unit berhasil dihapus.");
-                }
-            }
-            let _ = std::process::Command::new("systemctl")
-                .args(["--user", "daemon-reload"])
-                .status();
-            println!("✓ Service Claw10 berhasil di-uninstall.");
-        }
-        ServiceAction::Start => {
-            println!("Memulai service Claw10...");
-            let status = std::process::Command::new("systemctl")
-                .args(["--user", "start", "claw10"])
-                .status();
-                
-            if status.map(|s| s.success()).unwrap_or(false) {
-                println!("✓ Service Claw10 berhasil dijalankan!");
-            } else {
-                eprintln!("✗ Gagal menjalankan service Claw10.");
-            }
-        }
-        ServiceAction::Stop => {
-            println!("Menghentikan service Claw10...");
-            let status = std::process::Command::new("systemctl")
-                .args(["--user", "stop", "claw10"])
-                .status();
-                
-            if status.map(|s| s.success()).unwrap_or(false) {
-                println!("✓ Service Claw10 berhasil dihentikan.");
-            } else {
-                eprintln!("✗ Gagal menghentikan service Claw10.");
-            }
-        }
-        ServiceAction::Status => {
-            let _ = std::process::Command::new("systemctl")
-                .args(["--user", "status", "claw10"])
-                .status();
-        }
-    }
-}
-
-async fn run_setup_wizard(force: bool) -> Result<(), Box<dyn std::error::Error>> {
-    let _ = std::process::Command::new("systemctl")
-        .args(["--user", "stop", "claw10"])
-        .status();
-
-    let _ = std::process::Command::new("sh")
-        .arg("-c")
-        .arg("pkill -f 'claw10 serve' || fuser -k 3000/tcp")
-        .output();
-    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-
-    let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
-    let default_path = std::path::PathBuf::from(&home).join(".claw10").join("config.toml");
-    let local_path = std::path::PathBuf::from("claw10.toml");
-
-    let target_path = if local_path.exists() {
-        local_path
-    } else if default_path.exists() && !force {
-        default_path
-    } else {
-        default_path
-    };
-
-    let mut wizard = claw10_tui::SetupWizard::new(target_path);
-    wizard.run()?;
-    Ok(())
-}
