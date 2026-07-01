@@ -339,8 +339,26 @@ impl SetupWizard {
     }
 
     fn load_static_models(&self) -> Vec<String> {
-        use claw10_model_router::models;
+        let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
+        let cache_file = std::path::PathBuf::from(&home).join(".claw10").join("models_cache.json");
         let slot = self.current_provider().slot;
+
+        if cache_file.exists() {
+            if let Ok(content) = std::fs::read_to_string(&cache_file) {
+                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Some(arr) = json.get(slot).and_then(|v| v.as_array()) {
+                        let models: Vec<String> = arr.iter()
+                            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                            .collect();
+                        if !models.is_empty() {
+                            return models;
+                        }
+                    }
+                }
+            }
+        }
+
+        use claw10_model_router::models;
         match slot {
             "openai" => models::openai::MODELS.iter().map(|s| s.to_string()).collect(),
             "anthropic" => models::anthropic::MODELS.iter().map(|s| s.to_string()).collect(),

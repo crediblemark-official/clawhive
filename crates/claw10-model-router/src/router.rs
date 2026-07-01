@@ -33,6 +33,7 @@ impl ModelRouter {
                                 fetched_models.len(),
                                 provider_name
                             );
+                            save_models_to_cache(&provider_name, &fetched_models);
                             router_clone.registry().inject_profiles(fetched_models);
                         }
                         Err(e) => {
@@ -243,5 +244,34 @@ impl ModelRouter {
                     .partial_cmp(&b_cost)
                     .unwrap_or(std::cmp::Ordering::Equal)
             })
+    }
+}
+
+fn save_models_to_cache(provider_name: &str, models: &[ModelProfile]) {
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
+    let cache_dir = std::path::PathBuf::from(&home).join(".claw10");
+    let cache_file = cache_dir.join("models_cache.json");
+
+    let _ = std::fs::create_dir_all(&cache_dir);
+
+    let mut cache_data: serde_json::Value = if cache_file.exists() {
+        if let Ok(content) = std::fs::read_to_string(&cache_file) {
+            serde_json::from_str(&content).unwrap_or_else(|_| serde_json::json!({}))
+        } else {
+            serde_json::json!({})
+        }
+    } else {
+        serde_json::json!({})
+    };
+
+    let model_names: Vec<String> = models.iter().map(|m| m.id.clone()).collect();
+    let clean_provider = provider_name.split('.').next().unwrap_or(provider_name);
+
+    if let Some(obj) = cache_data.as_object_mut() {
+        obj.insert(clean_provider.to_string(), serde_json::json!(model_names));
+    }
+
+    if let Ok(serialized) = serde_json::to_string_pretty(&cache_data) {
+        let _ = std::fs::write(&cache_file, serialized);
     }
 }
