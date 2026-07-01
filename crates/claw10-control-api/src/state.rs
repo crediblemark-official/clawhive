@@ -74,8 +74,6 @@ impl AppState {
             tool_registry: None,
         };
 
-        auto_register_telegram_if_needed(Arc::clone(&state.kv_store), Arc::clone(&state.gateway_service));
-
         state
     }
 
@@ -92,56 +90,195 @@ impl AppState {
         start_background_scheduler(
             Arc::clone(&state.scheduler_service),
             Arc::clone(&kv_store),
-            Some(model_router),
-            Some(tool_registry),
+            Some(Arc::clone(&model_router)),
+            Some(Arc::clone(&tool_registry)),
             Arc::clone(&state.worker_service),
         );
         // Mulai background polling getUpdates Telegram jika token dikonfigurasi
         crate::telegram_poller::start_telegram_poller(state.clone());
+        auto_register_telegram_if_needed(Arc::clone(&state.kv_store), Arc::clone(&state.gateway_service), Arc::clone(&model_router));
         state
     }
 }
 
 /// Auto-register Telegram bot jika diset di env
-fn auto_register_telegram_if_needed(kv_store: Arc<dyn Store>, gateway_service: Arc<claw10_gateway::GatewayService>) {
+fn auto_register_telegram_if_needed(
+    kv_store: Arc<dyn Store>,
+    gateway_service: Arc<claw10_gateway::GatewayService>,
+    model_router: Arc<ModelRouter>,
+) {
     if let Ok(token) = std::env::var("TELEGRAM_BOT_TOKEN") {
         if token.trim().is_empty() {
             return;
         }
         let store_clone = Arc::clone(&kv_store);
         let gateway_clone = Arc::clone(&gateway_service);
+        let router_clone = Arc::clone(&model_router);
         tokio::spawn(async move {
             tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
-            if let Ok(agents) = store_clone.scan_prefix::<claw10_domain::Agent>("agent:").await {
-                if let Some((_, agent)) = agents.first() {
-                    let mut exists = false;
-                    if let Ok(channels) = store_clone.scan_prefix::<claw10_domain::Channel>("gateway:channel:").await {
-                        for (_, ch) in channels {
-                            if ch.channel_type == claw10_domain::ChannelType::Telegram {
-                                if let Some(bot_token) = ch.config.get("bot_token").and_then(|v| v.as_str()) {
-                                    if bot_token == token {
-                                        exists = true;
-                                        break;
-                                    }
+            if let Ok(mut agents) = store_clone.scan_prefix::<claw10_domain::Agent>("agent:").await {
+                let agent = if agents.is_empty() {
+                    let preferred_model = get_preferred_model_from_config(&router_clone);
+                    tracing::info!("Menggunakan model profile untuk default agent: {preferred_model}");
+
+                    // Jika kosong, buat default agent
+                    let new_agent = claw10_domain::Agent {
+                        id: claw10_domain::AgentId(uuid::Uuid::now_v7()),
+                        identity_id: claw10_domain::IdentityId(uuid::Uuid::now_v7()),
+                        mission_id: claw10_domain::MissionId(uuid::Uuid::now_v7()),
+                        parent_agent_id: None,
+                        lineage_id: claw10_domain::LineageId(uuid::Uuid::now_v7()),
+                        name: "default-agent".into(),
+                        role: "Assistant".into(),
+                        genome: claw10_domain::AgentGenome {
+                            id: "default-genome".into(),
+                            version: "1.0.0".into(),
+                            role: "Assistant".into(),
+                            lifecycle_modes: vec![claw10_domain::LifecycleMode::Ephemeral],
+                            model_policy: claw10_domain::ModelPolicy {
+                                preferred_profile: preferred_model,
+                                fallback_profiles: vec![],
+                                max_context_tokens: 128_000,
+                            },
+                            autonomy: claw10_domain::AutonomyConfig {
+                                can_spawn: false,
+                                max_spawn_depth: 0,
+                                max_children: 0,
+                            },
+                            delegable_permissions: vec![],
+                            non_delegable_permissions: vec![],
+                            memory: claw10_domain::MemoryConfig {
+                                default_read_scopes: vec![],
+                                default_write_scope: None,
+                            },
+                            runtime: claw10_domain::RuntimeConfig {
+                                preferred_class: "local".into(),
+                                network: claw10_domain::NetworkPolicy::AllowByDefault,
+                            },
+                            verification_required: false,
+                        },
+                        state: claw10_domain::AgentState::Ready,
+                        lifecycle_mode: claw10_domain::LifecycleMode::Ephemeral,
+                        persistent_pattern: None,
+                        budget: claw10_domain::Budget {
+                            allocated_usd: 100.0,
+                            spent_usd: 0.0,
+                            soft_limit_usd: None,
+                            hard_limit_usd: Some(100.0),
+                            recurring_monthly_usd: None,
+                        },
+                        delegable_permissions: vec![],
+                        non_delegable_permissions: vec![],
+                        current_runtime: None,
+                        checkpoints: vec![],
+                        subscriptions: vec![],
+                        schedules: vec![],
+                        policy_bundle: claw10_domain::PolicyBundle {
+                            id: claw10_domain::PolicyBundleId(uuid::Uuid::now_v7()),
+                            name: "default-policy".into(),
+                            version: "1.0.0".into(),
+                            rules: vec![claw10_domain::PolicyRule {
+                                id: claw10_domain::PolicyRuleId(uuid::Uuid::now_v7()),
+                                subject: claw10_domain::PolicySubject::Role("*".into()),
+                                effect: claw10_domain::PolicyEffect::Allow,
+                                action: "*".into(),
+                                resource: "*".into(),
+                                condition: None,
+                                priority: 1,
+                            }],
+                            is_active: true,
+                            signed_by: None,
+                            signature: None,
+                            activated_at: Some(chrono::Utc::now()),
+                            created_at: chrono::Utc::now(),
+                        },
+                        turn_count: 0,
+                        total_cost_usd: 0.0,
+                        created_at: chrono::Utc::now(),
+                        updated_at: chrono::Utc::now(),
+                        terminated_at: None,
+                    };
+                    let agent_key = format!("agent:{}", new_agent.id.0);
+                    if let Err(e) = store_clone.set(&agent_key, &new_agent).await {
+                        tracing::error!("Gagal membuat default agent: {e}");
+                        return;
+                    }
+                    tracing::info!("Created default agent: {}", new_agent.id.0);
+                    new_agent
+                } else {
+                    agents.remove(0).1
+                };
+
+                let mut exists = false;
+                if let Ok(channels) = store_clone.scan_prefix::<claw10_domain::Channel>("gateway:channel:").await {
+                    for (_, ch) in channels {
+                        if ch.channel_type == claw10_domain::ChannelType::Telegram {
+                            if let Some(bot_token) = ch.config.get("bot_token").and_then(|v| v.as_str()) {
+                                if bot_token == token {
+                                    exists = true;
+                                    break;
                                 }
                             }
                         }
                     }
-                    if !exists {
-                        let chat_id = std::env::var("TELEGRAM_CHAT_ID").unwrap_or_default();
-                        let config = serde_json::json!({
-                            "bot_token": token,
-                            "chat_id": chat_id,
-                            "agent_id": agent.id.0.to_string(),
-                        });
-                        let channel = gateway_clone.register_channel(claw10_domain::ChannelType::Telegram, config).await;
-                        tracing::info!("Auto-registered Telegram bot channel ID: {} with Chat ID: {}", channel.id, chat_id);
-                    }
+                }
+                if !exists {
+                    let chat_id = std::env::var("TELEGRAM_CHAT_ID").unwrap_or_default();
+                    let config = serde_json::json!({
+                        "bot_token": token,
+                        "chat_id": chat_id,
+                        "agent_id": agent.id.0.to_string(),
+                    });
+                    let channel = gateway_clone.register_channel(claw10_domain::ChannelType::Telegram, config).await;
+                    tracing::info!("Auto-registered Telegram bot channel ID: {} with Chat ID: {}", channel.id, chat_id);
                 }
             }
         });
     }
+}
+
+fn get_preferred_model_from_config(model_router: &ModelRouter) -> String {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/home/rasyiqi".to_string());
+    let base_path = std::path::PathBuf::from(home);
+
+    // 1. Coba baca dari config.toml
+    let mut config_path = base_path.clone();
+    config_path.push(".claw10");
+    config_path.push("config.toml");
+    
+    if config_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&config_path) {
+            let mut in_alias_default = false;
+            for line in content.lines() {
+                let trimmed = line.trim();
+                if trimmed == "[alias.default]" {
+                    in_alias_default = true;
+                    continue;
+                }
+                if trimmed.starts_with('[') {
+                    in_alias_default = false;
+                }
+                if in_alias_default && trimmed.starts_with("model") {
+                    if let Some(val) = trimmed.split('=').nth(1) {
+                        let model = val.trim().trim_matches('"').trim_matches('\'').to_string();
+                        if !model.is_empty() {
+                            return model;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Jika tidak ada di config.toml, ambil model terdaftar pertama dari router registry
+    let profiles = model_router.registry().list_profiles();
+    if let Some(first_profile) = profiles.first() {
+        return first_profile.id.clone();
+    }
+
+    // 3. Fallback jika tidak ada profile yang terdaftar sama sekali
+    "openai/gpt-4o".to_string()
 }
 
 impl Default for AppState {
