@@ -270,6 +270,37 @@ async fn main() {
 
             let model_router = Arc::new(claw10_model_router::router::ModelRouter::new(registry));
 
+            // Auto-fetch models secara asinkron di background untuk semua registered providers
+            {
+                let router_clone = Arc::clone(&model_router);
+                tokio::spawn(async move {
+                    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+                    let providers = router_clone.registry().list_providers();
+                    for provider_name in providers {
+                        if let Ok(provider) = router_clone.registry().get_provider(&provider_name) {
+                            tracing::info!("Auto-fetching models untuk provider '{}'...", provider_name);
+                            match provider.fetch_models().await {
+                                Ok(fetched_models) => {
+                                    tracing::info!(
+                                        "Berhasil auto-fetch {} model untuk provider '{}'",
+                                        fetched_models.len(),
+                                        provider_name
+                                    );
+                                    router_clone.registry().inject_profiles(fetched_models);
+                                }
+                                Err(e) => {
+                                    tracing::debug!(
+                                        "Auto-fetch model untuk provider '{}' gagal atau tidak didukung: {}",
+                                        provider_name,
+                                        e
+                                    );
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
             // Register built-in tools
             let mut tool_registry = claw10_tool::registry::ToolRegistry::new();
             tool_registry.register(Box::new(claw10_tool::builtin::ShellTool));
