@@ -4,6 +4,9 @@
 
 Claw10 OS adalah sistem operasi untuk kawanan agen AI yang dapat merekrut agen baru secara rekursif, memiliki siklus hidup persisten maupun ephemeral, serta dikontrol melalui API HTTP, TUI (Terminal User Interface), dan CLI.
 
+![Claw10 Workspace Selector](assets/tui_workspace.png)
+![Claw10 TUI Chat Interface](assets/tui_chat.png)
+
 **Status:** Core runtime, TUI, API, model router, dan control-plane sudah berfungsi. Proyek ini dioptimalkan untuk **single-user, local-first** deployment.
 
 ---
@@ -12,7 +15,7 @@ Claw10 OS adalah sistem operasi untuk kawanan agen AI yang dapat merekrut agen b
 
 | Area | Fitur | Status |
 |---|---|---|
-| **CLI** | `serve`, `tui`, `run-agent`, `version`, `setup`, `start`, `stop`, `uninstall` | ✅ |
+| **CLI** | `serve`, `tui`, `run-agent`, `version`, `setup`, `start`, `stop`, `uninstall`, `update`, `check` | ✅ |
 | **Installer** | One-line bash/PowerShell installer | ✅ |
 | **TUI** | Workspace selector, chat streaming, model selection, command palette, tool approval, 13 management screens | ✅ |
 | **HTTP API** | Health, agents, missions, tasks, spawn, lineage, policy, approvals, workers, lifecycle, scheduler, memory, gateway, skills, artifacts | ✅ |
@@ -62,16 +65,21 @@ cargo install --path crates/claw10-cli
 
 ### Update
 
-**Linux / macOS / WSL / VPS:**
-
+**Pengecekan Versi:**
+Untuk memeriksa ketersediaan versi terbaru secara manual di CLI tanpa memicu proses unduhan paksa, jalankan:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/crediblemark-official/claw10/master/update.sh | sh
+claw10 check
 ```
 
-**Windows PowerShell:**
+**Melakukan Pembaruan Bawaan (Native):**
+Untuk memperbarui Claw10 OS secara langsung ke versi terbaru dari terminal, jalankan:
+```bash
+claw10 update
+```
 
-```powershell
-irm https://raw.githubusercontent.com/crediblemark-official/claw10/master/update.ps1 | iex
+Secara alternatif, Anda juga dapat menjalankan skrip shell updater eksternal:
+```bash
+curl -fsSL https://raw.githubusercontent.com/crediblemark-official/claw10/master/update.sh | sh
 ```
 
 Updater akan menimpa binary dengan versi terbaru dari GitHub release tanpa menghapus konfigurasi dan data di `~/.claw10`.
