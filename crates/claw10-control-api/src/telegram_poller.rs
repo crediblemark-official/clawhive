@@ -685,56 +685,66 @@ async fn run_bootstrap_interview(
             stop: None,
         };
 
-        if let Ok(res) = model_router_clone.route_with_fallback(&profile_id_clone, &fallbacks_clone, request).await {
-            let toon_text = res.message.content.trim().to_string();
-            let mut op_name = String::new();
-            let mut agent_name = String::new();
-            let mut agent_soul = String::new();
+        match model_router_clone.route_with_fallback(&profile_id_clone, &fallbacks_clone, request).await {
+            Ok(res) => {
+                let toon_text = res.message.content.trim().to_string();
+                let mut op_name = String::new();
+                let mut agent_name = String::new();
+                let mut agent_soul = String::new();
 
-            for line in toon_text.lines() {
-                let line = line.trim();
-                if line.starts_with("operator_name:") {
-                    op_name = line["operator_name:".len()..].trim().trim_matches('"').to_string();
-                } else if line.starts_with("agent_name:") {
-                    agent_name = line["agent_name:".len()..].trim().trim_matches('"').to_string();
-                } else if line.starts_with("agent_soul:") {
-                    agent_soul = line["agent_soul:".len()..].trim().trim_matches('"').to_string();
+                for line in toon_text.lines() {
+                    let line = line.trim();
+                    if line.starts_with("operator_name:") {
+                        op_name = line["operator_name:".len()..].trim().trim_matches('"').to_string();
+                    } else if line.starts_with("agent_name:") {
+                        agent_name = line["agent_name:".len()..].trim().trim_matches('"').to_string();
+                    } else if line.starts_with("agent_soul:") {
+                        agent_soul = line["agent_soul:".len()..].trim().trim_matches('"').to_string();
+                    }
+                }
+
+                if !op_name.is_empty() && !agent_name.is_empty() && !agent_soul.is_empty() {
+                    // Semua data lengkap! Simpan profil dinamis ke DB
+                    let _ = state_clone.kv_store.set("profile:operator:name", &op_name).await;
+                    let _ = state_clone.kv_store.set("profile:operator:timezone", &"WIB".to_string()).await;
+                    let _ = state_clone.kv_store.set("profile:operator:language", &"Bahasa Indonesia".to_string()).await;
+                    let _ = state_clone.kv_store.set("profile:operator:style", &"Santai, langsung ke poin".to_string()).await;
+
+                    let _ = state_clone.kv_store.set("profile:agent:name", &agent_name).await;
+                    let _ = state_clone.kv_store.set("profile:agent:soul", &agent_soul).await;
+
+                    let _ = state_clone.kv_store.set("config:bootstrap_completed", &true).await;
+
+                    // Bersihkan riwayat wawancara
+                    let _ = state_clone.kv_store.delete(&history_key).await;
+
+                    // Kirim pesan sukses
+                    let welcome_msg = format!(
+                        "🎉 *[Inisialisasi Sukses]*\n\n\
+                        Profil berhasil dikonfigurasi secara dinamis!\n\n\
+                        👤 *Operator:* {}\n\
+                        🤖 *Nama Agen:* {}\n\
+                        🧬 *Soul/Gaya:* {}\n\n\
+                        Mulai sekarang saya siap membantu Anda. Silakan kirimkan perintah pertama Anda!",
+                        op_name, agent_name, agent_soul
+                    );
+                    let message = claw10_gateway::Message {
+                        recipient: recipient_clone,
+                        subject: None,
+                        body: welcome_msg,
+                        metadata: None,
+                    };
+                    if let Err(e) = state_clone.gateway_service.dispatch(&channel_id_clone, &message).await {
+                        tracing::error!("[Bootstrap] Gagal mengirim welcome message: {e}");
+                    } else {
+                        tracing::info!("[Bootstrap] Setup profil sukses: Operator={}, Agent={}", op_name, agent_name);
+                    }
+                } else {
+                    tracing::info!("[Bootstrap] Distillation berjalan, profil belum lengkap: op_name='{}', agent_name='{}', agent_soul='{}'", op_name, agent_name, agent_soul);
                 }
             }
-
-            if !op_name.is_empty() && !agent_name.is_empty() && !agent_soul.is_empty() {
-                // Semua data lengkap! Simpan profil dinamis ke DB
-                let _ = state_clone.kv_store.set("profile:operator:name", &op_name).await;
-                let _ = state_clone.kv_store.set("profile:operator:timezone", &"WIB".to_string()).await;
-                let _ = state_clone.kv_store.set("profile:operator:language", &"Bahasa Indonesia".to_string()).await;
-                let _ = state_clone.kv_store.set("profile:operator:style", &"Santai, langsung ke poin".to_string()).await;
-
-                let _ = state_clone.kv_store.set("profile:agent:name", &agent_name).await;
-                let _ = state_clone.kv_store.set("profile:agent:soul", &agent_soul).await;
-
-                let _ = state_clone.kv_store.set("config:bootstrap_completed", &true).await;
-
-                // Bersihkan riwayat wawancara
-                let _ = state_clone.kv_store.delete(&history_key).await;
-
-                // Kirim pesan sukses
-                let welcome_msg = format!(
-                    "🎉 *[Inisialisasi Sukses]*\n\n\
-                    Profil berhasil dikonfigurasi secara dinamis!\n\n\
-                    👤 *Operator:* {}\n\
-                    🤖 *Nama Agen:* {}\n\
-                    🧬 *Soul/Gaya:* {}\n\n\
-                    Mulai sekarang saya siap membantu Anda. Silakan kirimkan perintah pertama Anda!",
-                    op_name, agent_name, agent_soul
-                );
-                let message = claw10_gateway::Message {
-                    recipient: recipient_clone,
-                    subject: None,
-                    body: welcome_msg,
-                    metadata: None,
-                };
-                let _ = state_clone.gateway_service.dispatch(&channel_id_clone, &message).await;
-                tracing::info!("[Bootstrap] Setup profil sukses: Operator={}, Agent={}", op_name, agent_name);
+            Err(e) => {
+                tracing::error!("[Bootstrap] Gagal menjalankan distillation model: {e}");
             }
         }
     });

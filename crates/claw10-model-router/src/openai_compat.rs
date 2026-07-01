@@ -201,7 +201,7 @@ impl OpenAiCompatibleProvider {
         models: Vec<ModelProfile>,
     ) -> Self {
         let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(180))
+            .timeout(std::time::Duration::from_secs(30))
             .build()
             .expect("reqwest client should build");
         Self {
