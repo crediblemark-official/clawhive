@@ -288,7 +288,36 @@ async fn main() {
             let app = claw10_control_api::build_router(state);
 
             tracing::info!("Claw10 API server starting on {}", addr);
-            let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+            let listener = match tokio::net::TcpListener::bind(addr).await {
+                Ok(l) => l,
+                Err(ref e) if e.kind() == std::io::ErrorKind::AddrInUse => {
+                    tracing::warn!("Port {} terpakai. Mencoba menghentikan server Claw10 lama...", addr);
+                    
+                    let port = addr.port();
+                    let _ = std::process::Command::new("sh")
+                        .arg("-c")
+                        .arg(format!("fuser -k {}/tcp || kill -9 $(lsof -t -i:{})", port, port))
+                        .output();
+                        
+                    tokio::time::sleep(tokio::time::Duration::from_millis(600)).await;
+                    
+                    match tokio::net::TcpListener::bind(addr).await {
+                        Ok(l) => {
+                            tracing::info!("Berhasil mengambil alih port {}!", addr);
+                            l
+                        }
+                        Err(err) => {
+                            eprintln!("Error: Gagal melakukan bind ke {} meskipun telah mencoba membebaskan port.", addr);
+                            eprintln!("Detail: {err}");
+                            std::process::exit(1);
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Error: Gagal melakukan bind ke {}: {}", addr, e);
+                    std::process::exit(1);
+                }
+            };
 
             if tui {
                 // Jalankan API server di background task
