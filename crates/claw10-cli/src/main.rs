@@ -766,6 +766,29 @@ async fn main() {
                 }
             }
 
+            // [NEW] Pembersihan sisa logs dan folder /tmp/claw10
+            println!("\n[Tambahan] Membersihkan berkas log dan folder temporary...");
+            let tmp_dir = std::path::PathBuf::from("/tmp/claw10");
+            if tmp_dir.exists() {
+                let _ = std::fs::remove_dir_all(&tmp_dir);
+                println!("✓ Folder temporary /tmp/claw10 berhasil dibersihkan.");
+            }
+
+            let logs_dir = std::path::PathBuf::from(&home).join("logs");
+            if logs_dir.exists() {
+                if let Ok(entries) = std::fs::read_dir(&logs_dir) {
+                    for entry in entries.flatten() {
+                        let path = entry.path();
+                        if let Some(filename) = path.file_name().and_then(|f| f.to_str()) {
+                            if filename.starts_with("claw10") {
+                                let _ = std::fs::remove_file(&path);
+                            }
+                        }
+                    }
+                }
+                println!("✓ Berkas log claw10 di ~/logs/ berhasil dibersihkan.");
+            }
+
             println!("\n🎉 Claw10 OS berhasil di-uninstall seutuhnya dari sistem Anda.");
         }
     }
