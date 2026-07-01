@@ -80,10 +80,16 @@ impl AppState {
         model_router: Arc<ModelRouter>,
         tool_registry: Arc<ToolRegistry>,
     ) -> Self {
-        let mut state = Self::new_with_store(kv_store);
-        state.model_router = Some(model_router);
-        state.tool_registry = Some(tool_registry);
-        start_background_scheduler(Arc::clone(&state.scheduler_service));
+        let mut state = Self::new_with_store(Arc::clone(&kv_store));
+        state.model_router = Some(Arc::clone(&model_router));
+        state.tool_registry = Some(Arc::clone(&tool_registry));
+        start_background_scheduler(
+            Arc::clone(&state.scheduler_service),
+            Arc::clone(&kv_store),
+            Some(model_router),
+            Some(tool_registry),
+            Arc::clone(&state.worker_service),
+        );
         state
     }
 }
@@ -119,9 +125,15 @@ fn create_event_bus() -> Arc<dyn EventBus> {
     Arc::new(InMemoryEventBus::new())
 }
 
-/// Spawn a background task that polls for due schedules every 30 seconds
-/// and logs them.
-pub fn start_background_scheduler(scheduler_service: Arc<ScheduleService>) {
+/// Spawn a background task yang poll schedule setiap 30 detik dan
+/// benar-benar mengeksekusi agent via AgentRuntime saat schedule due.
+pub fn start_background_scheduler(
+    scheduler_service: Arc<ScheduleService>,
+    kv_store: Arc<dyn Store>,
+    model_router: Option<Arc<claw10_model_router::router::ModelRouter>>,
+    tool_registry: Option<Arc<claw10_tool::registry::ToolRegistry>>,
+    worker_service: Arc<claw10_worker::WorkerService>,
+) {
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
         loop {
@@ -131,11 +143,84 @@ pub fn start_background_scheduler(scheduler_service: Arc<ScheduleService>) {
                 Ok(due) => {
                     for ds in &due {
                         tracing::info!(
-                            "Scheduler triggering agent {} (action: {:?} cron: {})",
+                            "Scheduler: agent {} due (action: {:?}, cron: {})",
                             ds.agent_id.0,
                             ds.schedule.action,
                             ds.schedule.cron,
                         );
+
+                        let should_execute = matches!(
+                            ds.schedule.action,
+                            claw10_domain::ScheduleAction::Wake
+                                | claw10_domain::ScheduleAction::Review
+                        );
+
+                        if !should_execute {
+                            continue;
+                        }
+
+                        // Bangun AgentRuntime dan eksekusi agent
+                        let Some(ref mr) = model_router else {
+                            tracing::warn!("Scheduler: model_router belum dikonfigurasi, skip");
+                            continue;
+                        };
+                        let Some(ref tr) = tool_registry else {
+                            tracing::warn!("Scheduler: tool_registry belum dikonfigurasi, skip");
+                            continue;
+                        };
+
+                        let agent_id = ds.agent_id.clone();
+                        let action = format!("{:?}", ds.schedule.action);
+                        let store_clone = Arc::clone(&kv_store);
+                        let mr_clone = Arc::clone(mr);
+                        let tr_clone = Arc::clone(tr);
+                        let ws_clone = Arc::clone(&worker_service);
+
+                        tokio::spawn(async move {
+                            let agent_store =
+                                claw10_agent::AgentStore::new(Arc::clone(&store_clone));
+                            let budget_service = Arc::new(claw10_budget::BudgetService);
+
+                            // Daftarkan worker ephemeral untuk sesi ini
+                            let worker = ws_clone
+                                .register(
+                                    format!("scheduler-{}", agent_id.0),
+                                    claw10_domain::WorkerType::Local,
+                                    vec![],
+                                    "1.0.0".to_string(),
+                                )
+                                .await;
+
+                            let runtime = claw10_agent::AgentRuntime::new(
+                                agent_store,
+                                mr_clone,
+                                tr_clone,
+                                budget_service,
+                                ws_clone,
+                                Some(worker.id),
+                            );
+
+                            let objective =
+                                format!("Scheduled {action}: review state and take action");
+                            match runtime
+                                .execute_agent(&agent_id, objective, Default::default(), None)
+                                .await
+                            {
+                                Ok((session, _)) => {
+                                    tracing::info!(
+                                        "Scheduler: agent {} selesai ({:?})",
+                                        agent_id.0,
+                                        session.state
+                                    );
+                                }
+                                Err(e) => {
+                                    tracing::warn!(
+                                        "Scheduler: gagal eksekusi agent {}: {e}",
+                                        agent_id.0
+                                    );
+                                }
+                            }
+                        });
                     }
                 }
                 Err(e) => {

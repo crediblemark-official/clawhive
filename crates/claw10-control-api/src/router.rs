@@ -12,10 +12,7 @@ use crate::handlers::{
 use crate::state::AppState;
 
 pub fn build_router(state: AppState) -> Router {
-    Router::new()
-        .layer(TraceLayer::new_for_http())
-        .layer(CorsLayer::permissive())
-        .route("/health", get(health::health_check))
+    let protected = Router::new()
         .route(
             "/v1/missions",
             get(mission::list_missions).post(mission::create_mission),
@@ -130,10 +127,6 @@ pub fn build_router(state: AppState) -> Router {
             "/v1/gateway/channels/{id}/dispatch",
             post(gateway::dispatch_message),
         )
-        .route(
-            "/v1/gateway/webhooks/{channel_id}",
-            get(gateway::handle_webhook).post(gateway::handle_webhook),
-        )
         .route("/v1/gateway/sessions", post(gateway::create_session))
         .route("/v1/gateway/sessions/{id}", get(gateway::get_session))
         .route(
@@ -160,5 +153,16 @@ pub fn build_router(state: AppState) -> Router {
         )
         .route("/v1/artifacts/{id}/content", get(artifact::get_artifact_content))
         .route("/v1/artifacts/{id}/verify", get(artifact::verify_artifact))
+        .route_layer(axum::middleware::from_fn(crate::middleware::auth::auth_middleware));
+
+    Router::new()
+        .layer(TraceLayer::new_for_http())
+        .layer(CorsLayer::permissive())
+        .route("/health", get(health::health_check))
+        .route(
+            "/v1/gateway/webhooks/{channel_id}",
+            get(gateway::handle_webhook).post(gateway::handle_webhook),
+        )
+        .merge(protected)
         .with_state(state)
 }

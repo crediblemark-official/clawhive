@@ -13,8 +13,9 @@
 //! execute_agent()
 //!   ├─ load agent from AgentStore
 //!   ├─ assign runtime lease (LifecycleService)
-//!   ├─ build ToolContext
+//!   ├─ build ToolContext + workspace_dir
 //!   ├─ run AgentExecutor (model loop + tool calls)
+//!   ├─ write-back memory via MemoryService
 //!   ├─ persist updated agent state
 //!   └─ return (AgentSession, Vec<AgentEvent>)
 //! ```
@@ -23,10 +24,11 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use claw10_domain::{
-    Agent, AgentId, AgentState, RuntimeLease, TaskId, WorkerId,
+    Agent, AgentId, AgentState, MemoryType, RuntimeLease, TaskId, WorkerId,
 };
 use claw10_context::{ContextPipeline, ContextSources, PipelineConfig};
 use claw10_lifecycle::LifecycleService;
+use claw10_memory::{MemoryService, StoreMemoryInput};
 use claw10_model_router::router::ModelRouter;
 use claw10_store::StoreExt;
 use claw10_tool::context::ToolContext;
@@ -47,13 +49,16 @@ const DEFAULT_TURNS_MULTIPLIER: u32 = 10;
 
 /// High-level orchestration for agent execution.
 ///
-/// Wraps `AgentExecutor` with lifecycle management, worker assignment,
-/// and state persistence.
+/// Wraps `AgentExecutor` dengan lifecycle management, worker assignment,
+/// memory write-back, dan state persistence.
 pub struct AgentRuntime {
     agent_store: AgentStore,
     executor: AgentExecutor,
-    _worker_service: Arc<WorkerService>,
-    /// Fallback worker ID used when no worker is explicitly provided.
+    /// Worker service untuk registrasi worker saat dibutuhkan.
+    #[allow(dead_code)]
+    worker_service: Arc<WorkerService>,
+    memory_service: MemoryService,
+    /// Fallback worker ID jika tidak ada worker yang di-provide secara eksplisit.
     default_worker_id: Option<WorkerId>,
 }
 
@@ -65,19 +70,21 @@ impl AgentRuntime {
         model_router: Arc<ModelRouter>,
         tool_registry: Arc<ToolRegistry>,
         budget_service: Arc<claw10_budget::BudgetService>,
-        _worker_service: Arc<WorkerService>,
+        worker_service: Arc<WorkerService>,
         default_worker_id: Option<WorkerId>,
     ) -> Self {
         let store = Arc::clone(agent_store.store());
+        let memory_service = MemoryService::new(Arc::clone(&store));
         Self {
             agent_store,
             executor: AgentExecutor::new(
                 model_router,
                 tool_registry,
                 budget_service,
-                store,
+                Arc::clone(&store),
             ),
-            _worker_service,
+            worker_service,
+            memory_service,
             default_worker_id,
         }
     }
@@ -124,6 +131,12 @@ impl AgentRuntime {
             self.agent_store.save(&agent).await?;
         }
 
+        // ── Siapkan workspace_dir untuk agent ────────────────────
+        let workspace_dir = format!("/tmp/claw10/{}", agent.id.0);
+        if let Err(e) = std::fs::create_dir_all(&workspace_dir) {
+            tracing::warn!("Gagal membuat workspace_dir {workspace_dir}: {e}");
+        }
+
         // ── Build ToolContext ────────────────────────────────────
         let tool_context = ToolContext {
             tenant_id: "default".to_string(),
@@ -135,7 +148,7 @@ impl AgentRuntime {
             risk_level: "medium".to_string(),
             approval_id: None,
             budget_remaining: agent.budget.remaining(),
-            workspace_dir: format!("/tmp/claw10/{}", agent.id.0),
+            workspace_dir,
         };
 
         // ── Compute max turns from genome ────────────────────────
@@ -156,14 +169,20 @@ impl AgentRuntime {
         // ── Persist updated agent ────────────────────────────────
         if session.state == SessionState::Completed {
             agent.state = AgentState::Active;
+            // Simpan semua Thought events sebagai memori
+            self.write_session_memory(&agent, &objective, &events).await;
         }
         agent.turn_count = session.turn_count as u64;
         agent.total_cost_usd = session.total_cost_usd;
         agent.updated_at = chrono::Utc::now();
-
-        // Carry forward session messages back to agent context
-        // (so future sessions start from where we left off)
         self.agent_store.save(&agent).await?;
+
+        // ── Cleanup workspace setelah agent selesai ──────────────
+        let workspace_dir = format!("/tmp/claw10/{}", agent.id.0);
+        if let Err(e) = std::fs::remove_dir_all(&workspace_dir) {
+            // Jangan gagalkan eksekusi karena cleanup error
+            tracing::debug!("Cleanup workspace {workspace_dir} gagal (mungkin sudah kosong): {e}");
+        }
 
         Ok((session, events))
     }
@@ -356,7 +375,64 @@ impl AgentRuntime {
 
     // ── Helpers ─────────────────────────────────────────────────
 
+    /// Simpan semua AgentEvent::Thought ke MemoryService sebagai Working memory
+    /// terpisah per thought, agar dapat digunakan sebagai konteks di sesi berikutnya.
+    async fn write_session_memory(
+        &self,
+        agent: &Agent,
+        objective: &str,
+        events: &[AgentEvent],
+    ) {
+        // Tentukan scope dari genome agent
+        let scope = agent
+            .genome
+            .memory
+            .default_write_scope
+            .clone()
+            .unwrap_or_else(|| "global".to_string());
+
+        let mut stored = 0usize;
+
+        for event in events {
+            let (content, memory_type) = match event {
+                AgentEvent::Thought { content, .. } if !content.is_empty() => {
+                    (content.clone(), MemoryType::Working)
+                }
+                AgentEvent::ObjectiveComplete { summary, .. } if !summary.is_empty() => {
+                    (format!("Objective: {}\n\nResult: {}", objective, summary), MemoryType::Episodic)
+                }
+                _ => continue,
+            };
+
+            let input = StoreMemoryInput {
+                tenant_id: "default".to_string(),
+                scope: scope.clone(),
+                memory_type,
+                content,
+                source_agent: agent.id.clone(),
+                source_task: TaskId(uuid::Uuid::now_v7()),
+                evidence_id: None,
+                confidence: 0.85,
+                classification: "unclassified".to_string(),
+            };
+
+            let mem = self.memory_service.store(input).await;
+            tracing::debug!(
+                "Memory write-back: agent {} → memory {} ({:?})",
+                agent.id.0,
+                mem.id.0,
+                mem.status
+            );
+            stored += 1;
+        }
+
+        if stored > 0 {
+            tracing::info!("Memory write-back: agent {} menyimpan {} memories", agent.id.0, stored);
+        }
+    }
+
     /// Build a system context string for an agent using the context pipeline.
+    /// Menggunakan MemoryService::query() untuk mengambil memori active.
     async fn build_context_for_agent(&self, agent: &Agent) -> Option<String> {
         let store = Arc::clone(self.agent_store.store());
 
@@ -389,10 +465,14 @@ impl AgentRuntime {
             })
             .unwrap_or_default();
 
-        let memories: Vec<claw10_domain::Memory> = store
-            .scan_prefix_unsorted::<claw10_domain::Memory>("memory:")
+        // Gunakan MemoryService dengan filter Active untuk konteks yang relevan
+        let memories = self
+            .memory_service
+            .query(claw10_memory::MemoryQuery {
+                status: Some(claw10_domain::MemoryStatus::Active),
+                ..Default::default()
+            })
             .await
-            .map(|v| v.into_iter().map(|(_, m)| m).collect())
             .unwrap_or_default();
 
         let pipeline = ContextPipeline::new(PipelineConfig::default());

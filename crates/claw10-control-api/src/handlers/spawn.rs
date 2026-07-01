@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use axum::{
     Json,
     extract::{Path, State},
@@ -16,6 +18,7 @@ use claw10_event::Claw10Event;
 use crate::error::ApiError;
 use crate::state::AppState;
 use crate::store::{AGENT_PREFIX, LINEAGE_PREFIX, MISSION_PREFIX, SPAWNREQ_PREFIX};
+
 
 #[derive(Serialize)]
 pub struct SpawnResponse {
@@ -259,11 +262,90 @@ pub async fn approve_spawn(
         timestamp: chrono::Utc::now(),
     }).await;
 
+    // ── Jalankan setiap child agent dalam background task ────────
+    for child in &children {
+        let child_id = child.id.clone();
+        // Ambil objective dari request.children jika ada
+        let objective = request
+            .children
+            .iter()
+            .find(|cs| cs.role == child.role)
+            .map(|cs| cs.objective.clone())
+            .unwrap_or_else(|| format!("Execute role: {}", child.role));
+
+        let state_clone = state.clone();
+        let spawn_key_clone = spawn_key.clone();
+
+        tokio::spawn(async move {
+            let Some(model_router) = state_clone.model_router.clone() else {
+                tracing::warn!("Spawn: model_router belum dikonfigurasi, child {} tidak bisa dieksekusi", child_id.0);
+                return;
+            };
+            let Some(tool_registry) = state_clone.tool_registry.clone() else {
+                tracing::warn!("Spawn: tool_registry belum dikonfigurasi, child {} tidak bisa dieksekusi", child_id.0);
+                return;
+            };
+
+            let agent_store = claw10_agent::AgentStore::new(Arc::clone(&state_clone.kv_store));
+            let budget_service = Arc::new(claw10_budget::BudgetService);
+
+            // Daftarkan worker untuk child ini
+            let worker = state_clone
+                .worker_service
+                .register(
+                    format!("spawn-worker-{}", child_id.0),
+                    claw10_domain::WorkerType::Local,
+                    vec![],
+                    "1.0.0".to_string(),
+                )
+                .await;
+
+            let runtime = claw10_agent::AgentRuntime::new(
+                agent_store,
+                model_router,
+                tool_registry,
+                budget_service,
+                Arc::clone(&state_clone.worker_service),
+                Some(worker.id),
+            );
+
+            match runtime
+                .execute_agent(&child_id, objective.clone(), Default::default(), None)
+                .await
+            {
+                Ok((session, _)) => {
+                    tracing::info!(
+                        "Spawn: child agent {} selesai ({:?})",
+                        child_id.0,
+                        session.state
+                    );
+                    // Tandai spawn request sebagai Completed setelah anak pertama selesai
+                    // (untuk simplisitas, bisa dikembangkan dengan counter semua children)
+                    if let Ok(Some(mut req)) = state_clone
+                        .kv_store
+                        .get::<SpawnRequest>(&spawn_key_clone)
+                        .await
+                    {
+                        if !matches!(req.state, SpawnState::Completed) {
+                            req.state = SpawnState::Completed;
+                            req.updated_at = chrono::Utc::now();
+                            let _ = state_clone.kv_store.set(&spawn_key_clone, &req).await;
+                        }
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("Spawn: gagal eksekusi child {}: {e}", child_id.0);
+                }
+            }
+        });
+    }
+
     Ok(Json(ApproveSpawnResponse {
         request_id: request.id.0.to_string(),
         state: "approved".into(),
         children: child_results,
     }))
+
 }
 
 pub async fn deny_spawn(

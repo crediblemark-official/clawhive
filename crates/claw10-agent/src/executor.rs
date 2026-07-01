@@ -679,14 +679,28 @@ impl AgentExecutor {
         tool_call_id: &str,
     ) -> Result<bool, AgentError> {
         use claw10_domain::approval::{ToolApprovalRequest, ToolApprovalState};
+        use claw10_domain::SideEffectClass;
         use claw10_store::StoreExt;
 
-        // Kita hanya mengintersep tool berbahaya (seperti "shell")
-        if tool_name != "shell" {
+        // Tentukan apakah tool ini memerlukan approval berdasarkan SideEffectClass
+        let needs_approval = match self.tool_registry.get(tool_name) {
+            Ok(tool) => matches!(
+                tool.side_effect_class(),
+                SideEffectClass::ControlledWrite
+                    | SideEffectClass::ExternalCommunication
+                    | SideEffectClass::ProductionMutation
+                    | SideEffectClass::Destructive
+                    | SideEffectClass::Physical
+            ),
+            // Jika tool tidak ditemukan, biarkan lolos (akan error saat eksekusi)
+            Err(_) => false,
+        };
+
+        if !needs_approval {
             return Ok(true);
         }
 
-        // Cek always_allow di database
+        // Cek always_allow di database (per-agent per-tool)
         let always_allow_key = format!("always_allow:{}:{}", agent.id.0, tool_name);
         if let Ok(Some(always)) = self.kv_store.get::<bool>(&always_allow_key).await {
             if always {
@@ -694,8 +708,14 @@ impl AgentExecutor {
             }
         }
 
-        // Ambil command string dari args shell
-        let command = args.get("command").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        // Ambil command/detail dari args untuk ditampilkan ke user
+        let command = args
+            .get("command")
+            .or_else(|| args.get("url"))
+            .or_else(|| args.get("path"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
 
         // Buat ToolApprovalRequest di database
         let approval_key = format!("tool_approval:{}", tool_call_id);
@@ -726,7 +746,9 @@ impl AgentExecutor {
             }
 
             // Cek status approval
-            if let Ok(Some(current_req)) = self.kv_store.get::<ToolApprovalRequest>(&approval_key).await {
+            if let Ok(Some(current_req)) =
+                self.kv_store.get::<ToolApprovalRequest>(&approval_key).await
+            {
                 match current_req.state {
                     ToolApprovalState::Approved => {
                         return Ok(true);

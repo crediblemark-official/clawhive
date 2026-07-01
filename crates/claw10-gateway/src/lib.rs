@@ -4,6 +4,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
+use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+use hmac::{Hmac, Mac};
+use sha2::Sha256;
 use uuid::Uuid;
 
 use claw10_domain::{Channel, ChannelType, IdentityId, IncomingMessage, Session, SessionState};
@@ -334,9 +337,11 @@ impl GatewayService {
                         message
                             .subject
                             .as_ref()
-                            .map(|s| format!("*{s}*\n\n"))
+                            .map(|s| format!("{s}\n\n"))
                             .unwrap_or_default(),
-                        message.body
+                        // Telegram MarkdownV2 memerlukan escaping semua karakter khusus.
+                        // Gunakan MarkdownV2 dengan escaping, atau fallback ke plain text.
+                        escape_telegram_markdown(&message.body)
                     ),
                     "parse_mode": "MarkdownV2",
                 });
@@ -487,7 +492,7 @@ impl GatewayService {
                 })
             }
             ChannelType::Slack => {
-                // Slack URL verification challenge
+                // Slack URL verification challenge (tidak perlu signature check)
                 if let Some(challenge) = body.get("challenge").and_then(|v| v.as_str()) {
                     return Ok(IncomingWebhookResult {
                         message: IncomingMessage {
@@ -501,6 +506,8 @@ impl GatewayService {
                         response: Some(serde_json::json!({"challenge": challenge})),
                     });
                 }
+                // Verifikasi HMAC-SHA256 Slack signature
+                Self::verify_slack_signature(&channel, body, headers)?;
                 let (sender_id, text) = parse_slack_event(body)?;
                 let msg = self.store_incoming(channel_id, &sender_id, &text, body, now).await;
                 Ok(IncomingWebhookResult {
@@ -573,12 +580,97 @@ impl GatewayService {
 
     fn verify_discord_signature(
         channel: &Channel,
-        _body: &serde_json::Value,
-        _headers: &HashMap<String, String>,
+        body: &serde_json::Value,
+        headers: &HashMap<String, String>,
     ) -> Result<(), GatewayError> {
-        // Discord uses Ed25519 signatures (X-Signature-Ed25519, X-Signature-Timestamp).
-        // Verification requires the `ed25519-dalek` crate; skip when not imported.
-        let _ = channel;
+        let public_key_hex = match channel.config.get("public_key").and_then(|v| v.as_str()) {
+            Some(k) => k.to_string(),
+            // Jika public_key tidak dikonfigurasi, skip verifikasi (dev mode)
+            None => {
+                tracing::debug!("Discord: public_key tidak dikonfigurasi, skip signature verify");
+                return Ok(());
+            }
+        };
+
+        let signature_hex = headers
+            .get("x-signature-ed25519")
+            .ok_or_else(|| GatewayError::Other("discord: missing X-Signature-Ed25519 header".into()))?;
+
+        let timestamp = headers
+            .get("x-signature-timestamp")
+            .ok_or_else(|| GatewayError::Other("discord: missing X-Signature-Timestamp header".into()))?;
+
+        // Decode public key dari hex
+        let public_key_bytes = hex::decode(&public_key_hex)
+            .map_err(|e| GatewayError::Other(format!("discord: invalid public_key hex: {e}")))?;
+        let public_key_array: [u8; 32] = public_key_bytes
+            .try_into()
+            .map_err(|_| GatewayError::Other("discord: public_key harus 32 bytes".into()))?;
+        let verifying_key = VerifyingKey::from_bytes(&public_key_array)
+            .map_err(|e| GatewayError::Other(format!("discord: invalid Ed25519 public key: {e}")))?;
+
+        // Decode signature
+        let signature_bytes = hex::decode(signature_hex)
+            .map_err(|e| GatewayError::Other(format!("discord: invalid signature hex: {e}")))?;
+        let signature_array: [u8; 64] = signature_bytes
+            .try_into()
+            .map_err(|_| GatewayError::Other("discord: signature harus 64 bytes".into()))?;
+        let signature = Signature::from_bytes(&signature_array);
+
+        // Pesan yang diverifikasi = timestamp + raw body JSON
+        let body_str = serde_json::to_string(body)
+            .map_err(|e| GatewayError::Other(format!("discord: gagal serialize body: {e}")))?;
+        let message = format!("{timestamp}{body_str}");
+
+        verifying_key
+            .verify(message.as_bytes(), &signature)
+            .map_err(|_| GatewayError::Other("discord: invalid Ed25519 signature".into()))?;
+
+        Ok(())
+    }
+
+    /// Verifikasi Slack request signature menggunakan HMAC-SHA256.
+    /// Slack mengirim `X-Slack-Signature` dan `X-Slack-Request-Timestamp`.
+    fn verify_slack_signature(
+        channel: &Channel,
+        body: &serde_json::Value,
+        headers: &HashMap<String, String>,
+    ) -> Result<(), GatewayError> {
+        let signing_secret = match channel.config.get("signing_secret").and_then(|v| v.as_str()) {
+            Some(s) => s.to_string(),
+            None => {
+                tracing::debug!("Slack: signing_secret tidak dikonfigurasi, skip signature verify");
+                return Ok(());
+            }
+        };
+
+        let timestamp = headers
+            .get("x-slack-request-timestamp")
+            .ok_or_else(|| GatewayError::Other("slack: missing X-Slack-Request-Timestamp".into()))?;
+
+        let slack_signature = headers
+            .get("x-slack-signature")
+            .ok_or_else(|| GatewayError::Other("slack: missing X-Slack-Signature".into()))?;
+
+        // Signature harus format "v0=<hex>"
+        let expected_hash = slack_signature
+            .strip_prefix("v0=")
+            .ok_or_else(|| GatewayError::Other("slack: X-Slack-Signature format invalid".into()))?;
+
+        // Compute HMAC-SHA256: v0:{timestamp}:{body}
+        let body_str = serde_json::to_string(body)
+            .map_err(|e| GatewayError::Other(format!("slack: gagal serialize body: {e}")))?;
+        let base_string = format!("v0:{timestamp}:{body_str}");
+
+        let mut mac = Hmac::<Sha256>::new_from_slice(signing_secret.as_bytes())
+            .map_err(|_| GatewayError::Other("slack: invalid signing_secret".into()))?;
+        mac.update(base_string.as_bytes());
+        let computed = hex::encode(mac.finalize().into_bytes());
+
+        if computed != expected_hash {
+            return Err(GatewayError::Other("slack: invalid HMAC-SHA256 signature".into()));
+        }
+
         Ok(())
     }
 }
@@ -662,4 +754,23 @@ fn parse_slack_event(body: &serde_json::Value) -> Result<(String, String), Gatew
         .unwrap_or("");
 
     Ok((sender_id.into(), text.into()))
+}
+
+/// Escape semua karakter khusus Telegram MarkdownV2 agar tidak menyebabkan
+/// Telegram API error 400.
+///
+/// Karakter yang harus di-escape: `_ * [ ] ( ) ~ ` # + - = | { } . !`
+fn escape_telegram_markdown(text: &str) -> String {
+    // Daftar karakter yang wajib di-escape di MarkdownV2 Telegram
+    const SPECIAL_CHARS: &[char] = &[
+        '_', '*', '[', ']', '(', ')', '~', '`', '#', '+', '-', '=', '|', '{', '}', '.', '!',
+    ];
+    let mut result = String::with_capacity(text.len() * 2);
+    for ch in text.chars() {
+        if SPECIAL_CHARS.contains(&ch) {
+            result.push('\\');
+        }
+        result.push(ch);
+    }
+    result
 }
