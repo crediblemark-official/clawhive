@@ -60,10 +60,12 @@ pub fn handle_service_command(action: ServiceAction) {
             
             let _ = std::process::Command::new("systemctl")
                 .args(["--user", "daemon-reload"])
+                .stderr(std::process::Stdio::null())
                 .status();
                 
             let status = std::process::Command::new("systemctl")
                 .args(["--user", "enable", "claw10"])
+                .stderr(std::process::Stdio::null())
                 .status();
 
             if status.map(|s| s.success()).unwrap_or(false) {
@@ -77,6 +79,7 @@ pub fn handle_service_command(action: ServiceAction) {
             println!("Menghapus Claw10 systemd user service...");
             let _ = std::process::Command::new("systemctl")
                 .args(["--user", "disable", "--now", "claw10"])
+                .stderr(std::process::Stdio::null())
                 .status();
                 
             if service_file_path.exists() {
@@ -88,6 +91,7 @@ pub fn handle_service_command(action: ServiceAction) {
             }
             let _ = std::process::Command::new("systemctl")
                 .args(["--user", "daemon-reload"])
+                .stderr(std::process::Stdio::null())
                 .status();
             println!("✓ Service Claw10 berhasil di-uninstall.");
         }
@@ -95,6 +99,7 @@ pub fn handle_service_command(action: ServiceAction) {
             println!("Memulai service Claw10...");
             let status = std::process::Command::new("systemctl")
                 .args(["--user", "start", "claw10"])
+                .stderr(std::process::Stdio::null())
                 .status();
                 
             if status.map(|s| s.success()).unwrap_or(false) {
@@ -107,6 +112,7 @@ pub fn handle_service_command(action: ServiceAction) {
             println!("Menghentikan service Claw10...");
             let status = std::process::Command::new("systemctl")
                 .args(["--user", "stop", "claw10"])
+                .stderr(std::process::Stdio::null())
                 .status();
                 
             if status.map(|s| s.success()).unwrap_or(false) {
