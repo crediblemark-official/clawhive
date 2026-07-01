@@ -82,7 +82,11 @@ pub fn draw_chat(frame: &mut Frame, area: Rect, app: &TuiApp) {
         }
     }
 
-    let input_height = (input_lines.len() + 2 + suggestion_height) as u16; // input lines + spacer + status + suggestions
+    let mut approval_height = 0;
+    if app.pending_tool_approval.is_some() {
+        approval_height = 4;
+    }
+    let input_height = (input_lines.len() + 2 + suggestion_height + approval_height) as u16; // input lines + spacer + status + suggestions + approval helper
 
     let left_chunks = Layout::default()
         .direction(Direction::Vertical)
