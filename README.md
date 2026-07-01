@@ -78,29 +78,11 @@ Updater akan menimpa binary dengan versi terbaru dari GitHub release tanpa mengh
 
 ### Uninstall
 
-**Secara Native (Direkomendasikan):**
-
 Ketik perintah berikut langsung di terminal Anda untuk menghapus Claw10 OS beserta daemon service, folder database config `~/.claw10`, log harian, folder temporary `/tmp/claw10`, dan membersihkan PATH:
 
 ```bash
 claw10 uninstall
 ```
-
-**Atau menggunakan skrip uninstaller eksternal:**
-
-**Linux / macOS / WSL / VPS:**
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/crediblemark-official/claw10/master/uninstall.sh | sh
-```
-
-**Windows PowerShell:**
-
-```powershell
-irm https://raw.githubusercontent.com/crediblemark-official/claw10/master/uninstall.ps1 | iex
-```
-
-Uninstaller akan menghapus binary, direktori `~/.claw10`, dan entri PATH yang ditambahkan oleh installer.
 
 ---
 
