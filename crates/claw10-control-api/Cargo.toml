@@ -29,6 +29,7 @@ claw10-event = { workspace = true }
 claw10-telemetry = { workspace = true }
 claw10-model-router = { workspace = true }
 claw10-tool = { workspace = true }
+claw10-prompt = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }

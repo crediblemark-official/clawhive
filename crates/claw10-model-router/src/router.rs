@@ -250,7 +250,7 @@ impl ModelRouter {
 fn save_models_to_cache(provider_name: &str, models: &[ModelProfile]) {
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
     let cache_dir = std::path::PathBuf::from(&home).join(".claw10");
-    let cache_file = cache_dir.join("models_cache.json");
+    let cache_file = cache_dir.join("models.json");
 
     let _ = std::fs::create_dir_all(&cache_dir);
 

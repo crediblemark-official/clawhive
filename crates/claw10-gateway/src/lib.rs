@@ -330,6 +330,7 @@ impl GatewayService {
                         .into()
                 };
 
+                let text_html = convert_markdown_to_html(&message.body);
                 let tg_payload = serde_json::json!({
                     "chat_id": chat_id,
                     "text": format!(
@@ -337,13 +338,11 @@ impl GatewayService {
                         message
                             .subject
                             .as_ref()
-                            .map(|s| format!("{s}\n\n"))
+                            .map(|s| format!("<b>{}</b>\n\n", s))
                             .unwrap_or_default(),
-                        // Telegram MarkdownV2 memerlukan escaping semua karakter khusus.
-                        // Gunakan MarkdownV2 dengan escaping, atau fallback ke plain text.
-                        escape_telegram_markdown(&message.body)
+                        text_html
                     ),
-                    "parse_mode": "MarkdownV2",
+                    "parse_mode": "HTML",
                 });
 
                 let url = format!("https://api.telegram.org/bot{bot_token}/sendMessage");
@@ -756,21 +755,51 @@ fn parse_slack_event(body: &serde_json::Value) -> Result<(String, String), Gatew
     Ok((sender_id.into(), text.into()))
 }
 
-/// Escape semua karakter khusus Telegram MarkdownV2 agar tidak menyebabkan
-/// Telegram API error 400.
-///
-/// Karakter yang harus di-escape: `_ * [ ] ( ) ~ ` # + - = | { } . !`
-fn escape_telegram_markdown(text: &str) -> String {
-    // Daftar karakter yang wajib di-escape di MarkdownV2 Telegram
-    const SPECIAL_CHARS: &[char] = &[
-        '_', '*', '[', ']', '(', ')', '~', '`', '#', '+', '-', '=', '|', '{', '}', '.', '!',
-    ];
-    let mut result = String::with_capacity(text.len() * 2);
-    for ch in text.chars() {
-        if SPECIAL_CHARS.contains(&ch) {
-            result.push('\\');
+
+
+/// Helper untuk mengonversi Markdown sederhana (**bold**, *italic*) ke format HTML Telegram.
+fn convert_markdown_to_html(text: &str) -> String {
+    let escaped = text
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;");
+
+    let mut html = String::new();
+    let mut in_bold = false;
+    let mut in_italic = false;
+    let mut chars = escaped.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        if ch == '*' {
+            if chars.peek() == Some(&'*') {
+                chars.next(); // konsumsi '*' kedua
+                if in_bold {
+                    html.push_str("</b>");
+                    in_bold = false;
+                } else {
+                    html.push_str("<b>");
+                    in_bold = true;
+                }
+            } else {
+                if in_italic {
+                    html.push_str("</i>");
+                    in_italic = false;
+                } else {
+                    html.push_str("<i>");
+                    in_italic = true;
+                }
+            }
+        } else {
+            html.push(ch);
         }
-        result.push(ch);
     }
-    result
+
+    if in_bold {
+        html.push_str("</b>");
+    }
+    if in_italic {
+        html.push_str("</i>");
+    }
+
+    html
 }

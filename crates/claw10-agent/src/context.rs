@@ -29,6 +29,15 @@ impl ContextBuilder {
             .collect::<Vec<_>>()
             .join("\n---\n");
 
+        let mut memories = vec![];
+        if let Some(distilled) = additional_context.get("distilled_memory") {
+            memories.push(claw10_prompt::MemoryPromptInput {
+                content: distilled.clone(),
+                memory_type: "distilled_long_term".to_string(),
+                confidence: 1.0,
+            });
+        }
+
         let request = claw10_prompt::PromptBuildRequest {
             agent: claw10_prompt::AgentPromptInput {
                 id: agent.id.0.to_string(),
@@ -55,7 +64,7 @@ impl ContextBuilder {
                 acceptance_criteria: vec![],
                 required_evidence: vec![],
             },
-            memories: vec![],
+            memories,
             team: vec![],
             budget: claw10_prompt::BudgetPromptInput {
                 allocated: agent.budget.allocated_usd,
@@ -78,7 +87,39 @@ impl ContextBuilder {
 
         match assembler.build(request) {
             Ok(bundle) => {
-                let system_prompt = bundle.system_messages.join("\n\n");
+                let mut system_messages = bundle.system_messages;
+
+                // Load config dinamis untuk SOUL, IDENTITY, USER profil dari database context
+                let mut agent_str = String::new();
+                if let Some(soul) = additional_context.get("agent_soul") {
+                    agent_str.push_str(&format!("=== AGENT SOUL ===\n{}\n\n", soul));
+                }
+                if let Some(identity) = additional_context.get("agent_name") {
+                    agent_str.push_str(&format!("=== AGENT IDENTITY ===\nIdentity: {}\n", identity));
+                }
+                if !agent_str.is_empty() {
+                    system_messages.insert(0, agent_str);
+                }
+
+                let mut op_str = String::new();
+                if let Some(name) = additional_context.get("operator_name") {
+                    op_str.push_str("=== OPERATOR PROFILE ===\n");
+                    op_str.push_str(&format!("Name: {}\n", name));
+                    if let Some(timezone) = additional_context.get("operator_timezone") {
+                        op_str.push_str(&format!("Timezone: {}\n", timezone));
+                    }
+                    if let Some(language) = additional_context.get("operator_language") {
+                        op_str.push_str(&format!("Preferred Language: {}\n", language));
+                    }
+                    if let Some(style) = additional_context.get("operator_style") {
+                        op_str.push_str(&format!("Communication Style: {}\n", style));
+                    }
+                }
+                if !op_str.is_empty() {
+                    system_messages.insert(0, op_str);
+                }
+
+                let system_prompt = system_messages.join("\n\n");
                 (system_prompt, bundle.context_message)
             }
             Err(e) => {

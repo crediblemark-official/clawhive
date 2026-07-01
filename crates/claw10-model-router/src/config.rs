@@ -31,7 +31,7 @@ use crate::types::ModelProfile;
 // ── Config Structs ─────────────────────────────────────
 
 /// Top-level config file.
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, Clone)]
 pub struct Claw10Config {
     /// Named aliases against built-in provider slots.
     #[serde(default)]
@@ -40,6 +40,7 @@ pub struct Claw10Config {
     /// Fully custom OpenAI-compatible providers not in the built-in catalog.
     #[serde(default)]
     pub custom: HashMap<String, CustomProvider>,
+
 }
 
 /// An alias referencing a built-in provider slot with a specific model.

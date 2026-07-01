@@ -82,6 +82,10 @@ enum Commands {
         #[command(subcommand)]
         action: ServiceAction,
     },
+    /// Start the Claw10 systemd user service daemon
+    Start,
+    /// Stop the Claw10 systemd user service daemon
+    Stop,
 }
 
 #[derive(Subcommand, Clone, Debug)]
@@ -114,6 +118,7 @@ async fn main() {
         Commands::Serve { tui, .. } => *tui,
         Commands::Setup { .. } => true,
         Commands::Service { .. } => false,
+        Commands::Start | Commands::Stop => false,
         Commands::RunAgent { .. } => false,
         Commands::Version => false,
     };
@@ -165,7 +170,7 @@ async fn main() {
 
     // Auto-detect first-run: if no config exists and not setup/version, redirect to setup
     let needs_setup = match &command {
-        Commands::Setup { .. } | Commands::Version => false,
+        Commands::Setup { .. } | Commands::Version | Commands::Start | Commands::Stop => false,
         _ => {
             let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
             let candidates = [
@@ -642,6 +647,12 @@ async fn main() {
         }
         Commands::Service { action } => {
             handle_service_command(action);
+        }
+        Commands::Start => {
+            handle_service_command(ServiceAction::Start);
+        }
+        Commands::Stop => {
+            handle_service_command(ServiceAction::Stop);
         }
     }
 }

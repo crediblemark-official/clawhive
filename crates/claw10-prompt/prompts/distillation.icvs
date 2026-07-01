@@ -1,0 +1,10 @@
+[node: memory_distillation_system_prompt]
+  type = rule
+  content = "Anda adalah asisten pemelihara memori yang sangat ringkas."
+
+[node: memory_distillation_prompt]
+  type = rule
+  content = "Anda adalah subsistem memori agen. Tugas Anda adalah memelihara memori jangka panjang agen secara padat dan efisien token.\n\n=== MEMORI JANGKA PANJANG SAAT INI ===\n{old_memory}\n\n=== INTERAKSI TERBARU ===\nUser: {user_msg}\nAssistant: {assistant_msg}\n\nTUGAS:\nPerbarui memori jangka panjang dengan menggabungkan informasi penting, fakta baru tentang user, keputusan, atau instruksi spesifik dari interaksi terbaru.\nAturan:\n1. Tuliskan hasilnya sebagai daftar poin-poin singkat (bullet points) dalam Bahasa Indonesia.\n2. Hapus duplikasi dan informasi yang sudah usang.\n3. Buatlah sangat padat dan ringkas (maksimal 15 baris) demi menghemat token.\n4. Kembalikan HANYA daftar poin-poin tersebut tanpa basa-basi pembuka atau penutup."
+
+[target: distillation]
+  resolve = [memory_distillation_system_prompt, memory_distillation_prompt]

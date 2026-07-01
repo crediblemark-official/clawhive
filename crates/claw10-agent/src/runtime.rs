@@ -170,6 +170,32 @@ impl AgentRuntime {
             context.insert("system_context".to_string(), system_context);
         }
 
+        // Load distilled memory jangka panjang dari KV store
+        let distilled_key = format!("memory:distilled:agent:{}", agent.id.0);
+        if let Ok(Some(distilled_mem)) = self.agent_store.store().get::<String>(&distilled_key).await {
+            context.insert("distilled_memory".to_string(), distilled_mem);
+        }
+
+        // Load profil kepribadian dinamis dari database KV store
+        if let Ok(Some(soul)) = self.agent_store.store().get::<String>("profile:agent:soul").await {
+            context.insert("agent_soul".to_string(), soul);
+        }
+        if let Ok(Some(name)) = self.agent_store.store().get::<String>("profile:agent:name").await {
+            context.insert("agent_name".to_string(), name);
+        }
+        if let Ok(Some(op_name)) = self.agent_store.store().get::<String>("profile:operator:name").await {
+            context.insert("operator_name".to_string(), op_name);
+        }
+        if let Ok(Some(op_tz)) = self.agent_store.store().get::<String>("profile:operator:timezone").await {
+            context.insert("operator_timezone".to_string(), op_tz);
+        }
+        if let Ok(Some(op_lang)) = self.agent_store.store().get::<String>("profile:operator:language").await {
+            context.insert("operator_language".to_string(), op_lang);
+        }
+        if let Ok(Some(op_style)) = self.agent_store.store().get::<String>("profile:operator:style").await {
+            context.insert("operator_style".to_string(), op_style);
+        }
+
         // ── Execute ──────────────────────────────────────────────
         let (session, events) = match self
             .executor

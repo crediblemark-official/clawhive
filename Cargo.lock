@@ -494,6 +494,7 @@ dependencies = [
  "claw10-mission",
  "claw10-model-router",
  "claw10-policy",
+ "claw10-prompt",
  "claw10-scheduler",
  "claw10-skill",
  "claw10-spawn",

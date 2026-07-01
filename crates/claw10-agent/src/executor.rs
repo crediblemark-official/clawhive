@@ -132,6 +132,8 @@ impl AgentExecutor {
                 })
                 .ok();
 
+            tracing::info!("[Agent Loop] Memulai Turn {}/{} untuk Agent {}", turn + 1, max_turns, agent.id.0);
+
             let response = self
                 .model_router
                 .route_with_fallback(profile_id, fallbacks, chat_request)
@@ -151,7 +153,9 @@ impl AgentExecutor {
 
             let msg = response.message.clone();
             let has_tool_calls = response.finish_reason == FinishReason::ToolCalls
-                || response.message.tool_calls.is_some();
+                || response.message.tool_calls.as_ref().map_or(false, |tc| !tc.is_empty());
+
+            tracing::info!("[Agent Loop] Respon LLM diterima untuk Turn {}. Content: '{}', has_tool_calls: {}", turn + 1, response.message.content.trim(), has_tool_calls);
 
             if !response.message.content.is_empty() {
                 event_tx
@@ -204,6 +208,8 @@ impl AgentExecutor {
                                     })
                                     .ok();
 
+                                tracing::info!("[Agent Loop] Agent memanggil tool '{}' dengan argumen: {}", tool_name, args);
+
                                 let approved = self.wait_for_tool_approval(agent, tool_name, args, &tc.id).await?;
                                 if approved {
                                     match tool.execute(&tool_context, args.clone()).await {
@@ -236,6 +242,8 @@ impl AgentExecutor {
                             }
                         };
 
+                        tracing::info!("[Agent Loop] Hasil eksekusi tool '{}': {}", tool_name, serde_json::to_string(&tool_result.data).unwrap_or_default());
+
                         session.add_message(ModelMessage {
                             role: MessageRole::Tool,
                             content: serde_json::to_string(&tool_result.data)
@@ -250,6 +258,8 @@ impl AgentExecutor {
             }
 
             // LLM responded without tool calls = final answer
+            tracing::info!("[Agent Loop] Agent berhasil menyelesaikan objektif. Final answer: '{}'", response.message.content.trim());
+
             events.extend(self.drain_events(&mut event_rx).await);
             event_tx
                 .send(AgentEvent::ObjectiveComplete {
@@ -598,7 +608,7 @@ impl AgentExecutor {
 
 
                     let has_tool_calls = response.finish_reason == FinishReason::ToolCalls
-                        || response.message.tool_calls.is_some();
+                        || response.message.tool_calls.as_ref().map_or(false, |tc| !tc.is_empty());
 
                     if !response.message.content.is_empty() {
                         event_tx
