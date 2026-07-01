@@ -595,7 +595,19 @@ impl SetupWizard {
         
         let model_string;
         let model = if self.custom_model.is_empty() {
-            if let Some(m) = self.fetched_models.first() {
+            let preferred = match provider.slot {
+                "nvidia" => "meta/llama-3.3-70b-instruct",
+                "openai" => "gpt-4o",
+                "anthropic" => "claude-3-5-sonnet-latest",
+                "google-gemini" => "gemini-1.5-flash",
+                "deepseek" => "deepseek-chat",
+                "groq" => "llama-3.3-70b-versatile",
+                "ollama" => "llama3",
+                _ => "",
+            };
+            if !preferred.is_empty() && self.fetched_models.iter().any(|m| m == preferred) {
+                preferred
+            } else if let Some(m) = self.fetched_models.first() {
                 m.as_str()
             } else {
                 let static_list = self.load_static_models();
