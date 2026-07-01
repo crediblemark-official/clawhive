@@ -12,7 +12,7 @@ Claw10 OS adalah sistem operasi untuk kawanan agen AI yang dapat merekrut agen b
 
 | Area | Fitur | Status |
 |---|---|---|
-| **CLI** | `serve`, `tui`, `run-agent`, `version`, `setup` | ✅ |
+| **CLI** | `serve`, `tui`, `run-agent`, `version`, `setup`, `start`, `stop`, `uninstall` | ✅ |
 | **Installer** | One-line bash/PowerShell installer | ✅ |
 | **TUI** | Workspace selector, chat streaming, model selection, command palette, tool approval, 13 management screens | ✅ |
 | **HTTP API** | Health, agents, missions, tasks, spawn, lineage, policy, approvals, workers, lifecycle, scheduler, memory, gateway, skills, artifacts | ✅ |
@@ -77,6 +77,16 @@ irm https://raw.githubusercontent.com/crediblemark-official/claw10/master/update
 Updater akan menimpa binary dengan versi terbaru dari GitHub release tanpa menghapus konfigurasi dan data di `~/.claw10`.
 
 ### Uninstall
+
+**Secara Native (Direkomendasikan):**
+
+Ketik perintah berikut langsung di terminal Anda untuk menghapus Claw10 OS beserta daemon service, folder database config `~/.claw10`, log harian, folder temporary `/tmp/claw10`, dan membersihkan PATH:
+
+```bash
+claw10 uninstall
+```
+
+**Atau menggunakan skrip uninstaller eksternal:**
 
 **Linux / macOS / WSL / VPS:**
 
