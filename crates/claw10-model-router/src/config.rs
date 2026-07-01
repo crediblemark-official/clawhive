@@ -168,6 +168,7 @@ fn config_file_candidates() -> Vec<PathBuf> {
     // 4. Home directory (~/.claw10.toml)
     if let Some(home) = dirs::home_dir() {
         candidates.push(home.join(".claw10.toml"));
+        candidates.push(home.join(".claw10").join("config.toml"));
     }
 
     candidates
