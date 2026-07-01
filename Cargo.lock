@@ -795,7 +795,9 @@ name = "claw10-tool"
 version = "0.2.0"
 dependencies = [
  "async-trait",
+ "claw10-artifact",
  "claw10-domain",
+ "claw10-store",
  "reqwest",
  "serde",
  "serde_json",

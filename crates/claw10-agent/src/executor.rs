@@ -4,13 +4,15 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 
 use claw10_budget::BudgetService;
-use claw10_domain::{Agent, PolicySubject};
+use claw10_domain::{Agent, CostCategory, PolicySubject};
 use claw10_model_router::router::ModelRouter;
 use claw10_policy::PolicyService;
 use claw10_model_router::types::{ChatRequest, FinishReason, MessageRole, ModelMessage};
 use claw10_tool::context::ToolContext;
 use claw10_tool::registry::ToolRegistry;
 use claw10_tool::result::ToolOutput;
+use claw10_store::StoreExt;
+
 
 use crate::context::ContextBuilder;
 use crate::error::AgentError;
@@ -411,6 +413,14 @@ impl AgentExecutor {
                             .ok();
                         return Err(AgentError::from(e));
                     }
+                    self.record_cost(
+                        &agent.id.0.to_string(),
+                        &agent.mission_id.0.to_string(),
+                        total_cost,
+                        CostCategory::ModelCall,
+                    )
+                    .await;
+
 
                     // Tentukan apakah ada tool calls
                     let has_tool_calls = !tool_chunks.is_empty();
@@ -578,6 +588,14 @@ impl AgentExecutor {
                             .ok();
                         return Err(AgentError::from(e));
                     }
+                    self.record_cost(
+                        &agent.id.0.to_string(),
+                        &agent.mission_id.0.to_string(),
+                        response.usage.cost_usd,
+                        CostCategory::ModelCall,
+                    )
+                    .await;
+
 
                     let has_tool_calls = response.finish_reason == FinishReason::ToolCalls
                         || response.message.tool_calls.is_some();
@@ -768,5 +786,29 @@ impl AgentExecutor {
             interval_ms = (interval_ms * 2).min(MAX_INTERVAL_MS);
         }
     }
+
+    /// Menyimpan CostRecord secara persisten ke KV store.
+    async fn record_cost(
+        &self,
+        agent_id: &str,
+        mission_id: &str,
+        amount: f64,
+        category: CostCategory,
+    ) {
+        if amount <= 0.0 {
+            return;
+        }
+        let record = BudgetService::create_cost_record(
+            mission_id.to_string(),
+            agent_id.to_string(),
+            amount,
+            category,
+        );
+        let key = format!("cost_record:{}", uuid::Uuid::now_v7());
+        if let Err(e) = self.kv_store.set(&key, &record).await {
+            tracing::warn!("Gagal menyimpan cost record secara persisten: {e}");
+        }
+    }
 }
+
 

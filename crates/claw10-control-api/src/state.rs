@@ -8,12 +8,13 @@ use claw10_memory::MemoryService;
 use claw10_model_router::router::ModelRouter;
 use claw10_scheduler::ScheduleService;
 use claw10_spawn::broker::SpawnBroker;
-use claw10_store::{InMemoryStore as KvInMemory, Store};
+use claw10_store::{InMemoryStore as KvInMemory, Store, StoreExt};
 use claw10_telemetry::TelemetryService;
 use claw10_tool::registry::ToolRegistry;
 use claw10_worker::WorkerService;
 
 pub use crate::store::*;
+
 
 #[derive(Clone)]
 pub struct AppState {
@@ -56,6 +57,7 @@ impl AppState {
 
         // Event bus: NATS jika env NATS_URL di-set, fallback ke InMemory
         let event_bus: Arc<dyn EventBus> = create_event_bus();
+        start_event_subscribers(Arc::clone(&event_bus));
 
         Self {
             scheduler_service: Arc::new(ScheduleService::new(Arc::clone(&kv_store))),
@@ -71,6 +73,7 @@ impl AppState {
             model_router: None,
             tool_registry: None,
         }
+
     }
 
     /// Create AppState dengan model router dan tool registry untuk agent execution.
@@ -139,6 +142,59 @@ pub fn start_background_scheduler(
         loop {
             interval.tick().await;
             let now = chrono::Utc::now();
+
+            // ── 1. Liveness check: Deteksi stale worker (offline) & hibernate agent-nya ──
+            if let Ok(stale_workers) = worker_service.detect_stale(30).await {
+                for worker in stale_workers {
+                    tracing::warn!(
+                        "Liveness Daemon: Worker {} (name: {}) stale. Menandai Offline.",
+                        worker.id.0,
+                        worker.name
+                    );
+                    let _ = worker_service.mark_offline(&worker.id).await;
+
+                    // Cari agent yang terikat pada worker yang mati ini, lalu hibernate
+                    if let Ok(all_agents) = kv_store.scan_prefix::<claw10_domain::Agent>("agent:").await {
+                        for (_, mut agent) in all_agents {
+                            if agent.state == claw10_domain::AgentState::Active {
+                                if let Some(ref lease) = agent.current_runtime {
+                                    if lease.worker_id == worker.id.0.to_string() {
+                                        tracing::warn!(
+                                            "Liveness Daemon: Agent {} terikat pada worker {} yang mati. Hibernating agent...",
+                                            agent.id.0,
+                                            worker.id.0
+                                        );
+                                        if let Ok(checkpoint) = claw10_lifecycle::LifecycleService::hibernate(&mut agent) {
+                                            let _ = kv_store.set(&format!("agent:{}", agent.id.0), &agent).await;
+                                            let _ = kv_store.set(&format!("checkpoint:{}", checkpoint.id.0), &checkpoint).await;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── 2. Liveness check: Deteksi agent stale (lease expired) & hibernate ──
+            if let Ok(all_agents) = kv_store.scan_prefix::<claw10_domain::Agent>("agent:").await {
+                let agent_list: Vec<claw10_domain::Agent> = all_agents.into_iter().map(|(_, a)| a).collect();
+                let stale_agents = claw10_lifecycle::LifecycleService::detect_stale(&agent_list, 60);
+
+                for agent in stale_agents {
+                    tracing::warn!(
+                        "Liveness Daemon: Agent {} runtime lease expired. Hibernating...",
+                        agent.id.0
+                    );
+                    let mut agent_to_hibernate = agent.clone();
+                    if let Ok(checkpoint) = claw10_lifecycle::LifecycleService::hibernate(&mut agent_to_hibernate) {
+                        let _ = kv_store.set(&format!("agent:{}", agent_to_hibernate.id.0), &agent_to_hibernate).await;
+                        let _ = kv_store.set(&format!("checkpoint:{}", checkpoint.id.0), &checkpoint).await;
+                    }
+                }
+            }
+
+            // ── 3. Cron Schedules Trigger ──
             match scheduler_service.get_due_schedules(&now).await {
                 Ok(due) => {
                     for ds in &due {
@@ -230,4 +286,37 @@ pub fn start_background_scheduler(
         }
     });
 }
+
+
+/// Men-subscribe event dari bus untuk mendemonstrasikan reaktivitas asinkron.
+fn start_event_subscribers(event_bus: Arc<dyn EventBus>) {
+    tokio::spawn(async move {
+        let sub_res = event_bus
+            .subscribe(
+                "claw10.agent.>",
+                Arc::new(|event| {
+                    Box::pin(async move {
+                        tracing::info!(
+                            "Event Subscriber: Menerima event domain: {:?}",
+                            event.subject()
+                        );
+                    })
+                }),
+            )
+            .await;
+
+        match sub_res {
+            Ok(sub_id) => {
+                tracing::info!(
+                    "Event Subscriber: Berhasil berlangganan ke event bus (Sub ID: {})",
+                    sub_id.0
+                );
+            }
+            Err(e) => {
+                tracing::warn!("Event Subscriber: Gagal berlangganan ke event bus: {e}");
+            }
+        }
+    });
+}
+
 

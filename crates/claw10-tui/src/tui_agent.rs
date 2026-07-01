@@ -49,8 +49,10 @@ pub async fn build_tui_runtime(
     tool_registry.register(Box::new(claw10_tool::builtin::ReadFileTool));
     tool_registry.register(Box::new(claw10_tool::builtin::WriteFileTool));
     tool_registry.register(Box::new(claw10_tool::builtin::HttpTool));
+    tool_registry.register(Box::new(claw10_tool::builtin::DeclareArtifactTool::new(Arc::clone(&kv_store))));
     tool_registry.register(Box::new(crate::spawn_tool::SpawnTool::new(Arc::clone(&kv_store))));
     let tool_registry_arc = Arc::new(tool_registry);
+
 
 
     let agent_store = AgentStore::new(Arc::clone(&kv_store));

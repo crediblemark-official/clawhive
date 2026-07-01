@@ -262,7 +262,9 @@ async fn main() {
             tool_registry.register(Box::new(claw10_tool::builtin::ReadFileTool));
             tool_registry.register(Box::new(claw10_tool::builtin::WriteFileTool));
             tool_registry.register(Box::new(claw10_tool::builtin::HttpTool));
+            tool_registry.register(Box::new(claw10_tool::builtin::DeclareArtifactTool::new(Arc::clone(&kv_store))));
             let tool_registry = Arc::new(tool_registry);
+
 
             let state = claw10_control_api::AppState::new_with_services(
                 Arc::clone(&kv_store),
@@ -391,7 +393,9 @@ async fn main() {
             tool_registry.register(Box::new(claw10_tool::builtin::ReadFileTool));
             tool_registry.register(Box::new(claw10_tool::builtin::WriteFileTool));
             tool_registry.register(Box::new(claw10_tool::builtin::HttpTool));
+            tool_registry.register(Box::new(claw10_tool::builtin::DeclareArtifactTool::new(Arc::clone(&kv_store))));
             let tool_registry = Arc::new(tool_registry);
+
 
             // Services
             let worker_service = Arc::new(claw10_worker::WorkerService::new(Arc::clone(&kv_store)));
