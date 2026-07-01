@@ -651,16 +651,16 @@ impl SetupWizard {
                                                             .unwrap_or("User")
                                                             .to_string();
                                                         
-                                                        let text = message.get("text").and_then(|v| v.as_str()).unwrap_or("").trim();
+                                                        let text = message.get("text").and_then(|v| v.as_str()).unwrap_or("").trim().to_string();
+
+                                                        if text == code || text.contains(&code) {
+                                                            let _ = tx.send(BindingEvent::CodeMatched { chat_id });
+                                                            return; // Stop thread
+                                                        }
 
                                                         if detected_chat_id.is_none() {
                                                             detected_chat_id = Some(chat_id.clone());
                                                             let _ = tx.send(BindingEvent::ChatDetected { username, chat_id: chat_id.clone() });
-                                                        } else if Some(&chat_id) == detected_chat_id.as_ref() {
-                                                            if text == code {
-                                                                let _ = tx.send(BindingEvent::CodeMatched { chat_id });
-                                                                return; // Stop thread
-                                                            }
                                                         }
                                                     }
                                                 }
