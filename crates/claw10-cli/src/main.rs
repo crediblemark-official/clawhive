@@ -87,6 +87,12 @@ enum Commands {
     Start,
     /// Stop the Claw10 systemd user service daemon
     Stop,
+    /// Uninstall Claw10 OS completely from this system
+    Uninstall {
+        /// Force skip confirmation prompt
+        #[arg(long, short)]
+        force: bool,
+    },
 }
 
 #[derive(Subcommand, Clone, Debug)]
@@ -120,6 +126,7 @@ async fn main() {
         Commands::Setup { .. } => true,
         Commands::Service { .. } => false,
         Commands::Start | Commands::Stop => false,
+        Commands::Uninstall { .. } => false,
         Commands::RunAgent { .. } => false,
         Commands::Version => false,
     };
@@ -171,7 +178,7 @@ async fn main() {
 
     // Auto-detect first-run: if no config exists and not setup/version, redirect to setup
     let needs_setup = match &command {
-        Commands::Setup { .. } | Commands::Version | Commands::Start | Commands::Stop => false,
+        Commands::Setup { .. } | Commands::Version | Commands::Start | Commands::Stop | Commands::Uninstall { .. } => false,
         _ => {
             let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
             let candidates = [
@@ -654,6 +661,112 @@ async fn main() {
         }
         Commands::Stop => {
             handle_service_command(ServiceAction::Stop);
+        }
+        Commands::Uninstall { force } => {
+            if !force {
+                println!("Claw10 OS Uninstaller");
+                println!("========================");
+                println!("");
+                println!("Perintah ini akan menghapus:");
+                println!("  - Daemon Service (systemd)");
+                println!("  - Folder Database & Konfigurasi (~/.claw10)");
+                println!("  - File Eksekusi Binary (claw10)");
+                println!("");
+                print!("Apakah Anda yakin ingin menghapus Claw10 dari sistem? [y/N]: ");
+                use std::io::Write;
+                let _ = std::io::stdout().flush();
+                
+                let mut input = String::new();
+                if std::io::stdin().read_line(&mut input).is_ok() {
+                    let trimmed = input.trim().to_lowercase();
+                    if trimmed != "y" && trimmed != "yes" {
+                        println!("Uninstall dibatalkan.");
+                        std::process::exit(0);
+                    }
+                } else {
+                    println!("Gagal membaca input. Uninstall dibatalkan.");
+                    std::process::exit(1);
+                }
+            }
+
+            println!("\n[1/4] Menghentikan dan menghapus daemon service...");
+            handle_service_command(ServiceAction::Stop);
+            handle_service_command(ServiceAction::Uninstall);
+
+            println!("[2/4] Menghapus folder konfigurasi dan database (~/.claw10)...");
+            let home = std::env::var("HOME").unwrap_or_else(|_| "/home/rasyiqi".to_string());
+            let config_dir = std::path::PathBuf::from(&home).join(".claw10");
+            if config_dir.exists() {
+                if let Err(e) = std::fs::remove_dir_all(&config_dir) {
+                    eprintln!("Warning: Gagal menghapus folder config: {e}");
+                } else {
+                    println!("✓ Folder ~/.claw10 berhasil dihapus.");
+                }
+            } else {
+                println!("✓ Folder config tidak ditemukan.");
+            }
+
+            println!("[3/4] Membersihkan entri PATH dari file konfigurasi shell...");
+            let shell_name = std::env::var("SHELL")
+                .map(|s| std::path::Path::new(&s).file_name().unwrap().to_string_lossy().into_owned())
+                .unwrap_or_else(|_| "bash".to_string());
+            
+            let rc_files = match shell_name.as_str() {
+                "bash" => vec![std::path::PathBuf::from(&home).join(".bashrc")],
+                "zsh" => vec![std::path::PathBuf::from(&home).join(".zshrc")],
+                "fish" => vec![std::path::PathBuf::from(&home).join(".config/fish/config.fish")],
+                _ => vec![
+                    std::path::PathBuf::from(&home).join(".bashrc"),
+                    std::path::PathBuf::from(&home).join(".zshrc"),
+                ],
+            };
+
+            let install_dir = std::path::PathBuf::from(&home).join(".local/bin");
+            let cargo_dir = std::path::PathBuf::from(&home).join(".cargo/bin");
+
+            for rc in rc_files {
+                if rc.exists() {
+                    if let Ok(content) = std::fs::read_to_string(&rc) {
+                        let mut lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
+                        let original_len = lines.len();
+                        
+                        // Hapus baris PATH claw10
+                        lines.retain(|line| {
+                            !line.contains("export PATH=") || (!line.contains(".local/bin") && !line.contains(".cargo/bin") && !line.contains("claw10"))
+                        });
+
+                        if lines.len() != original_len {
+                            if let Err(e) = std::fs::write(&rc, lines.join("\n") + "\n") {
+                                eprintln!("Warning: Gagal membersihkan PATH di {}: {e}", rc.display());
+                            } else {
+                                println!("✓ Entri PATH dibersihkan dari {}", rc.display());
+                            }
+                        }
+                    }
+                }
+            }
+
+            println!("[4/4] Menghapus file binary claw10...");
+            let exe_paths = vec![
+                install_dir.join("claw10"),
+                cargo_dir.join("claw10"),
+            ];
+
+            for path in exe_paths {
+                if path.exists() {
+                    let _ = std::fs::remove_file(&path);
+                    println!("✓ File binary {} berhasil dihapus.", path.display());
+                }
+            }
+
+            // Hapus binary saat ini yang sedang dieksekusi jika berbeda dari path di atas
+            if let Ok(current_exe) = std::env::current_exe() {
+                if current_exe.exists() {
+                    let _ = std::fs::remove_file(&current_exe);
+                }
+            }
+
+            println!("\n🎉 Claw10 OS berhasil di-uninstall seutuhnya dari sistem Anda.");
         }
     }
 }
