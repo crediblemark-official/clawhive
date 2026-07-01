@@ -77,6 +77,25 @@ enum Commands {
         #[arg(long)]
         force: bool,
     },
+    /// Manage the Claw10 systemd user service (Linux)
+    Service {
+        #[command(subcommand)]
+        action: ServiceAction,
+    },
+}
+
+#[derive(Subcommand, Clone, Debug)]
+enum ServiceAction {
+    /// Install and enable the systemd user service
+    Install,
+    /// Uninstall and disable the systemd user service
+    Uninstall,
+    /// Start the systemd user service
+    Start,
+    /// Stop the systemd user service
+    Stop,
+    /// Show status of the systemd user service
+    Status,
 }
 
 #[tokio::main]
@@ -94,6 +113,7 @@ async fn main() {
         Commands::Tui { .. } => true,
         Commands::Serve { tui, .. } => *tui,
         Commands::Setup { .. } => true,
+        Commands::Service { .. } => false,
         Commands::RunAgent { .. } => false,
         Commands::Version => false,
     };
@@ -619,6 +639,118 @@ async fn main() {
                 eprintln!("Setup failed: {e}");
                 std::process::exit(1);
             }
+        }
+        Commands::Service { action } => {
+            handle_service_command(action);
+        }
+    }
+}
+
+fn handle_service_command(action: ServiceAction) {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/home/rasyiqi".to_string());
+    let systemd_dir = std::path::PathBuf::from(&home)
+        .join(".config")
+        .join("systemd")
+        .join("user");
+        
+    let service_file_path = systemd_dir.join("claw10.service");
+
+    match action {
+        ServiceAction::Install => {
+            println!("Menginstal Claw10 systemd user service...");
+            if let Err(e) = std::fs::create_dir_all(&systemd_dir) {
+                eprintln!("Error: Gagal membuat direktori systemd user: {e}");
+                std::process::exit(1);
+            }
+
+            let current_exe = std::env::current_exe()
+                .unwrap_or_else(|_| std::path::PathBuf::from("/home/rasyiqi/.local/bin/claw10"));
+            
+            let service_content = format!(
+                "[Unit]\n\
+                 Description=Claw10 OS API Server Daemon\n\
+                 After=network.target\n\n\
+                 [Service]\n\
+                 ExecStart={} serve\n\
+                 Restart=always\n\
+                 RestartSec=5\n\
+                 Environment=PATH=/usr/bin:/bin:{}/.local/bin\n\
+                 WorkingDirectory={}\n\n\
+                 [Install]\n\
+                 WantedBy=default.target\n",
+                current_exe.display(),
+                home,
+                home
+            );
+
+            if let Err(e) = std::fs::write(&service_file_path, service_content) {
+                eprintln!("Error: Gagal menulis file service unit: {e}");
+                std::process::exit(1);
+            }
+
+            println!("File service unit berhasil ditulis ke: {}", service_file_path.display());
+            
+            let _ = std::process::Command::new("systemctl")
+                .args(["--user", "daemon-reload"])
+                .status();
+                
+            let status = std::process::Command::new("systemctl")
+                .args(["--user", "enable", "claw10"])
+                .status();
+
+            if status.map(|s| s.success()).unwrap_or(false) {
+                println!("✓ Service Claw10 berhasil di-enable!");
+                println!("Jalankan 'claw10 service start' untuk memulai service.");
+            } else {
+                eprintln!("✗ Gagal meng-enable service Claw10.");
+            }
+        }
+        ServiceAction::Uninstall => {
+            println!("Menghapus Claw10 systemd user service...");
+            let _ = std::process::Command::new("systemctl")
+                .args(["--user", "disable", "--now", "claw10"])
+                .status();
+                
+            if service_file_path.exists() {
+                if let Err(e) = std::fs::remove_file(&service_file_path) {
+                    eprintln!("Error: Gagal menghapus file service unit: {e}");
+                } else {
+                    println!("✓ File service unit berhasil dihapus.");
+                }
+            }
+            let _ = std::process::Command::new("systemctl")
+                .args(["--user", "daemon-reload"])
+                .status();
+            println!("✓ Service Claw10 berhasil di-uninstall.");
+        }
+        ServiceAction::Start => {
+            println!("Memulai service Claw10...");
+            let status = std::process::Command::new("systemctl")
+                .args(["--user", "start", "claw10"])
+                .status();
+                
+            if status.map(|s| s.success()).unwrap_or(false) {
+                println!("✓ Service Claw10 berhasil dijalankan!");
+            } else {
+                eprintln!("✗ Gagal menjalankan service Claw10.");
+            }
+        }
+        ServiceAction::Stop => {
+            println!("Menghentikan service Claw10...");
+            let status = std::process::Command::new("systemctl")
+                .args(["--user", "stop", "claw10"])
+                .status();
+                
+            if status.map(|s| s.success()).unwrap_or(false) {
+                println!("✓ Service Claw10 berhasil dihentikan.");
+            } else {
+                eprintln!("✗ Gagal menghentikan service Claw10.");
+            }
+        }
+        ServiceAction::Status => {
+            let _ = std::process::Command::new("systemctl")
+                .args(["--user", "status", "claw10"])
+                .status();
         }
     }
 }
